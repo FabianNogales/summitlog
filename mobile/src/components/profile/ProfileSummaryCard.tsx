@@ -8,7 +8,7 @@ interface ProfileSummaryCardProps {
   username?: string | null
   email?: string | null
   completedRoutes?: number
-  reports?: number
+  journalCount?: number
   kilometers?: number
   onPressAvatar?: () => void
 }
@@ -16,8 +16,11 @@ interface ProfileSummaryCardProps {
 function getInitials(fullName?: string | null, username?: string | null) {
   if (fullName && fullName.trim().length > 0) {
     const parts = fullName.trim().split(' ')
-    const initials = parts.slice(0, 2).map((part) => part[0]).join('')
-    return initials.toUpperCase()
+    return parts
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase()
   }
 
   if (username && username.trim().length > 0) {
@@ -32,7 +35,7 @@ export function ProfileSummaryCard({
   username,
   email,
   completedRoutes = 0,
-  reports = 0,
+  journalCount = 0,
   kilometers = 0,
   onPressAvatar,
 }: ProfileSummaryCardProps) {
@@ -125,8 +128,8 @@ export function ProfileSummaryCard({
 
       <View style={{ flexDirection: 'row' }}>
         <ProfileStat value={completedRoutes} label="Rutas completadas" />
-        <ProfileStat value={reports} label="Reportes" />
-        <ProfileStat value={kilometers} label="Kilómetros" />
+        <ProfileStat value={journalCount} label="Bitácoras" />
+        <ProfileStat value={kilometers.toFixed(2)} label="Kilómetros" />
       </View>
     </View>
   )

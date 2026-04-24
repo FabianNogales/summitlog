@@ -7,10 +7,14 @@ import { ProfileHeader } from "../../src/components/profile/ProfileHeader";
 import { ProfileMenuItem } from "../../src/components/profile/ProfileMenuItem";
 import { ProfileSection } from "../../src/components/profile/ProfileSection";
 import { ProfileSummaryCard } from "../../src/components/profile/ProfileSummaryCard";
+import { HistoryEmptyState } from "../../src/components/profile/HistoryEmptyState";
+import { TripHistoryItem } from "../../src/components/profile/TripHistoryItem";
+import { useTripHistory } from "../../src/hooks/useTripHistory";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
+  const { trips, stats, loading } = useTripHistory();
 
   async function handleSignOut() {
     try {
@@ -37,9 +41,9 @@ export default function ProfileScreen() {
             fullName={profile?.full_name}
             username={profile?.username}
             email={user?.email}
-            completedRoutes={0}
-            reports={0}
-            kilometers={0}
+            completedRoutes={stats.completedTrips}
+            journalCount={stats.journalCount}
+            kilometers={stats.totalDistanceKm}
             onPressAvatar={() =>
               Alert.alert(
                 "Próximamente",
@@ -49,27 +53,39 @@ export default function ProfileScreen() {
           />
 
           <View style={{ marginTop: 20 }}>
-            <ProfileSection title="Mi actividad">
-              <ProfileMenuItem
-                label="Rutas Guardadas"
-                iconName="map"
-                onPress={() => handleComingSoon("Rutas Guardadas")}
-              />
-              <View style={{ height: 1, backgroundColor: colors.border }} />
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 18,
+                fontWeight: "700",
+                marginBottom: 12,
+              }}
+            >
+              Historial de actividades
+            </Text>
 
-              <ProfileMenuItem
-                label="Mis Reportes"
-                iconName="share-2"
-                onPress={() => handleComingSoon("Mis Reportes")}
-              />
-              <View style={{ height: 1, backgroundColor: colors.border }} />
-
-              <ProfileMenuItem
-                label="Bitácoras"
-                iconName="file-text"
-                onPress={() => handleComingSoon("Bitácoras")}
-              />
-            </ProfileSection>
+            {loading ? (
+              <Text style={{ color: colors.textSecondary, marginBottom: 18 }}>
+                Cargando historial...
+              </Text>
+            ) : trips.length === 0 ? (
+              <HistoryEmptyState />
+            ) : (
+              <View style={{ marginBottom: 18 }}>
+                {trips.map((trip) => (
+                  <TripHistoryItem
+                    key={trip.id}
+                    trip={trip}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/trip/[id]",
+                        params: { id: trip.id },
+                      })
+                    }
+                  />
+                ))}
+              </View>
+            )}
 
             <ProfileSection title="Configuración">
               <ProfileMenuItem
@@ -97,21 +113,6 @@ export default function ProfileScreen() {
                 label="Modo Offline"
                 iconName="wifi-off"
                 onPress={() => handleComingSoon("Modo Offline")}
-              />
-            </ProfileSection>
-
-            <ProfileSection title="Soporte">
-              <ProfileMenuItem
-                label="Ayuda"
-                iconName="help-circle"
-                onPress={() => handleComingSoon("Ayuda")}
-              />
-              <View style={{ height: 1, backgroundColor: colors.border }} />
-
-              <ProfileMenuItem
-                label="Términos y Condiciones"
-                iconName="file"
-                onPress={() => handleComingSoon("Términos y Condiciones")}
               />
             </ProfileSection>
 

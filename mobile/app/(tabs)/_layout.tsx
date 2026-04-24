@@ -1,10 +1,10 @@
-import { ActivityIndicator, SafeAreaView, View } from 'react-native'
-import { Redirect, Tabs } from 'expo-router'
-import { useAuth } from '../../src/hooks/useAuth'
-import { colors } from '../../src/theme/colors'
+import { ActivityIndicator, SafeAreaView, View } from "react-native";
+import { Redirect, Tabs } from "expo-router";
+import { useAuth } from "../../src/hooks/useAuth";
+import { colors } from "../../src/theme/colors";
 
 export default function TabsLayout() {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -12,18 +12,18 @@ export default function TabsLayout() {
         <View
           style={{
             flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
-    )
+    );
   }
 
   if (!user) {
-    return <Redirect href="/(auth)/login" />
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (
@@ -41,15 +41,22 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Inicio',
+          title: "Inicio",
+        }}
+      />
+      <Tabs.Screen
+        name="record"
+        options={{
+          title: "Registrar",
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
+          title: "Perfil",
         }}
       />
+      
     </Tabs>
-  )
+  );
 }
