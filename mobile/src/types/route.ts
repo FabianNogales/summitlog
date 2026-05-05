@@ -22,3 +22,28 @@ export interface RouteItem {
   created_at: string
   updated_at: string
 }
+
+export interface RoutePoint {
+  id: number
+  route_id: string
+  point_order: number
+  latitude: number
+  longitude: number
+  altitude_m: number | null
+  captured_at: string | null
+}
+
+export interface RouteReport {
+  id: string
+  route_id: string
+  user_id: string
+  report_type: string
+  description: string | null
+  latitude: number | null
+  longitude: number | null
+  photo_path: string | null
+  report_status: string
+  moderation_status: string
+  created_at: string
+  updated_at: string
+}

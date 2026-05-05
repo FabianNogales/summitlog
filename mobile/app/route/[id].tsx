@@ -1,53 +1,21 @@
-import { useEffect, useState } from 'react'
-import {
-  Alert,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native'
+import { Alert, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 
 import { colors } from '../../src/theme/colors'
-import { getRouteById } from '../../src/services/route.service'
-import type { RouteItem } from '../../src/types/route'
 import { RouteInfoRow } from '../../src/components/routes/RouteInfoRow'
+import { RouteDetailMap } from '../../src/components/routes/RouteDetailMap'
+import { RouteReportItem } from '../../src/components/routes/RouteReportItem'
 import {
   formatRouteDistance,
   formatRouteDuration,
 } from '../../src/utils/routeFormat'
+import { useRouteDetail } from '../../src/hooks/useRouteDetail'
 
 export default function RouteDetailScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
-
-  const [route, setRoute] = useState<RouteItem | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadRoute() {
-      if (!id) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        const loadedRoute = await getRouteById(id)
-        setRoute(loadedRoute)
-      } catch (error: any) {
-        Alert.alert(
-          'Error',
-          error.message ?? 'No se pudo cargar el detalle de la ruta'
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadRoute()
-  }, [id])
+  const { route, points, reports, loading, error } = useRouteDetail(id)
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -87,24 +55,18 @@ export default function RouteDetailScreen() {
 
         {loading ? (
           <Text style={{ color: colors.textSecondary }}>Cargando ruta...</Text>
+        ) : error ? (
+          <Text style={{ color: colors.textSecondary }}>{error}</Text>
         ) : !route ? (
           <Text style={{ color: colors.textSecondary }}>
             No se encontró la ruta.
           </Text>
         ) : (
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: colors.border,
-              padding: 18,
-            }}
-          >
+          <>
             <Text
               style={{
                 color: colors.text,
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: '700',
                 marginBottom: 8,
               }}
@@ -116,63 +78,133 @@ export default function RouteDetailScreen() {
               style={{
                 color: colors.textSecondary,
                 fontSize: 14,
-                marginBottom: 18,
                 lineHeight: 22,
+                marginBottom: 18,
               }}
             >
               {route.description?.trim() || 'Esta ruta no tiene descripción todavía.'}
             </Text>
 
-            <RouteInfoRow
-              label="Distancia"
-              value={formatRouteDistance(Number(route.distance_m ?? 0))}
-            />
+            <RouteDetailMap route={route} points={points} />
 
-            <RouteInfoRow
-              label="Duración estimada"
-              value={formatRouteDuration(Number(route.duration_s ?? 0))}
-            />
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 18,
+                marginBottom: 18,
+              }}
+            >
+              <RouteInfoRow
+                label="Distancia"
+                value={formatRouteDistance(Number(route.distance_m ?? 0))}
+              />
 
-            <RouteInfoRow
-              label="Dificultad"
-              value={route.difficulty ?? 'No definida'}
-            />
+              <RouteInfoRow
+                label="Duración estimada"
+                value={formatRouteDuration(Number(route.duration_s ?? 0))}
+              />
 
-            <RouteInfoRow
-              label="Categoría"
-              value={route.category ?? 'No definida'}
-            />
+              <RouteInfoRow
+                label="Dificultad"
+                value={route.difficulty ?? 'No definida'}
+              />
 
-            <RouteInfoRow
-              label="Elevación"
-              value={
-                route.elevation_gain_m != null
-                  ? `${Number(route.elevation_gain_m).toFixed(0)} m`
-                  : 'No disponible'
-              }
-            />
+              <RouteInfoRow
+                label="Categoría"
+                value={route.category ?? 'No definida'}
+              />
 
-            <RouteInfoRow
-              label="Comentarios"
-              value={route.comments_enabled ? 'Habilitados' : 'Deshabilitados'}
-            />
+              <RouteInfoRow
+                label="Elevación"
+                value={
+                  route.elevation_gain_m != null
+                    ? `${Number(route.elevation_gain_m).toFixed(0)} m`
+                    : 'No disponible'
+                }
+              />
 
-            <View style={{ marginTop: 18 }}>
+              <RouteInfoRow
+                label="Comentarios"
+                value={route.comments_enabled ? 'Habilitados' : 'Deshabilitados'}
+              />
+            </View>
+
+            <View style={{ marginBottom: 18 }}>
               <Text
                 style={{
-                  color: colors.textSecondary,
-                  fontSize: 13,
-                  marginBottom: 6,
+                  color: colors.text,
+                  fontSize: 18,
+                  fontWeight: '700',
+                  marginBottom: 12,
+                }}
+              >
+                Reportes recientes
+              </Text>
+
+              {reports.length === 0 ? (
+                <View
+                  style={{
+                    backgroundColor: colors.card,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    padding: 16,
+                  }}
+                >
+                  <Text style={{ color: colors.textSecondary }}>
+                    Esta ruta todavía no tiene reportes visibles.
+                  </Text>
+                </View>
+              ) : (
+                reports.map((report) => (
+                  <RouteReportItem key={report.id} report={report} />
+                ))
+              )}
+            </View>
+
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 18,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 16,
+                  fontWeight: '700',
+                  marginBottom: 10,
                 }}
               >
                 Coordenadas iniciales
               </Text>
 
-              <Text style={{ color: colors.text, fontSize: 14 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 14 }}>
                 {route.start_lat ?? '-'}, {route.start_lng ?? '-'}
               </Text>
+
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 16,
+                  fontWeight: '700',
+                  marginBottom: 10,
+                }}
+              >
+                Coordenadas finales
+              </Text>
+
+              <Text style={{ color: colors.textSecondary }}>
+                {route.end_lat ?? '-'}, {route.end_lng ?? '-'}
+              </Text>
             </View>
-          </View>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
