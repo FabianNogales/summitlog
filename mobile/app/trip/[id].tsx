@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -6,68 +6,69 @@ import {
   ScrollView,
   Text,
   View,
-} from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Feather } from '@expo/vector-icons'
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 
-import { useAuth } from '../../src/hooks/useAuth'
-import { colors } from '../../src/theme/colors'
-import { getRecordedTripDetailById } from '../../src/services/history.service'
-import type { RecordedTrip } from '../../src/types/trip'
+import { useAuth } from "../../src/hooks/useAuth";
+import { colors } from "../../src/theme/colors";
+import { getRecordedTripDetailById } from "../../src/services/history.service";
+import type { RecordedTrip } from "../../src/types/trip";
+import { AuthButton } from "../../src/components/auth/AuthButton";
 
 function formatDistance(distanceMeters: number) {
-  return `${(distanceMeters / 1000).toFixed(2)} km`
+  return `${(distanceMeters / 1000).toFixed(2)} km`;
 }
 
 function formatDuration(durationSeconds: number) {
-  const minutes = Math.floor(durationSeconds / 60)
-  const hours = Math.floor(minutes / 60)
+  const minutes = Math.floor(durationSeconds / 60);
+  const hours = Math.floor(minutes / 60);
 
   if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`
+    return `${hours}h ${minutes % 60}m`;
   }
 
-  return `${minutes} min`
+  return `${minutes} min`;
 }
 
 export default function TripDetailScreen() {
-  const router = useRouter()
-  const { id } = useLocalSearchParams<{ id: string }>()
-  const { user } = useAuth()
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
 
-  const [trip, setTrip] = useState<RecordedTrip | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [trip, setTrip] = useState<RecordedTrip | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadTrip() {
       if (!user || !id) {
-        setLoading(false)
-        return
+        setLoading(false);
+        return;
       }
 
       try {
-        const loadedTrip = await getRecordedTripDetailById(id, user.id)
-        setTrip(loadedTrip)
+        const loadedTrip = await getRecordedTripDetailById(id, user.id);
+        setTrip(loadedTrip);
       } catch (error: any) {
         Alert.alert(
-          'Error',
-          error.message ?? 'No se pudo cargar el detalle del recorrido'
-        )
+          "Error",
+          error.message ?? "No se pudo cargar el detalle del recorrido",
+        );
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    loadTrip()
-  }, [id, user])
+    loadTrip();
+  }, [id, user]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
+            flexDirection: "row",
+            alignItems: "center",
             marginBottom: 24,
           }}
         >
@@ -78,8 +79,8 @@ export default function TripDetailScreen() {
               height: 36,
               borderRadius: 18,
               backgroundColor: colors.card,
-              alignItems: 'center',
-              justifyContent: 'center',
+              alignItems: "center",
+              justifyContent: "center",
               marginRight: 12,
             }}
           >
@@ -90,7 +91,7 @@ export default function TripDetailScreen() {
             style={{
               color: colors.text,
               fontSize: 20,
-              fontWeight: '700',
+              fontWeight: "700",
             }}
           >
             Detalle de actividad
@@ -118,10 +119,10 @@ export default function TripDetailScreen() {
               style={{
                 color: colors.text,
                 fontSize: 18,
-                fontWeight: '700',
+                fontWeight: "700",
               }}
             >
-              {trip.title?.trim() || 'Recorrido completado'}
+              {trip.title?.trim() || "Recorrido completado"}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
@@ -141,20 +142,35 @@ export default function TripDetailScreen() {
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Fin:{' '}
-              {trip.ended_at ? new Date(trip.ended_at).toLocaleString() : 'Sin finalizar'}
+              Fin:{" "}
+              {trip.ended_at
+                ? new Date(trip.ended_at).toLocaleString()
+                : "Sin finalizar"}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Ubicación inicial: {trip.start_lat ?? '-'}, {trip.start_lng ?? '-'}
+              Ubicación inicial: {trip.start_lat ?? "-"},{" "}
+              {trip.start_lng ?? "-"}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Ubicación final: {trip.end_lat ?? '-'}, {trip.end_lng ?? '-'}
+              Ubicación final: {trip.end_lat ?? "-"}, {trip.end_lng ?? "-"}
             </Text>
+
+            <View style={{ marginTop: 18 }}>
+              <AuthButton
+                title="Bitácora del recorrido"
+                onPress={() =>
+                  router.push({
+                    pathname: "/journal/[tripId]",
+                    params: { tripId: trip.id },
+                  })
+                }
+              />
+            </View>
           </View>
         )}
       </ScrollView>
     </SafeAreaView>
-  )
+  );
 }

@@ -11,6 +11,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile/edit" />
         <Stack.Screen name="trip/[id]" />
         <Stack.Screen name="route/[id]" />
+        <Stack.Screen name="journal/[tripId]" />
       </Stack>
     </AuthProvider>
   );
