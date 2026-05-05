@@ -56,7 +56,12 @@ export default function TabsLayout() {
           title: "Perfil",
         }}
       />
-      
+      <Tabs.Screen
+        name="routes"
+        options={{
+          title: "Rutas",
+        }}
+      />
     </Tabs>
   );
 }
