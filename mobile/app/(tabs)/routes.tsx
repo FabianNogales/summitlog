@@ -2,13 +2,24 @@ import { SafeAreaView, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { RoutesMap } from '../../src/components/map/RoutesMap'
+import { RoutesFiltersPanel } from '../../src/components/routes/RoutesFiltersPanel'
 import { usePublishedRoutes } from '../../src/hooks/usePublishedRoutes'
+import { useRouteFilters } from '../../src/hooks/useRouteFilters'
 import { colors } from '../../src/theme/colors'
 import type { RouteItem } from '../../src/types/route'
 
 export default function RoutesScreen() {
   const router = useRouter()
   const { routes, loading, error } = usePublishedRoutes()
+
+  const {
+    filters,
+    filteredRoutes,
+    setDifficulty,
+    setMaxDistanceKm,
+    setMaxDurationMin,
+    clearFilters,
+  } = useRouteFilters(routes)
 
   function handlePressRoute(route: RouteItem) {
     router.push({
@@ -43,12 +54,21 @@ export default function RoutesScreen() {
 
       <View style={{ flex: 1 }}>
         <RoutesMap
-          routes={routes}
+          routes={filteredRoutes}
           loading={loading}
           error={error}
           onPressRoute={handlePressRoute}
         />
       </View>
+
+      <RoutesFiltersPanel
+        filters={filters}
+        resultCount={filteredRoutes.length}
+        onChangeDifficulty={setDifficulty}
+        onChangeMaxDistanceKm={setMaxDistanceKm}
+        onChangeMaxDurationMin={setMaxDurationMin}
+        onClearFilters={clearFilters}
+      />
     </SafeAreaView>
   )
 }
