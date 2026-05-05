@@ -10,6 +10,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="profile/edit" />
         <Stack.Screen name="trip/[id]" />
+        <Stack.Screen name="route/[id]" />
       </Stack>
     </AuthProvider>
   );

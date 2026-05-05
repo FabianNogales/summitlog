@@ -14,3 +14,17 @@ export async function getPublishedRoutes() {
 
   return (data ?? []) as RouteItem[]
 }
+
+export async function getRouteById(routeId: string) {
+  const { data, error } = await supabase
+    .from('routes')
+    .select('*')
+    .eq('id', routeId)
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data as RouteItem
+}

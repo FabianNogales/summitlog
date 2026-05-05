@@ -1,17 +1,20 @@
-import { Alert, SafeAreaView, Text, View } from 'react-native'
+import { SafeAreaView, Text, View } from 'react-native'
+import { useRouter } from 'expo-router'
+
 import { RoutesMap } from '../../src/components/map/RoutesMap'
 import { usePublishedRoutes } from '../../src/hooks/usePublishedRoutes'
 import { colors } from '../../src/theme/colors'
 import type { RouteItem } from '../../src/types/route'
 
 export default function RoutesScreen() {
+  const router = useRouter()
   const { routes, loading, error } = usePublishedRoutes()
 
   function handlePressRoute(route: RouteItem) {
-    Alert.alert(
-      'Ruta seleccionada',
-      `Seleccionaste: ${route.title}\n\nEl detalle completo lo conectaremos en PB-06.`
-    )
+    router.push({
+      pathname: '/route/[id]',
+      params: { id: route.id },
+    })
   }
 
   return (
