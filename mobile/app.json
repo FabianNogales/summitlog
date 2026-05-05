@@ -57,6 +57,12 @@
         {
           "locationWhenInUsePermission": "Permitir a SummitLog usar tu ubicación para mostrarla en el mapa."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir a SummitLog acceder a tus fotos para adjuntarlas a una bitácora."
+        }
       ]
     ],
     "experiments": {

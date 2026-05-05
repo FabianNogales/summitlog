@@ -7,6 +7,8 @@ import { useTripJournalEditor } from '../../src/hooks/useTripJournalEditor'
 import { JournalVisibilitySelector } from '../../src/components/journal/JournalVisibilitySelector'
 import { AuthButton } from '../../src/components/auth/AuthButton'
 import { formatTripDistance, formatTripDuration } from '../../src/utils/tripFormat'
+import { useJournalMedia } from '../../src/hooks/useJournalMedia'
+import { JournalMediaGrid } from '../../src/components/journal/JournalMediaGrid'
 
 export default function JournalEditorScreen() {
   const router = useRouter()
@@ -27,20 +29,40 @@ export default function JournalEditorScreen() {
     saveJournal,
   } = useTripJournalEditor(tripId)
 
+  const {
+    media,
+    uploading,
+    pickAndUploadImages,
+  } = useJournalMedia(journal?.id)
+
   async function handleSaveJournal() {
     try {
-      await saveJournal()
+      const savedJournal = await saveJournal()
 
       Alert.alert(
         'Éxito',
-        journal ? 'La bitácora se actualizó correctamente.' : 'La bitácora se creó correctamente.'
+        savedJournal ? 'La bitácora se guardó correctamente.' : 'No se pudo guardar.'
       )
-
-      router.back()
     } catch (err: any) {
       Alert.alert(
         'Error al guardar bitácora',
         err.message ?? 'No se pudo guardar la bitácora'
+      )
+    }
+  }
+
+  async function handleAddPhotos() {
+    try {
+      await pickAndUploadImages()
+
+      Alert.alert(
+        'Fotos cargadas',
+        'Las imágenes se subieron correctamente a la bitácora.'
+      )
+    } catch (err: any) {
+      Alert.alert(
+        'Error al subir fotos',
+        err.message ?? 'No se pudieron subir las imágenes'
       )
     }
   }
@@ -132,6 +154,7 @@ export default function JournalEditorScreen() {
                 borderWidth: 1,
                 borderColor: colors.border,
                 padding: 18,
+                marginBottom: 18,
               }}
             >
               <View style={{ marginBottom: 18 }}>
@@ -203,10 +226,49 @@ export default function JournalEditorScreen() {
               />
 
               <AuthButton
-                title={journal ? 'Guardar cambios' : 'Crear bitácora'}
+                title={journal ? 'Guardar cambios' : 'Guardar bitácora'}
                 onPress={handleSaveJournal}
                 loading={saving}
               />
+            </View>
+
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 18,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 16,
+                  fontWeight: '700',
+                  marginBottom: 12,
+                }}
+              >
+                Fotos de la bitácora
+              </Text>
+
+              {!journal ? (
+                <Text style={{ color: colors.textSecondary }}>
+                  Guarda primero la bitácora para poder adjuntar fotos.
+                </Text>
+              ) : (
+                <>
+                  <View style={{ marginBottom: 16 }}>
+                    <AuthButton
+                      title="Agregar fotos"
+                      onPress={handleAddPhotos}
+                      loading={uploading}
+                    />
+                  </View>
+
+                  <JournalMediaGrid media={media} />
+                </>
+              )}
             </View>
           </>
         )}

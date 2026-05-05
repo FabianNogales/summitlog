@@ -11,3 +11,12 @@ export interface Journal {
   created_at: string
   updated_at: string
 }
+
+export interface JournalMedia {
+  id: string
+  journal_id: string
+  file_path: string
+  file_type: string
+  sort_order: number
+  created_at: string
+}
