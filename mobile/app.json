@@ -23,8 +23,7 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.RECORD_AUDIO"
       ],
       "package": "com.luigi777.mobile"
     },
@@ -68,6 +67,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "00a56eff-c584-47f2-a951-211611f16c4f"
+      }
     }
   }
 }
