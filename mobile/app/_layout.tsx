@@ -1,7 +1,15 @@
-import { Stack } from "expo-router";
-import { AuthProvider } from "@/src/context/AuthContext";
+import { useEffect } from 'react'
+import { Stack } from 'expo-router'
+import { AuthProvider } from '../src/context/AuthContext'
+import { initOfflineDb } from '../src/services/offlineDb.service'
 
 export default function RootLayout() {
+  useEffect(() => {
+    initOfflineDb().catch((error) => {
+      console.error('Error inicializando base offline:', error)
+    })
+  }, [])
+
   return (
     <AuthProvider>
       <Stack screenOptions={{ headerShown: false }}>
@@ -14,5 +22,5 @@ export default function RootLayout() {
         <Stack.Screen name="journal/[tripId]" />
       </Stack>
     </AuthProvider>
-  );
+  )
 }

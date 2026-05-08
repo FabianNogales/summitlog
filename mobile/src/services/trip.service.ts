@@ -27,6 +27,31 @@ interface FinishRecordedTripParams {
   endLat: number
   endLng: number
 }
+
+interface CreateRecordedTripFromOfflineParams {
+  userId: string
+  status: 'recording' | 'completed' | 'cancelled'
+  startedAt: string
+  endedAt?: string | null
+  distanceM: number
+  durationS: number
+  startLat: number | null
+  startLng: number | null
+  endLat: number | null
+  endLng: number | null
+}
+
+interface CreateRecordedTripPointBulkInput {
+  pointOrder: number
+  latitude: number
+  longitude: number
+  altitudeM?: number | null
+  accuracyM?: number | null
+  speedMps?: number | null
+  headingDeg?: number | null
+  capturedAt: string
+}
+
 export async function createRecordedTrip(params: CreateRecordedTripParams) {
   const { data, error } = await supabase
     .from("recorded_trips")
@@ -95,4 +120,61 @@ export async function finishRecordedTrip(params: FinishRecordedTripParams) {
   }
 
   return data as RecordedTrip
+}
+
+export async function createRecordedTripFromOffline(
+  params: CreateRecordedTripFromOfflineParams
+) {
+  const { data, error } = await supabase
+    .from('recorded_trips')
+    .insert({
+      user_id: params.userId,
+      status: params.status,
+      is_private: true,
+      started_at: params.startedAt,
+      ended_at: params.endedAt ?? null,
+      distance_m: params.distanceM,
+      duration_s: params.durationS,
+      start_lat: params.startLat,
+      start_lng: params.startLng,
+      end_lat: params.endLat,
+      end_lng: params.endLng,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data as RecordedTrip
+}
+
+export async function createRecordedTripPointsBulk(
+  recordedTripId: string,
+  points: CreateRecordedTripPointBulkInput[]
+) {
+  if (points.length === 0) {
+    return
+  }
+
+  const payload = points.map((point) => ({
+    recorded_trip_id: recordedTripId,
+    point_order: point.pointOrder,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    altitude_m: point.altitudeM ?? null,
+    accuracy_m: point.accuracyM ?? null,
+    speed_mps: point.speedMps ?? null,
+    heading_deg: point.headingDeg ?? null,
+    captured_at: point.capturedAt,
+  }))
+
+  const { error } = await supabase
+    .from('recorded_trip_points')
+    .insert(payload)
+
+  if (error) {
+    throw error
+  }
 }

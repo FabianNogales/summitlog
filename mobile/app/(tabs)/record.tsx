@@ -1,11 +1,12 @@
 import { Alert, SafeAreaView, Text, View } from 'react-native'
 import { AuthButton } from '../../src/components/auth/AuthButton'
 import { colors } from '../../src/theme/colors'
-import { useTripRecorder } from '../../src/hooks/useTripRecorder'
+import { useOfflineTripRecorder } from '../../src/hooks/useOfflineTripRecorder'
+import { useOfflineSync } from '../../src/hooks/useOfflineSync'
 
 export default function RecordScreen() {
   const {
-    activeTripId,
+    activeLocalTripId,
     pointCount,
     totalDistanceM,
     lastLatitude,
@@ -15,15 +16,21 @@ export default function RecordScreen() {
     isFinishing,
     startTracking,
     stopTracking,
-  } = useTripRecorder()
+  } = useOfflineTripRecorder()
+
+  const {
+    pendingCount,
+    syncing,
+    syncNow,
+  } = useOfflineSync()
 
   async function handleStartTrip() {
     try {
       await startTracking()
 
       Alert.alert(
-        'Tracking iniciado',
-        'El recorrido está activo y ya comenzó a guardar puntos GPS.'
+        'Tracking offline iniciado',
+        'El recorrido se está guardando localmente en el dispositivo.'
       )
     } catch (error: any) {
       Alert.alert(
@@ -38,13 +45,29 @@ export default function RecordScreen() {
       await stopTracking()
 
       Alert.alert(
-        'Recorrido finalizado',
-        'El recorrido se guardó correctamente como completado.'
+        'Recorrido guardado',
+        'El recorrido se guardó localmente y quedó pendiente de sincronización.'
       )
     } catch (error: any) {
       Alert.alert(
         'Error al finalizar recorrido',
         error.message ?? 'No se pudo finalizar el recorrido'
+      )
+    }
+  }
+
+  async function handleManualSync() {
+    try {
+      const result = await syncNow()
+
+      Alert.alert(
+        'Sincronización completada',
+        `Total pendientes: ${result.total}\nSincronizados: ${result.synced}\nFallidos: ${result.failed}`
+      )
+    } catch (error: any) {
+      Alert.alert(
+        'Error al sincronizar',
+        error.message ?? 'No se pudieron sincronizar los recorridos'
       )
     }
   }
@@ -71,11 +94,31 @@ export default function RecordScreen() {
             lineHeight: 22,
           }}
         >
-          Inicia una actividad y SummitLog irá guardando puntos GPS mientras el
-          tracking esté activo.
+          Inicia una actividad y SummitLog guardará el recorrido localmente,
+          incluso si no tienes internet.
         </Text>
 
-        {activeTripId ? (
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            padding: 16,
+            marginBottom: 20,
+            gap: 8,
+          }}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700' }}>
+            Sincronización offline
+          </Text>
+
+          <Text style={{ color: colors.textSecondary }}>
+            Recorridos pendientes: {pendingCount}
+          </Text>
+        </View>
+
+        {activeLocalTripId ? (
           <View
             style={{
               backgroundColor: colors.card,
@@ -88,11 +131,11 @@ export default function RecordScreen() {
             }}
           >
             <Text style={{ color: colors.text, fontWeight: '700' }}>
-              Tracking activo
+              Tracking offline activo
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Trip ID: {activeTripId}
+              Local Trip ID: {activeLocalTripId}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
@@ -113,17 +156,27 @@ export default function RecordScreen() {
         ) : null}
 
         {isTracking ? (
-          <AuthButton
-            title="Terminar recorrido"
-            onPress={handleStopTrip}
-            loading={isFinishing}
-          />
+          <View style={{ gap: 12 }}>
+            <AuthButton
+              title="Terminar recorrido"
+              onPress={handleStopTrip}
+              loading={isFinishing}
+            />
+          </View>
         ) : (
-          <AuthButton
-            title="Iniciar recorrido"
-            onPress={handleStartTrip}
-            loading={isStarting}
-          />
+          <View style={{ gap: 12 }}>
+            <AuthButton
+              title="Iniciar recorrido"
+              onPress={handleStartTrip}
+              loading={isStarting}
+            />
+
+            <AuthButton
+              title="Sincronizar ahora"
+              onPress={handleManualSync}
+              loading={syncing}
+            />
+          </View>
         )}
       </View>
     </SafeAreaView>

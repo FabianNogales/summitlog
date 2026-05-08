@@ -62,7 +62,8 @@
         {
           "photosPermission": "Permitir a SummitLog acceder a tus fotos para adjuntarlas a una bitácora."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
