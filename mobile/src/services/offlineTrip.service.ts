@@ -209,6 +209,23 @@ export async function getOfflineTripPointsByTripId(localTripId: string) {
   return rows
 }
 
+export async function getPendingOfflineTripPointsByTripId(localTripId: string) {
+  const db = await getOfflineDb()
+
+  const rows = await db.getAllAsync<OfflineRecordedTripPoint>(
+    `
+      SELECT *
+      FROM offline_recorded_trip_points
+      WHERE local_trip_id = ?
+      AND sync_status IN ('pending', 'failed')
+      ORDER BY point_order ASC
+    `,
+    [localTripId]
+  )
+
+  return rows
+}
+
 export async function getPendingOfflineTripsByUser(userId: string) {
   const db = await getOfflineDb()
 
@@ -247,16 +264,19 @@ export async function setOfflineTripRemoteId(
 export async function markOfflineTripSyncing(localTripId: string) {
   const db = await getOfflineDb()
 
-  await db.runAsync(
+  const result = await db.runAsync(
     `
       UPDATE offline_recorded_trips
       SET
         sync_status = ?,
         updated_at = ?
       WHERE local_id = ?
+      AND sync_status IN ('pending', 'failed')
     `,
     ['syncing', new Date().toISOString(), localTripId]
   )
+
+  return result.changes > 0
 }
 
 export async function markOfflineTripSynced(

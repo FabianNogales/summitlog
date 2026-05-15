@@ -178,3 +178,17 @@ export async function createRecordedTripPointsBulk(
     throw error
   }
 }
+
+export async function getRecordedTripPointsByTripId(recordedTripId: string) {
+  const { data, error } = await supabase
+    .from('recorded_trip_points')
+    .select('*')
+    .eq('recorded_trip_id', recordedTripId)
+    .order('point_order', { ascending: true })
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []) as RecordedTripPoint[]
+}

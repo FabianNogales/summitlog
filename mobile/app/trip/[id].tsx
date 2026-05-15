@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react'
 import {
   Alert,
   Pressable,
@@ -6,69 +6,104 @@ import {
   ScrollView,
   Text,
   View,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+} from 'react-native'
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import { Feather } from '@expo/vector-icons'
 
-import { useAuth } from "../../src/hooks/useAuth";
-import { colors } from "../../src/theme/colors";
-import { getRecordedTripDetailById } from "../../src/services/history.service";
-import type { RecordedTrip } from "../../src/types/trip";
-import { AuthButton } from "../../src/components/auth/AuthButton";
+import { useAuth } from '../../src/hooks/useAuth'
+import { colors } from '../../src/theme/colors'
+import { getRecordedTripDetailById } from '../../src/services/history.service'
+import {
+  getRouteBySourceRecordedTripId,
+  publishRecordedTripAsRoute,
+} from '../../src/services/routePublish.service'
+import type { RecordedTrip } from '../../src/types/trip'
+import { AuthButton } from '../../src/components/auth/AuthButton'
 
 function formatDistance(distanceMeters: number) {
-  return `${(distanceMeters / 1000).toFixed(2)} km`;
+  return `${(distanceMeters / 1000).toFixed(2)} km`
 }
 
 function formatDuration(durationSeconds: number) {
-  const minutes = Math.floor(durationSeconds / 60);
-  const hours = Math.floor(minutes / 60);
+  const minutes = Math.floor(durationSeconds / 60)
+  const hours = Math.floor(minutes / 60)
 
   if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
+    return `${hours}h ${minutes % 60}m`
   }
 
-  return `${minutes} min`;
+  return `${minutes} min`
 }
 
 export default function TripDetailScreen() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useAuth();
+  const router = useRouter()
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const { user } = useAuth()
 
-  const [trip, setTrip] = useState<RecordedTrip | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [trip, setTrip] = useState<RecordedTrip | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [publishingRoute, setPublishingRoute] = useState(false)
+  const [publishedRouteId, setPublishedRouteId] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadTrip() {
       if (!user || !id) {
-        setLoading(false);
-        return;
+        setLoading(false)
+        return
       }
 
       try {
-        const loadedTrip = await getRecordedTripDetailById(id, user.id);
-        setTrip(loadedTrip);
+        const loadedTrip = await getRecordedTripDetailById(id, user.id)
+        setTrip(loadedTrip)
+
+        const existingRoute = await getRouteBySourceRecordedTripId(loadedTrip.id)
+        setPublishedRouteId(existingRoute?.id ?? null)
       } catch (error: any) {
         Alert.alert(
-          "Error",
-          error.message ?? "No se pudo cargar el detalle del recorrido",
-        );
+          'Error',
+          error.message ?? 'No se pudo cargar el detalle del recorrido'
+        )
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 
-    loadTrip();
-  }, [id, user]);
+    loadTrip()
+  }, [id, user])
+
+  async function handlePublishRoute() {
+    if (!trip) {
+      return
+    }
+
+    try {
+      setPublishingRoute(true)
+      const { route, created } = await publishRecordedTripAsRoute(trip)
+      setPublishedRouteId(route.id)
+
+      Alert.alert(
+        created ? 'Ruta publicada' : 'Ruta ya existente',
+        created
+          ? 'El recorrido se convirtio en ruta publicada.'
+          : 'Este recorrido ya estaba convertido y se reutilizo la ruta existente.'
+      )
+    } catch (error: any) {
+      Alert.alert(
+        'Error al publicar ruta',
+        error.message ?? 'No se pudo convertir el recorrido en ruta.'
+      )
+    } finally {
+      setPublishingRoute(false)
+    }
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View
           style={{
-            flexDirection: "row",
-            alignItems: "center",
+            flexDirection: 'row',
+            alignItems: 'center',
             marginBottom: 24,
           }}
         >
@@ -79,8 +114,8 @@ export default function TripDetailScreen() {
               height: 36,
               borderRadius: 18,
               backgroundColor: colors.card,
-              alignItems: "center",
-              justifyContent: "center",
+              alignItems: 'center',
+              justifyContent: 'center',
               marginRight: 12,
             }}
           >
@@ -91,7 +126,7 @@ export default function TripDetailScreen() {
             style={{
               color: colors.text,
               fontSize: 20,
-              fontWeight: "700",
+              fontWeight: '700',
             }}
           >
             Detalle de actividad
@@ -102,7 +137,7 @@ export default function TripDetailScreen() {
           <Text style={{ color: colors.textSecondary }}>Cargando...</Text>
         ) : !trip ? (
           <Text style={{ color: colors.textSecondary }}>
-            No se encontró el recorrido.
+            No se encontro el recorrido.
           </Text>
         ) : (
           <View
@@ -119,22 +154,20 @@ export default function TripDetailScreen() {
               style={{
                 color: colors.text,
                 fontSize: 18,
-                fontWeight: "700",
+                fontWeight: '700',
               }}
             >
-              {trip.title?.trim() || "Recorrido completado"}
+              {trip.title?.trim() || 'Recorrido completado'}
             </Text>
 
-            <Text style={{ color: colors.textSecondary }}>
-              Estado: {trip.status}
-            </Text>
+            <Text style={{ color: colors.textSecondary }}>Estado: {trip.status}</Text>
 
             <Text style={{ color: colors.textSecondary }}>
               Distancia: {formatDistance(Number(trip.distance_m ?? 0))}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Duración: {formatDuration(Number(trip.duration_s ?? 0))}
+              Duracion: {formatDuration(Number(trip.duration_s ?? 0))}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
@@ -142,27 +175,51 @@ export default function TripDetailScreen() {
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Fin:{" "}
+              Fin:{' '}
               {trip.ended_at
                 ? new Date(trip.ended_at).toLocaleString()
-                : "Sin finalizar"}
+                : 'Sin finalizar'}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Ubicación inicial: {trip.start_lat ?? "-"},{" "}
-              {trip.start_lng ?? "-"}
+              Ubicacion inicial: {trip.start_lat ?? '-'}, {trip.start_lng ?? '-'}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Ubicación final: {trip.end_lat ?? "-"}, {trip.end_lng ?? "-"}
+              Ubicacion final: {trip.end_lat ?? '-'}, {trip.end_lng ?? '-'}
             </Text>
 
-            <View style={{ marginTop: 18 }}>
+            <View style={{ marginTop: 18, gap: 12 }}>
+              {trip.status === 'completed' ? (
+                publishedRouteId ? (
+                  <>
+                    <Text style={{ color: colors.success, fontWeight: '700' }}>
+                      Ya convertido en ruta
+                    </Text>
+                    <AuthButton
+                      title="Ver ruta publicada"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/route/[id]',
+                          params: { id: publishedRouteId },
+                        })
+                      }
+                    />
+                  </>
+                ) : (
+                  <AuthButton
+                    title="Publicar como ruta"
+                    onPress={handlePublishRoute}
+                    loading={publishingRoute}
+                  />
+                )
+              ) : null}
+
               <AuthButton
-                title="Bitácora del recorrido"
+                title="Bitacora del recorrido"
                 onPress={() =>
                   router.push({
-                    pathname: "/journal/[tripId]",
+                    pathname: '/journal/[tripId]',
                     params: { tripId: trip.id },
                   })
                 }
@@ -172,5 +229,5 @@ export default function TripDetailScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
-  );
+  )
 }

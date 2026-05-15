@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from './useAuth'
 import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
 import { subscribeToConnectivity } from '../services/connectivity.service'
@@ -12,6 +12,7 @@ export function useOfflineSync() {
 
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
+  const syncPromiseRef = useRef<Promise<TripSyncResult> | null>(null)
 
   const refreshPendingCount = useCallback(async () => {
     if (!user) {
@@ -32,12 +33,23 @@ export function useOfflineSync() {
       throw new Error('Debes iniciar sesión.')
     }
 
-    try {
+    if (syncPromiseRef.current) {
+      return syncPromiseRef.current
+    }
+
+    const syncPromise = (async () => {
       setSyncing(true)
       const result = await syncPendingTripsForUser(user.id)
       await refreshPendingCount()
       return result
+    })()
+
+    syncPromiseRef.current = syncPromise
+
+    try {
+      return await syncPromise
     } finally {
+      syncPromiseRef.current = null
       setSyncing(false)
     }
   }, [user, refreshPendingCount])

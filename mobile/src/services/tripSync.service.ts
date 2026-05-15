@@ -1,5 +1,6 @@
 import {
-  getOfflineTripPointsByTripId,
+  getOfflineRecordedTripById,
+  getPendingOfflineTripPointsByTripId,
   getPendingOfflineTripsByUser,
   markOfflineTripFailed,
   markOfflineTripPointsSynced,
@@ -19,13 +20,31 @@ export interface TripSyncResult {
   failed: number
 }
 
+const inFlightSyncByUser = new Map<string, Promise<TripSyncResult>>()
+
 export async function syncPendingTripsForUser(
+  userId: string
+): Promise<TripSyncResult> {
+  const activeSync = inFlightSyncByUser.get(userId)
+  if (activeSync) {
+    return activeSync
+  }
+
+  const syncPromise = runSyncPendingTripsForUser(userId).finally(() => {
+    inFlightSyncByUser.delete(userId)
+  })
+
+  inFlightSyncByUser.set(userId, syncPromise)
+  return syncPromise
+}
+
+async function runSyncPendingTripsForUser(
   userId: string
 ): Promise<TripSyncResult> {
   const online = await getIsOnline()
 
   if (!online) {
-    throw new Error('No hay conexión a internet para sincronizar.')
+    throw new Error('No hay conexiÃ³n a internet para sincronizar.')
   }
 
   const pendingTrips = await getPendingOfflineTripsByUser(userId)
@@ -35,29 +54,39 @@ export async function syncPendingTripsForUser(
 
   for (const trip of pendingTrips) {
     try {
-      await markOfflineTripSyncing(trip.local_id)
+      const claimed = await markOfflineTripSyncing(trip.local_id)
+      if (!claimed) {
+        continue
+      }
 
-      let remoteTripId = trip.remote_id
+      const currentTrip = await getOfflineRecordedTripById(trip.local_id)
+      if (!currentTrip) {
+        continue
+      }
+
+      let remoteTripId = currentTrip.remote_id
 
       if (!remoteTripId) {
         const remoteTrip = await createRecordedTripFromOffline({
-          userId: trip.user_id,
-          status: trip.status,
-          startedAt: trip.started_at,
-          endedAt: trip.ended_at,
-          distanceM: trip.distance_m,
-          durationS: trip.duration_s,
-          startLat: trip.start_lat,
-          startLng: trip.start_lng,
-          endLat: trip.end_lat,
-          endLng: trip.end_lng,
+          userId: currentTrip.user_id,
+          status: currentTrip.status,
+          startedAt: currentTrip.started_at,
+          endedAt: currentTrip.ended_at,
+          distanceM: currentTrip.distance_m,
+          durationS: currentTrip.duration_s,
+          startLat: currentTrip.start_lat,
+          startLng: currentTrip.start_lng,
+          endLat: currentTrip.end_lat,
+          endLng: currentTrip.end_lng,
         })
 
         remoteTripId = remoteTrip.id
-        await setOfflineTripRemoteId(trip.local_id, remoteTripId)
+        await setOfflineTripRemoteId(currentTrip.local_id, remoteTripId)
       }
 
-      const localPoints = await getOfflineTripPointsByTripId(trip.local_id)
+      const localPoints = await getPendingOfflineTripPointsByTripId(
+        currentTrip.local_id
+      )
 
       await createRecordedTripPointsBulk(
         remoteTripId,
@@ -73,8 +102,10 @@ export async function syncPendingTripsForUser(
         }))
       )
 
-      await markOfflineTripPointsSynced(trip.local_id, remoteTripId)
-      await markOfflineTripSynced(trip.local_id, remoteTripId)
+      if (localPoints.length > 0) {
+        await markOfflineTripPointsSynced(currentTrip.local_id, remoteTripId)
+      }
+      await markOfflineTripSynced(currentTrip.local_id, remoteTripId)
 
       synced += 1
     } catch (error) {

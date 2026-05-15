@@ -1,5 +1,7 @@
 import { SafeAreaView, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
+import { useCallback } from 'react'
 
 import { RoutesMap } from '../../src/components/map/RoutesMap'
 import { RoutesFiltersPanel } from '../../src/components/routes/RoutesFiltersPanel'
@@ -10,7 +12,7 @@ import type { RouteItem } from '../../src/types/route'
 
 export default function RoutesScreen() {
   const router = useRouter()
-  const { routes, loading, error } = usePublishedRoutes()
+  const { routes, loading, error, refreshRoutes } = usePublishedRoutes()
 
   const {
     filters,
@@ -27,6 +29,14 @@ export default function RoutesScreen() {
       params: { id: route.id },
     })
   }
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRoutes().catch((err) => {
+        console.error('Error refrescando rutas publicadas:', err)
+      })
+    }, [refreshRoutes])
+  )
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
