@@ -1,15 +1,15 @@
 import { Alert, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { useAuth } from "../../src/hooks/useAuth";
-import { colors } from "../../src/theme/colors";
-import { ProfileHeader } from "../../src/components/profile/ProfileHeader";
-import { ProfileMenuItem } from "../../src/components/profile/ProfileMenuItem";
-import { ProfileSection } from "../../src/components/profile/ProfileSection";
-import { ProfileSummaryCard } from "../../src/components/profile/ProfileSummaryCard";
-import { HistoryEmptyState } from "../../src/components/profile/HistoryEmptyState";
-import { TripHistoryItem } from "../../src/components/profile/TripHistoryItem";
-import { useTripHistory } from "../../src/hooks/useTripHistory";
+import { useAuth } from "../../../src/hooks/useAuth";
+import { colors } from "../../../src/theme/colors";
+import { ProfileHeader } from "../../../src/components/profile/ProfileHeader";
+import { ProfileMenuItem } from "../../../src/components/profile/ProfileMenuItem";
+import { ProfileSection } from "../../../src/components/profile/ProfileSection";
+import { ProfileSummaryCard } from "../../../src/components/profile/ProfileSummaryCard";
+import { HistoryEmptyState } from "../../../src/components/profile/HistoryEmptyState";
+import { TripHistoryItem } from "../../../src/components/profile/TripHistoryItem";
+import { useTripHistory } from "../../../src/hooks/useTripHistory";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -87,11 +87,19 @@ export default function ProfileScreen() {
               </View>
             )}
 
+            <ProfileSection title="Actividad">
+              <ProfileMenuItem
+                label="Ver estadísticas"
+                iconName="bar-chart-2"
+                onPress={() => router.push('/profile/stats')}
+              />
+            </ProfileSection>
+
             <ProfileSection title="Configuración">
               <ProfileMenuItem
                 label="Editar Perfil"
                 iconName="user"
-                onPress={() => router.push("/profile/edit")}
+                onPress={() => router.push('/profile/edit')}
               />
               <View style={{ height: 1, backgroundColor: colors.border }} />
 

@@ -51,9 +51,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: "Perfil",
+          tabBarLabel: "Perfil",
+        }}
+      />
+      <Tabs.Screen
+        name="profile/stats"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
