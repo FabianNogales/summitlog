@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 
@@ -6,12 +6,13 @@ import { supabase } from '../lib/supabase'
 import {
   getCurrentSession,
   signInWithEmail,
+  signInWithGoogle as signInWithGoogleService,
   signOutUser,
   signUpWithEmail,
 } from '../services/auth.service'
 import {
   createProfile,
-  getProfileById,
+  ensureProfileForUser,
   updateProfile,
 } from '../services/profile.service'
 import type { Profile } from '../types/profile'
@@ -35,6 +36,7 @@ interface AuthContextValue {
   profile: Profile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<Session | null>
   signUp: (params: RegisterParams) => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -54,31 +56,57 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadProfile(userId: string) {
+  const loadProfile = useCallback(async (sessionUser: User) => {
+    console.log('[AuthContext] ensureProfile start:', sessionUser.id)
     try {
-      const currentProfile = await getProfileById(userId)
+      const currentProfile = await ensureProfileForUser(sessionUser)
       setProfile(currentProfile)
-    } catch {
+      console.log('[AuthContext] ensureProfile success:', sessionUser.id)
+    } catch (error: any) {
       setProfile(null)
+      console.log(
+        '[AuthContext] ensureProfile error:',
+        error?.message ?? 'unknown'
+      )
     }
-  }
+  }, [])
 
-  async function applySession(session: Session | null) {
-    const sessionUser = session?.user ?? null
+  const applySession = useCallback(
+    async (session: Session | null) => {
+      console.log('[AuthContext] applySession start')
+      const sessionUser = session?.user ?? null
 
-    setUser(sessionUser)
+      try {
+        setUser(sessionUser)
+        console.log(
+          '[AuthContext] applySession set user/session:',
+          Boolean(sessionUser)
+        )
 
-    if (!sessionUser) {
-      setProfile(null)
-      return
-    }
+        if (!sessionUser) {
+          setProfile(null)
+          return
+        }
 
-    await loadProfile(sessionUser.id)
-  }
+        await loadProfile(sessionUser)
+      } finally {
+        console.log('[AuthContext] applySession finally')
+        setLoading(false)
+        console.log('[AuthContext] loading false')
+      }
+    },
+    [loadProfile]
+  )
 
   async function signIn(email: string, password: string) {
     const authData = await signInWithEmail(email, password)
     await applySession(authData.session)
+  }
+
+  async function signInWithGoogle() {
+    const session = await signInWithGoogleService()
+    console.log('[AuthContext] signInWithGoogle resolved hasSession:', Boolean(session))
+    return session
   }
 
   async function signUp(params: RegisterParams) {
@@ -107,7 +135,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function refreshProfile() {
     if (!user) return
-    await loadProfile(user.id)
+    await loadProfile(user)
   }
 
   async function updateMyProfile(params: UpdateMyProfileParams) {
@@ -135,27 +163,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (!mounted) return
         await applySession(session)
+      } catch (error: any) {
+        console.log('[AuthContext] bootstrap error:', error?.message ?? 'unknown')
       } finally {
         if (mounted) {
           setLoading(false)
+          console.log('[AuthContext] loading false (bootstrap)')
         }
       }
     }
 
     bootstrap()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        await applySession(session)
-        setLoading(false)
-      }
-    )
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AuthContext] auth state event:', event)
+      console.log('[AuthContext] session user id exists:', Boolean(session?.user?.id))
+
+      setTimeout(() => {
+        if (!mounted) return
+
+        applySession(session).catch((error: any) => {
+          console.log(
+            '[AuthContext] applySession async error:',
+            error?.message ?? 'unknown'
+          )
+        })
+      }, 0)
+    })
 
     return () => {
       mounted = false
       listener.subscription.unsubscribe()
     }
-  }, [])
+  }, [applySession])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -163,6 +203,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       profile,
       loading,
       signIn,
+      signInWithGoogle,
       signUp,
       signOut,
       refreshProfile,

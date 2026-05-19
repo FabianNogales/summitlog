@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { AuthButton } from "../../src/components/auth/AuthButton";
 import { AuthHeader } from "../../src/components/auth/AuthHeader";
@@ -20,11 +20,26 @@ import { colors } from "../../src/theme/colors";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, user } = useAuth();
+  const { signIn, signInWithGoogle, user } = useAuth();
+  const { authError } = useLocalSearchParams<{ authError?: string }>();
+  const authErrorShownRef = useRef<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+
+  useEffect(() => {
+    const errorMessage =
+      typeof authError === "string" ? authError.trim() : undefined;
+
+    if (!errorMessage || authErrorShownRef.current === errorMessage) {
+      return;
+    }
+
+    authErrorShownRef.current = errorMessage;
+    Alert.alert("Error con Google", errorMessage);
+  }, [authError]);
 
   if (user) {
     return <Redirect href="/(tabs)/home" />;
@@ -46,6 +61,33 @@ export default function LoginScreen() {
       );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    try {
+      setIsGoogleSubmitting(true);
+      console.log("[Login] Google sign-in started");
+      const session = await signInWithGoogle();
+      console.log("[Login] Google sign-in finished, hasSession:", Boolean(session));
+
+      if (session) {
+        router.replace("/(tabs)/home");
+      }
+    } catch (error: any) {
+      if (error?.code === "oauth_cancelled") {
+        console.log("[Login] Google sign-in cancelled by user");
+        return;
+      }
+
+      console.log("[Login] Google sign-in error:", error?.message ?? "unknown");
+      Alert.alert(
+        "Error con Google",
+        error?.message ?? "No se pudo iniciar sesión con Google",
+      );
+    } finally {
+      setIsGoogleSubmitting(false);
+      console.log("[Login] google loading false");
     }
   }
 
@@ -118,6 +160,14 @@ export default function LoginScreen() {
                 onPress={handleLogin}
                 loading={isSubmitting}
               />
+
+              <View style={{ height: 12 }} />
+
+              <AuthButton
+                title="Continuar con Google"
+                onPress={handleGoogleLogin}
+                loading={isGoogleSubmitting}
+              />
             </View>
           </View>
         </ScrollView>
@@ -125,3 +175,4 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
+
