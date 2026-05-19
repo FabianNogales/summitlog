@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
+  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -19,6 +21,13 @@ import {
 } from '../../src/services/routePublish.service'
 import type { RecordedTrip } from '../../src/types/trip'
 import { AuthButton } from '../../src/components/auth/AuthButton'
+
+const DIFFICULTY_OPTIONS = [
+  { label: 'Sin definir', value: '' },
+  { label: 'Facil', value: 'easy' },
+  { label: 'Media', value: 'medium' },
+  { label: 'Dificil', value: 'hard' },
+]
 
 function formatDistance(distanceMeters: number) {
   return `${(distanceMeters / 1000).toFixed(2)} km`
@@ -44,53 +53,94 @@ export default function TripDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [publishingRoute, setPublishingRoute] = useState(false)
   const [publishedRouteId, setPublishedRouteId] = useState<string | null>(null)
+  const [routeTitle, setRouteTitle] = useState('')
+  const [routeDescription, setRouteDescription] = useState('')
+  const [routeDifficulty, setRouteDifficulty] = useState('')
+  const [routeCategory, setRouteCategory] = useState('')
+  const [routeCommentsEnabled, setRouteCommentsEnabled] = useState(true)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadTrip() {
-      if (!user || !id) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        const loadedTrip = await getRecordedTripDetailById(id, user.id)
-        setTrip(loadedTrip)
-
-        const existingRoute = await getRouteBySourceRecordedTripId(loadedTrip.id)
-        setPublishedRouteId(existingRoute?.id ?? null)
-      } catch (error: any) {
-        Alert.alert(
-          'Error',
-          error.message ?? 'No se pudo cargar el detalle del recorrido'
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadTrip()
-  }, [id, user])
-
-  async function handlePublishRoute() {
-    if (!trip) {
+  const loadTrip = useCallback(async () => {
+    if (!user || !id) {
+      setLoading(false)
       return
     }
 
     try {
-      setPublishingRoute(true)
-      const { route, created } = await publishRecordedTripAsRoute(trip)
-      setPublishedRouteId(route.id)
+      setLoading(true)
+      const loadedTrip = await getRecordedTripDetailById(id, user.id)
+      setTrip(loadedTrip)
+      setRouteTitle(loadedTrip.title?.trim() || 'Ruta publicada desde recorrido')
+      setRouteDescription(loadedTrip.summary?.trim() || '')
+      setRouteDifficulty('')
+      setRouteCategory('')
+      setRouteCommentsEnabled(true)
+      setPublishError(null)
 
-      Alert.alert(
-        created ? 'Ruta publicada' : 'Ruta ya existente',
-        created
-          ? 'El recorrido se convirtio en ruta publicada.'
-          : 'Este recorrido ya estaba convertido y se reutilizo la ruta existente.'
-      )
+      const existingRoute = await getRouteBySourceRecordedTripId(loadedTrip.id)
+      setPublishedRouteId(existingRoute?.id ?? null)
+
+      if (existingRoute) {
+        setRouteTitle(existingRoute.title || loadedTrip.title?.trim() || '')
+        setRouteDescription(existingRoute.description?.trim() || loadedTrip.summary?.trim() || '')
+        setRouteDifficulty(existingRoute.difficulty?.trim() || '')
+        setRouteCategory(existingRoute.category?.trim() || '')
+        setRouteCommentsEnabled(existingRoute.comments_enabled)
+      }
     } catch (error: any) {
       Alert.alert(
-        'Error al publicar ruta',
+        'Error',
+        error.message ?? 'No se pudo cargar el detalle del recorrido'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [id, user])
+
+  useEffect(() => {
+    loadTrip()
+  }, [loadTrip])
+
+  const canPublishRoute = trip?.status === 'completed' && !publishedRouteId
+
+  async function handlePublishRoute() {
+    if (!trip || !canPublishRoute || publishingRoute) {
+      return
+    }
+
+    if (!routeTitle.trim()) {
+      setPublishError('El titulo es obligatorio para publicar la ruta.')
+      return
+    }
+
+    setPublishError(null)
+
+    try {
+      setPublishingRoute(true)
+      const result = await publishRecordedTripAsRoute({
+        recordedTripId: trip.id,
+        title: routeTitle,
+        description: routeDescription || null,
+        difficulty: routeDifficulty || null,
+        category: routeCategory || null,
+        commentsEnabled: routeCommentsEnabled,
+      })
+      setPublishedRouteId(result.routeId)
+      await loadTrip()
+
+      Alert.alert(
+        result.alreadyPublished ? 'Ruta ya publicada' : 'Ruta publicada',
+        result.alreadyPublished
+          ? 'Este recorrido ya estaba convertido en una ruta publica.'
+          : 'El recorrido se convirtio en ruta publica correctamente.'
+      )
+    } catch (error: any) {
+      const message =
         error.message ?? 'No se pudo convertir el recorrido en ruta.'
+      setPublishError(message)
+      Alert.alert(
+        'Error al publicar ruta',
+        message
       )
     } finally {
       setPublishingRoute(false)
@@ -190,29 +240,203 @@ export default function TripDetailScreen() {
             </Text>
 
             <View style={{ marginTop: 18, gap: 12 }}>
-              {trip.status === 'completed' ? (
-                publishedRouteId ? (
-                  <>
-                    <Text style={{ color: colors.success, fontWeight: '700' }}>
-                      Ya convertido en ruta
+              {trip.status !== 'completed' ? (
+                <View
+                  style={{
+                    backgroundColor: colors.cardSecondary,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 14,
+                    padding: 12,
+                  }}
+                >
+                  <Text style={{ color: colors.textSecondary }}>
+                    Solo puedes publicar recorridos con estado completed.
+                  </Text>
+                </View>
+              ) : null}
+
+              {publishedRouteId ? (
+                <View
+                  style={{
+                    backgroundColor: colors.cardSecondary,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 14,
+                    padding: 12,
+                    gap: 10,
+                  }}
+                >
+                  <Text style={{ color: colors.success, fontWeight: '700' }}>
+                    Ruta publicada
+                  </Text>
+                  <AuthButton
+                    title="Ver ruta publica"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/route/[id]',
+                        params: { id: publishedRouteId },
+                      })
+                    }
+                  />
+                </View>
+              ) : null}
+
+              {canPublishRoute ? (
+                <View
+                  style={{
+                    backgroundColor: colors.cardSecondary,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 14,
+                    padding: 14,
+                    gap: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontWeight: '700',
+                      fontSize: 16,
+                    }}
+                  >
+                    Publicar como ruta
+                  </Text>
+
+                  <View>
+                    <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>
+                      Titulo
                     </Text>
-                    <AuthButton
-                      title="Ver ruta publicada"
-                      onPress={() =>
-                        router.push({
-                          pathname: '/route/[id]',
-                          params: { id: publishedRouteId },
-                        })
-                      }
+                    <TextInput
+                      value={routeTitle}
+                      onChangeText={setRouteTitle}
+                      placeholder="Titulo de la ruta"
+                      placeholderTextColor={colors.placeholder}
+                      style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        color: colors.text,
+                      }}
                     />
-                  </>
-                ) : (
+                  </View>
+
+                  <View>
+                    <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>
+                      Descripcion
+                    </Text>
+                    <TextInput
+                      value={routeDescription}
+                      onChangeText={setRouteDescription}
+                      placeholder="Descripcion de la ruta"
+                      placeholderTextColor={colors.placeholder}
+                      multiline
+                      textAlignVertical="top"
+                      style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        minHeight: 96,
+                        color: colors.text,
+                      }}
+                    />
+                  </View>
+
+                  <View>
+                    <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                      Dificultad
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                      {DIFFICULTY_OPTIONS.map((option) => {
+                        const active = routeDifficulty === option.value
+
+                        return (
+                          <Pressable
+                            key={option.value || 'none'}
+                            onPress={() => setRouteDifficulty(option.value)}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 9,
+                              borderRadius: 20,
+                              borderWidth: 1,
+                              marginRight: 8,
+                              marginBottom: 8,
+                              borderColor: active ? colors.primary : colors.border,
+                              backgroundColor: active ? colors.primary : colors.card,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: active ? colors.text : colors.textSecondary,
+                                fontWeight: '600',
+                              }}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        )
+                      })}
+                    </View>
+                  </View>
+
+                  <View>
+                    <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>
+                      Categoria
+                    </Text>
+                    <TextInput
+                      value={routeCategory}
+                      onChangeText={setRouteCategory}
+                      placeholder="Ej: trekking, trail, senderismo"
+                      placeholderTextColor={colors.placeholder}
+                      style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        color: colors.text,
+                      }}
+                    />
+                  </View>
+
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text style={{ color: colors.textSecondary }}>
+                      Habilitar comentarios
+                    </Text>
+                    <Switch
+                      value={routeCommentsEnabled}
+                      onValueChange={setRouteCommentsEnabled}
+                      trackColor={{
+                        false: colors.border,
+                        true: colors.primary,
+                      }}
+                      thumbColor={colors.card}
+                    />
+                  </View>
+
+                  {publishError ? (
+                    <Text style={{ color: colors.danger }}>{publishError}</Text>
+                  ) : null}
+
                   <AuthButton
                     title="Publicar como ruta"
                     onPress={handlePublishRoute}
                     loading={publishingRoute}
                   />
-                )
+                </View>
               ) : null}
 
               <AuthButton
