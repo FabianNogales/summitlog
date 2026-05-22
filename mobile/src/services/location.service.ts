@@ -1,5 +1,6 @@
 import * as Location from 'expo-location'
 import { BACKGROUND_LOCATION_TASK } from '../tasks/backgroundLocationTask'
+import { colors } from '../theme/colors'
 
 export async function requestForegroundLocationPermission() {
   return await Location.requestForegroundPermissionsAsync()
@@ -47,7 +48,7 @@ export async function startBackgroundLocationTracking() {
     foregroundService: {
       notificationTitle: 'SummitLog esta registrando tu recorrido',
       notificationBody: 'Tu ubicacion se usa para guardar el recorrido activo',
-      notificationColor: '#2E8B73',
+      notificationColor: colors.primary,
     },
   })
 }

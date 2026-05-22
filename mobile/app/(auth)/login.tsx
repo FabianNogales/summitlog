@@ -160,7 +160,7 @@ export default function LoginScreen() {
               >
                 <Text
                   style={{
-                    color: "#2E8B73",
+                    color: colors.primary,
                     textAlign: "right",
                     fontSize: 13,
                   }}

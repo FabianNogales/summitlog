@@ -39,14 +39,14 @@ export function ProfileMenuItem({
         <Feather
           name={iconName}
           size={16}
-          color={danger ? '#FF4D4F' : colors.textSecondary}
+          color={danger ? colors.danger : colors.textSecondary}
         />
       </View>
 
       <Text
         style={{
           flex: 1,
-          color: danger ? '#FF4D4F' : colors.text,
+          color: danger ? colors.danger : colors.text,
           fontSize: 15,
           fontWeight: '600',
         }}
@@ -57,7 +57,7 @@ export function ProfileMenuItem({
       <Feather
         name="chevron-right"
         size={18}
-        color={danger ? '#FF4D4F' : colors.textSecondary}
+        color={danger ? colors.danger : colors.textSecondary}
       />
     </Pressable>
   )

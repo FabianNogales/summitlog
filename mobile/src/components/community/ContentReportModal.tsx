@@ -85,7 +85,7 @@ export function ContentReportModal({
         <View
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backgroundColor: colors.overlay,
             justifyContent: 'center',
             padding: 18,
           }}

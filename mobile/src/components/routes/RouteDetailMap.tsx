@@ -87,7 +87,7 @@ export function RouteDetailMap({ route, points }: RouteDetailMapProps) {
                 width: 16,
                 height: 16,
                 borderRadius: 8,
-                backgroundColor: '#2EAD6B',
+                backgroundColor: colors.success,
                 borderWidth: 2,
                 borderColor: colors.text,
               }}
@@ -102,7 +102,7 @@ export function RouteDetailMap({ route, points }: RouteDetailMapProps) {
                 width: 16,
                 height: 16,
                 borderRadius: 8,
-                backgroundColor: '#E45757',
+                backgroundColor: colors.danger,
                 borderWidth: 2,
                 borderColor: colors.text,
               }}
@@ -118,7 +118,7 @@ export function RouteDetailMap({ route, points }: RouteDetailMapProps) {
             bottom: 10,
             left: 10,
             right: 10,
-            backgroundColor: 'rgba(8,17,29,0.82)',
+            backgroundColor: colors.overlay,
             paddingHorizontal: 12,
             paddingVertical: 8,
             borderRadius: 10,

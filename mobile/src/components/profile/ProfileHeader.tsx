@@ -14,7 +14,7 @@ export function ProfileHeader({
   return (
     <View
       style={{
-        backgroundColor: '#2B6E73',
+        backgroundColor: colors.bgElevated,
         paddingTop: 56,
         paddingHorizontal: 20,
         paddingBottom: 72,

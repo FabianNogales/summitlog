@@ -11,7 +11,7 @@ export function ProfileStat({ value, label }: ProfileStatProps) {
     <View style={{ flex: 1, alignItems: 'center' }}>
       <Text
         style={{
-          color: '#3E9A8E',
+          color: colors.primary,
           fontSize: 28,
           fontWeight: '700',
           marginBottom: 4,

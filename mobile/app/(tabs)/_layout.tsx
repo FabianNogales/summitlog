@@ -40,9 +40,15 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="routes"
+        options={{
+          title: "Explorar",
+        }}
+      />
+      <Tabs.Screen
         name="home"
         options={{
-          title: "Inicio",
+          title: "Comunidad",
         }}
       />
       <Tabs.Screen
@@ -62,12 +68,6 @@ export default function TabsLayout() {
         name="profile/stats"
         options={{
           href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="routes"
-        options={{
-          title: "Rutas",
         }}
       />
     </Tabs>

@@ -7,7 +7,7 @@ export function AuthHeader() {
     <View
       style={{
         height: 210,
-        backgroundColor: '#5E8B8C',
+        backgroundColor: colors.bgElevated,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
         alignItems: 'center',
@@ -21,8 +21,8 @@ export function AuthHeader() {
           height: 84,
           borderRadius: 42,
           borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.25)',
-          backgroundColor: 'rgba(255,255,255,0.10)',
+          borderColor: colors.borderTransparent,
+          backgroundColor: colors.bgElevatedTransparent,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
@@ -48,7 +48,7 @@ export function AuthHeader() {
 
       <Text
         style={{
-          color: 'rgba(255,255,255,0.85)',
+          color: colors.textSecondaryLight,
           fontSize: 14,
           textAlign: 'center',
         }}
