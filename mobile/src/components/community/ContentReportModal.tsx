@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { useRef } from 'react'
 
 import { AuthButton } from '../auth/AuthButton'
 import { colors } from '../../theme/colors'
@@ -15,6 +16,11 @@ import {
   CONTENT_REPORT_REASONS,
   type ContentReportReason,
 } from '../../types/contentReport'
+import {
+  MODAL_SCROLL_BOTTOM_PADDING,
+  MODAL_INPUT_SCROLL_OFFSET,
+  scrollToFocusedInput,
+} from '../../utils/keyboard'
 
 interface ContentReportModalProps {
   visible: boolean
@@ -58,6 +64,12 @@ export function ContentReportModal({
   onClose,
   onSubmit,
 }: ContentReportModalProps) {
+  const scrollRef = useRef<ScrollView | null>(null)
+
+  function handleFocus(event: { target?: unknown }) {
+    scrollToFocusedInput(scrollRef, event, MODAL_INPUT_SCROLL_OFFSET)
+  }
+
   return (
     <Modal
       animationType="fade"
@@ -67,7 +79,8 @@ export function ContentReportModal({
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <View
           style={{
@@ -78,8 +91,13 @@ export function ContentReportModal({
           }}
         >
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: 'center',
+              paddingBottom: MODAL_SCROLL_BOTTOM_PADDING,
+            }}
           >
             <View
               style={{
@@ -88,6 +106,7 @@ export function ContentReportModal({
                 borderWidth: 1,
                 borderRadius: 16,
                 padding: 16,
+                maxHeight: '85%',
               }}
             >
               <Text
@@ -145,6 +164,7 @@ export function ContentReportModal({
               <TextInput
                 value={description}
                 onChangeText={onChangeDescription}
+                onFocus={handleFocus}
                 multiline
                 textAlignVertical="top"
                 placeholder="Describe por que este contenido es inapropiado..."

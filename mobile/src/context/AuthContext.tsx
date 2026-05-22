@@ -62,12 +62,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const currentProfile = await ensureProfileForUser(sessionUser)
       setProfile(currentProfile)
       console.log('[AuthContext] ensureProfile success:', sessionUser.id)
+      console.log('[AuthContext] profile exists:', Boolean(currentProfile?.id))
     } catch (error: any) {
       setProfile(null)
       console.log(
         '[AuthContext] ensureProfile error:',
         error?.message ?? 'unknown'
       )
+      console.log('[AuthContext] profile exists: false')
     }
   }, [])
 
@@ -82,6 +84,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
           '[AuthContext] applySession set user/session:',
           Boolean(sessionUser)
         )
+        const provider =
+          ((sessionUser?.app_metadata ?? {}) as Record<string, unknown>).provider ??
+          null
+        const identitiesCount = Array.isArray(
+          (sessionUser as unknown as { identities?: unknown[] })?.identities
+        )
+          ? ((sessionUser as unknown as { identities?: unknown[] }).identities
+              ?.length ?? 0)
+          : 0
+        console.log('[AuthContext] session diagnostics:', {
+          provider,
+          emailExists: Boolean(sessionUser?.email),
+          userId: sessionUser?.id ?? null,
+          identitiesCount,
+        })
 
         if (!sessionUser) {
           setProfile(null)
@@ -106,6 +123,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function signInWithGoogle() {
     const session = await signInWithGoogleService()
     console.log('[AuthContext] signInWithGoogle resolved hasSession:', Boolean(session))
+    const sessionUser = session?.user ?? null
+    const provider =
+      ((sessionUser?.app_metadata ?? {}) as Record<string, unknown>).provider ??
+      null
+    const identitiesCount = Array.isArray(
+      (sessionUser as unknown as { identities?: unknown[] })?.identities
+    )
+      ? ((sessionUser as unknown as { identities?: unknown[] }).identities
+          ?.length ?? 0)
+      : 0
+    console.log('[AuthContext] google sign-in diagnostics:', {
+      provider,
+      emailExists: Boolean(sessionUser?.email),
+      userId: sessionUser?.id ?? null,
+      identitiesCount,
+    })
     return session
   }
 

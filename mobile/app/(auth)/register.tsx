@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,10 +15,15 @@ import { AuthInput } from '../../src/components/auth/AuthInput'
 import { AuthTabs } from '../../src/components/auth/AuthTabs'
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
 
 export default function RegisterScreen() {
   const router = useRouter()
   const { signUp, user } = useAuth()
+  const scrollRef = useRef<ScrollView | null>(null)
 
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
@@ -79,10 +84,16 @@ export default function RegisterScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 36 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -108,6 +119,7 @@ export default function RegisterScreen() {
                 value={username}
                 onChangeText={setUsername}
                 iconName="user"
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <AuthInput
@@ -117,6 +129,7 @@ export default function RegisterScreen() {
                 onChangeText={setFullName}
                 iconName="edit-3"
                 autoCapitalize="words"
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <AuthInput
@@ -126,6 +139,7 @@ export default function RegisterScreen() {
                 onChangeText={setEmail}
                 iconName="mail"
                 keyboardType="email-address"
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <AuthInput
@@ -135,6 +149,7 @@ export default function RegisterScreen() {
                 onChangeText={setPassword}
                 iconName="lock"
                 secureTextEntry
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <AuthInput
@@ -144,6 +159,7 @@ export default function RegisterScreen() {
                 onChangeText={setConfirmPassword}
                 iconName="lock"
                 secureTextEntry
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <AuthButton

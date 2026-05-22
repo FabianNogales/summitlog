@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -23,6 +23,10 @@ import {
 } from '../../src/services/routePublish.service'
 import type { RecordedTrip } from '../../src/types/trip'
 import { AuthButton } from '../../src/components/auth/AuthButton'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
 
 const DIFFICULTY_OPTIONS = [
   { label: 'Sin definir', value: '' },
@@ -50,6 +54,7 @@ export default function TripDetailScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
+  const scrollRef = useRef<ScrollView | null>(null)
 
   const [trip, setTrip] = useState<RecordedTrip | null>(null)
   const [loading, setLoading] = useState(true)
@@ -153,10 +158,16 @@ export default function TripDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
         >
         <View
@@ -319,6 +330,7 @@ export default function TripDetailScreen() {
                     <TextInput
                       value={routeTitle}
                       onChangeText={setRouteTitle}
+                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                       placeholder="Titulo de la ruta"
                       placeholderTextColor={colors.placeholder}
                       style={{
@@ -340,6 +352,7 @@ export default function TripDetailScreen() {
                     <TextInput
                       value={routeDescription}
                       onChangeText={setRouteDescription}
+                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                       placeholder="Descripcion de la ruta"
                       placeholderTextColor={colors.placeholder}
                       multiline
@@ -401,6 +414,7 @@ export default function TripDetailScreen() {
                     <TextInput
                       value={routeCategory}
                       onChangeText={setRouteCategory}
+                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                       placeholder="Ej: trekking, trail, senderismo"
                       placeholderTextColor={colors.placeholder}
                       style={{

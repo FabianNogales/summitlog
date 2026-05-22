@@ -4,6 +4,7 @@ import {
   Pressable,
   Text,
   TextInput,
+  TextInputProps,
   View,
 } from 'react-native'
 import { Feather } from '@expo/vector-icons'
@@ -18,6 +19,7 @@ interface AuthInputProps {
   secureTextEntry?: boolean
   keyboardType?: KeyboardTypeOptions
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
+  onFocus?: TextInputProps['onFocus']
 }
 
 export function AuthInput({
@@ -29,6 +31,7 @@ export function AuthInput({
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'none',
+  onFocus,
 }: AuthInputProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
@@ -69,6 +72,7 @@ export function AuthInput({
         <TextInput
           value={value}
           onChangeText={onChangeText}
+          onFocus={onFocus}
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
           secureTextEntry={shouldHideText}

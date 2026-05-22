@@ -17,12 +17,17 @@ import { AuthInput } from "../../src/components/auth/AuthInput";
 import { AuthTabs } from "../../src/components/auth/AuthTabs";
 import { useAuth } from "../../src/hooks/useAuth";
 import { colors } from "../../src/theme/colors";
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from "../../src/utils/keyboard";
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, signInWithGoogle, user } = useAuth();
   const { authError } = useLocalSearchParams<{ authError?: string }>();
   const authErrorShownRef = useRef<string | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -95,10 +100,16 @@ export default function LoginScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 36 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -125,6 +136,7 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 iconName="mail"
                 keyboardType="email-address"
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <AuthInput
@@ -134,12 +146,13 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 iconName="lock"
                 secureTextEntry
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
               <Pressable
                 onPress={() =>
                   Alert.alert(
-                    "Próximamente",
+                    "Proximamente",
                     "La recuperación de contraseña la implementaremos después.",
                   )
                 }

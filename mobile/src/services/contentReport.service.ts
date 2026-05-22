@@ -10,6 +10,7 @@ import {
 interface CreateContentReportInput {
   targetType: ContentReportTargetType
   targetId: string
+  targetOwnerId?: string | null
   reason: ContentReportReason
   description?: string | null
 }
@@ -64,6 +65,7 @@ function mapReportErrorMessage(error: any) {
 export async function createContentReport(input: CreateContentReportInput) {
   const targetType = input.targetType?.trim()
   const targetId = input.targetId?.trim()
+  const targetOwnerId = input.targetOwnerId?.trim() || null
   const reason = input.reason?.trim()
   const normalizedDescription = input.description?.trim() || null
 
@@ -97,6 +99,10 @@ export async function createContentReport(input: CreateContentReportInput) {
   const currentUser = authData.user
   if (!currentUser) {
     throw new Error('Debes iniciar sesion para denunciar contenido.')
+  }
+
+  if (targetOwnerId && targetOwnerId === currentUser.id) {
+    throw new Error('No puedes denunciar tu propio contenido.')
   }
 
   const { data, error } = await supabase

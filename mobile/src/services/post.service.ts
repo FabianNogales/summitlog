@@ -7,6 +7,18 @@ interface CreatePostInput {
 
 const FEED_POST_LIMIT = 20
 
+function normalizeAuthor(author: unknown) {
+  if (Array.isArray(author)) {
+    return (author[0] ?? null) as SocialPostAuthor | null
+  }
+
+  if (author && typeof author === 'object') {
+    return author as SocialPostAuthor
+  }
+
+  return null
+}
+
 export async function getPosts() {
   const { data, error } = await supabase
     .from('posts')
@@ -32,8 +44,7 @@ export async function getPosts() {
   }
 
   const normalized = (data ?? []).map((post: any) => {
-    const authorArray = Array.isArray(post.author) ? post.author : []
-    const author = (authorArray[0] ?? null) as SocialPostAuthor | null
+    const author = normalizeAuthor(post.author)
 
     return {
       id: post.id,

@@ -40,7 +40,11 @@ export function ProfileSummaryCard({
   onPressAvatar,
 }: ProfileSummaryCardProps) {
   const initials = getInitials(fullName, username)
-  const displayName = fullName?.trim() || username || 'Usuario SummitLog'
+  const normalizedUsername = username?.trim() || ''
+  const displayName =
+    normalizedUsername.length > 0
+      ? `@${normalizedUsername}`
+      : fullName?.trim() || 'Usuario SummitLog'
 
   return (
     <View

@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { useRef } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -19,10 +20,15 @@ import { AuthButton } from '../../src/components/auth/AuthButton'
 import { formatTripDistance, formatTripDuration } from '../../src/utils/tripFormat'
 import { useJournalMedia } from '../../src/hooks/useJournalMedia'
 import { JournalMediaGrid } from '../../src/components/journal/JournalMediaGrid'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
 
 export default function JournalEditorScreen() {
   const router = useRouter()
   const { tripId } = useLocalSearchParams<{ tripId: string }>()
+  const scrollRef = useRef<ScrollView | null>(null)
 
   const {
     trip,
@@ -81,10 +87,16 @@ export default function JournalEditorScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
         >
         <View
@@ -189,6 +201,7 @@ export default function JournalEditorScreen() {
                 <TextInput
                   value={title}
                   onChangeText={setTitle}
+                  onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                   placeholder="Ej: Mi experiencia en el recorrido"
                   placeholderTextColor={colors.placeholder}
                   style={{
@@ -219,6 +232,7 @@ export default function JournalEditorScreen() {
                 <TextInput
                   value={content}
                   onChangeText={setContent}
+                  onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                   placeholder="Describe tu experiencia, observaciones, clima, dificultad, sensaciones..."
                   placeholderTextColor={colors.placeholder}
                   multiline

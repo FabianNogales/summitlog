@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -39,6 +39,11 @@ import type { RouteComment } from '../../src/types/routeComment'
 import { ContentReportModal } from '../../src/components/community/ContentReportModal'
 import { createContentReport } from '../../src/services/contentReport.service'
 import type { ContentReportReason } from '../../src/types/contentReport'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
+import { getAuthorDisplayName } from '../../src/utils/displayName'
 
 function formatReportTypeLabel(reportType: RouteReportType) {
   switch (reportType) {
@@ -76,6 +81,7 @@ export default function RouteDetailScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
+  const scrollRef = useRef<ScrollView | null>(null)
   const { route, points, reports, loading, error, refreshRouteDetail } = useRouteDetail(id)
   const [isReportFormOpen, setIsReportFormOpen] = useState(false)
   const [reportType, setReportType] = useState<RouteReportType>('mud')
@@ -241,6 +247,10 @@ export default function RouteDetailScreen() {
       return
     }
 
+    if (comment.user_id && comment.user_id === user.id) {
+      return
+    }
+
     setReportCommentDraft(comment)
     setReportReason('spam')
     setReportDescription('')
@@ -275,6 +285,7 @@ export default function RouteDetailScreen() {
       await createContentReport({
         targetType: 'comment',
         targetId: reportCommentDraft.id,
+        targetOwnerId: reportCommentDraft.user_id,
         reason: reportReason,
         description: reportDescription,
       })
@@ -292,10 +303,16 @@ export default function RouteDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
         >
         <View
@@ -568,6 +585,7 @@ export default function RouteDetailScreen() {
                         <TextInput
                           value={description}
                           onChangeText={setDescription}
+                          onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                           placeholder="Describe la condicion actual de la ruta..."
                           placeholderTextColor={colors.placeholder}
                           multiline
@@ -664,10 +682,10 @@ export default function RouteDetailScreen() {
                 </Text>
               ) : (
                 comments.map((comment) => {
-                  const commentAuthor =
-                    comment.author?.username?.trim() ||
-                    comment.author?.full_name?.trim() ||
-                    `Usuario ${comment.user_id.slice(0, 8)}`
+                  const isOwnComment = Boolean(user?.id && comment.user_id === user.id)
+                  const commentAuthor = getAuthorDisplayName(comment.author, {
+                    fallbackUsername: isOwnComment ? undefined : null,
+                  })
 
                   return (
                     <View
@@ -688,7 +706,7 @@ export default function RouteDetailScreen() {
                           marginBottom: 4,
                         }}
                       >
-                        @{commentAuthor}
+                        {commentAuthor}
                       </Text>
 
                       <Text style={{ color: colors.text, marginBottom: 4 }}>
@@ -699,29 +717,31 @@ export default function RouteDetailScreen() {
                         {new Date(comment.created_at).toLocaleString()}
                       </Text>
 
-                      <Pressable
-                        onPress={() => handleOpenReportComment(comment)}
-                        style={{
-                          alignSelf: 'flex-start',
-                          marginTop: 8,
-                          paddingVertical: 4,
-                          paddingHorizontal: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                        }}
-                      >
-                        <Text
+                      {!(user?.id && comment.user_id === user.id) ? (
+                        <Pressable
+                          onPress={() => handleOpenReportComment(comment)}
                           style={{
-                            color: colors.danger,
-                            fontWeight: '600',
-                            fontSize: 12,
+                            alignSelf: 'flex-start',
+                            marginTop: 8,
+                            paddingVertical: 4,
+                            paddingHorizontal: 8,
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
                           }}
                         >
-                          Denunciar
-                        </Text>
-                      </Pressable>
+                          <Text
+                            style={{
+                              color: colors.danger,
+                              fontWeight: '600',
+                              fontSize: 12,
+                            }}
+                          >
+                            Denunciar
+                          </Text>
+                        </Pressable>
+                      ) : null}
                     </View>
                   )
                 })
@@ -740,6 +760,7 @@ export default function RouteDetailScreen() {
                   <TextInput
                     value={commentInput}
                     onChangeText={setCommentInput}
+                    onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                     placeholder="Escribe un comentario sobre la ruta..."
                     placeholderTextColor={colors.placeholder}
                     multiline

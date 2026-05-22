@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,15 +27,23 @@ import type {
   ContentReportReason,
   ContentReportTargetType,
 } from '../../src/types/contentReport'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
+import { getAuthorDisplayName } from '../../src/utils/displayName'
 
 interface ReportTargetDraft {
   targetType: ContentReportTargetType
   targetId: string
   targetLabel: string
+  targetOwnerId?: string | null
 }
 
 export default function HomeScreen() {
   const { profile, user } = useAuth()
+  const outerScrollRef = useRef<ScrollView | null>(null)
+  const feedScrollRef = useRef<ScrollView | null>(null)
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -224,7 +232,8 @@ export default function HomeScreen() {
   function handleOpenReportModal(
     targetType: ContentReportTargetType,
     targetId: string,
-    targetLabel: string
+    targetLabel: string,
+    targetOwnerId?: string | null
   ) {
     if (!user) {
       Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
@@ -240,6 +249,7 @@ export default function HomeScreen() {
       targetType,
       targetId,
       targetLabel,
+      targetOwnerId: targetOwnerId ?? null,
     })
   }
 
@@ -269,6 +279,7 @@ export default function HomeScreen() {
       await createContentReport({
         targetType: reportTargetDraft.targetType,
         targetId: reportTargetDraft.targetId,
+        targetOwnerId: reportTargetDraft.targetOwnerId,
         reason: reportReason,
         description: reportDescription,
       })
@@ -286,10 +297,16 @@ export default function HomeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+          ref={outerScrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 24,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
         >
         <Text
@@ -349,6 +366,7 @@ export default function HomeScreen() {
           <TextInput
             value={content}
             onChangeText={setContent}
+            onFocus={(event) => scrollToFocusedInput(outerScrollRef, event)}
             multiline
             textAlignVertical="top"
             placeholder="Escribe tu publicacion..."
@@ -423,6 +441,7 @@ export default function HomeScreen() {
           </View>
 
           <ScrollView
+            ref={feedScrollRef}
             nestedScrollEnabled
             style={{ maxHeight: 420 }}
             keyboardShouldPersistTaps="handled"
@@ -444,10 +463,10 @@ export default function HomeScreen() {
               </Text>
             ) : (
               posts.map((post) => {
-                const authorName =
-                  post.author?.username?.trim() ||
-                  post.author?.full_name?.trim() ||
-                  `Usuario ${post.user_id.slice(0, 8)}`
+                const isOwnPost = Boolean(user?.id && post.user_id === user.id)
+                const authorName = getAuthorDisplayName(post.author, {
+                  fallbackUsername: isOwnPost ? profile?.username : null,
+                })
                 const isExpanded = expandedPostId === post.id
                 const comments = commentsByPostId[post.id] ?? []
                 const commentsLoading = commentsLoadingByPostId[post.id] ?? false
@@ -468,7 +487,7 @@ export default function HomeScreen() {
                     }}
                   >
                     <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 6 }}>
-                      @{authorName}
+                      {authorName}
                     </Text>
                     <Text style={{ color: colors.text, marginBottom: 8 }}>
                       {post.content}
@@ -499,28 +518,31 @@ export default function HomeScreen() {
                         </Text>
                       </Pressable>
 
-                      <Pressable
-                        onPress={() =>
-                          handleOpenReportModal(
-                            'post',
-                            post.id,
-                            `publicacion de @${authorName}`
-                          )
-                        }
-                        style={{
-                          alignSelf: 'flex-start',
-                          paddingVertical: 6,
-                          paddingHorizontal: 10,
-                          borderRadius: 10,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                        }}
-                      >
-                        <Text style={{ color: colors.danger, fontWeight: '600' }}>
-                          Denunciar
-                        </Text>
-                      </Pressable>
+                      {!isOwnPost ? (
+                        <Pressable
+                          onPress={() =>
+                            handleOpenReportModal(
+                              'post',
+                              post.id,
+                              `publicacion de ${authorName}`,
+                              post.user_id
+                            )
+                          }
+                          style={{
+                            alignSelf: 'flex-start',
+                            paddingVertical: 6,
+                            paddingHorizontal: 10,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                          }}
+                        >
+                          <Text style={{ color: colors.danger, fontWeight: '600' }}>
+                            Denunciar
+                          </Text>
+                        </Pressable>
+                      ) : null}
                     </View>
 
                     {isExpanded ? (
@@ -546,10 +568,12 @@ export default function HomeScreen() {
                           </Text>
                         ) : (
                           comments.map((comment) => {
-                            const commentAuthor =
-                              comment.author?.username?.trim() ||
-                              comment.author?.full_name?.trim() ||
-                              `Usuario ${comment.user_id.slice(0, 8)}`
+                            const isOwnComment = Boolean(
+                              user?.id && comment.user_id === user.id
+                            )
+                            const commentAuthor = getAuthorDisplayName(comment.author, {
+                              fallbackUsername: isOwnComment ? profile?.username : null,
+                            })
 
                             return (
                               <View
@@ -564,7 +588,7 @@ export default function HomeScreen() {
                                 }}
                               >
                                 <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 4 }}>
-                                  @{commentAuthor}
+                                  {commentAuthor}
                                 </Text>
                                 <Text style={{ color: colors.text, marginBottom: 4 }}>
                                   {comment.content}
@@ -573,35 +597,38 @@ export default function HomeScreen() {
                                   {new Date(comment.created_at).toLocaleString()}
                                 </Text>
 
-                                <Pressable
-                                  onPress={() =>
-                                    handleOpenReportModal(
-                                      'comment',
-                                      comment.id,
-                                      `comentario de @${commentAuthor}`
-                                    )
-                                  }
-                                  style={{
-                                    alignSelf: 'flex-start',
-                                    marginTop: 8,
-                                    paddingVertical: 4,
-                                    paddingHorizontal: 8,
-                                    borderRadius: 8,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    backgroundColor: colors.card,
-                                  }}
-                                >
-                                  <Text
+                                {!isOwnComment ? (
+                                  <Pressable
+                                    onPress={() =>
+                                      handleOpenReportModal(
+                                        'comment',
+                                        comment.id,
+                                        `comentario de ${commentAuthor}`,
+                                        comment.user_id
+                                      )
+                                    }
                                     style={{
-                                      color: colors.danger,
-                                      fontWeight: '600',
-                                      fontSize: 12,
+                                      alignSelf: 'flex-start',
+                                      marginTop: 8,
+                                      paddingVertical: 4,
+                                      paddingHorizontal: 8,
+                                      borderRadius: 8,
+                                      borderWidth: 1,
+                                      borderColor: colors.border,
+                                      backgroundColor: colors.card,
                                     }}
                                   >
-                                    Denunciar
-                                  </Text>
-                                </Pressable>
+                                    <Text
+                                      style={{
+                                        color: colors.danger,
+                                        fontWeight: '600',
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      Denunciar
+                                    </Text>
+                                  </Pressable>
+                                ) : null}
                               </View>
                             )
                           })
@@ -612,6 +639,9 @@ export default function HomeScreen() {
                             <TextInput
                               value={commentInput}
                               onChangeText={(value) => updateCommentInput(post.id, value)}
+                              onFocus={(event) =>
+                                scrollToFocusedInput(feedScrollRef, event)
+                              }
                               placeholder="Escribe un comentario..."
                               placeholderTextColor={colors.placeholder}
                               multiline

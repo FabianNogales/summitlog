@@ -24,6 +24,59 @@ interface OAuthParams {
   error_description?: string
 }
 
+const GOOGLE_EMAIL_CONFLICT_MESSAGE =
+  'Este correo ya esta registrado. Inicia sesion con email y contrasena o vincula Google desde tu perfil.'
+
+function getErrorMessage(error: unknown) {
+  if (typeof error === 'string') {
+    return error
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string') {
+      return message
+    }
+  }
+
+  return 'No se completo el inicio de sesion con Google'
+}
+
+function isGoogleEmailConflictError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase()
+
+  return (
+    message.includes('already registered') ||
+    message.includes('already exists') ||
+    message.includes('email exists') ||
+    message.includes('email already') ||
+    message.includes('registered with') ||
+    message.includes('same email') ||
+    message.includes('user already') ||
+    message.includes('account exists')
+  )
+}
+
+export function toFriendlyGoogleAuthError(error: unknown) {
+  if (isGoogleEmailConflictError(error)) {
+    console.log('[GoogleAuth] email conflict detected. emailExists=true')
+    const friendlyError = new Error(GOOGLE_EMAIL_CONFLICT_MESSAGE) as Error & {
+      code?: string
+    }
+    friendlyError.code = 'google_email_conflict'
+    return friendlyError
+  }
+
+  const fallback = new Error(getErrorMessage(error)) as Error & { code?: string }
+  if (error && typeof error === 'object' && 'code' in error) {
+    const codeValue = (error as { code?: unknown }).code
+    if (typeof codeValue === 'string') {
+      fallback.code = codeValue
+    }
+  }
+  return fallback
+}
+
 export async function signUpWithEmail(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -44,7 +97,7 @@ export async function signInWithEmail(email: string, password: string) {
   })
 
   if (error) {
-    throw error
+    throw toFriendlyGoogleAuthError(error)
   }
 
   return data
@@ -155,7 +208,7 @@ export async function completeOAuthFromUrl(
     console.log('[GoogleAuth] callback error found:', callbackError)
     return {
       session: null,
-      error: new Error(callbackError),
+      error: toFriendlyGoogleAuthError(new Error(callbackError)),
       hasCredentials: false,
     }
   }
@@ -166,7 +219,11 @@ export async function completeOAuthFromUrl(
 
     if (error) {
       console.log('[GoogleAuth] exchangeCodeForSession error:', error.message)
-      return { session: null, error, hasCredentials: true }
+      return {
+        session: null,
+        error: toFriendlyGoogleAuthError(error),
+        hasCredentials: true,
+      }
     }
 
     const finalSession = session ?? (await getCurrentSession())
@@ -189,7 +246,11 @@ export async function completeOAuthFromUrl(
 
     if (error) {
       console.log('[GoogleAuth] setSession error:', error.message)
-      return { session: null, error, hasCredentials: true }
+      return {
+        session: null,
+        error: toFriendlyGoogleAuthError(error),
+        hasCredentials: true,
+      }
     }
 
     const finalSession = data.session ?? (await getCurrentSession())
@@ -208,7 +269,9 @@ export async function completeOAuthFromUrl(
 
   return {
     session: null,
-    error: new Error('No se completó el inicio de sesión con Google'),
+    error: toFriendlyGoogleAuthError(
+      new Error('No se completo el inicio de sesion con Google')
+    ),
     hasCredentials: false,
   }
 }
@@ -230,7 +293,7 @@ export async function signInWithGoogle() {
   console.log('OAuth provider url exists:', Boolean(data?.url))
 
   if (!data?.url) {
-    throw new Error('No se pudo iniciar OAuth con Google')
+    throw toFriendlyGoogleAuthError(new Error('No se pudo iniciar OAuth con Google'))
   }
 
   const result = await WebBrowser.openAuthSessionAsync(
@@ -256,14 +319,16 @@ export async function signInWithGoogle() {
   }
 
   if (result.type !== 'success') {
-    throw new Error('No se completó el inicio de sesión con Google')
+    throw toFriendlyGoogleAuthError(
+      new Error('No se completo el inicio de sesion con Google')
+    )
   }
 
   if (resultUrl) {
     const completed = await completeOAuthFromUrl(resultUrl)
 
     if (completed.error) {
-      throw completed.error
+      throw toFriendlyGoogleAuthError(completed.error)
     }
 
     if (completed.session) {
@@ -277,7 +342,9 @@ export async function signInWithGoogle() {
   console.log('[GoogleAuth] getSession after OAuth hasSession:', Boolean(session))
 
   if (!session) {
-    throw new Error('No se completó el inicio de sesión con Google')
+    throw toFriendlyGoogleAuthError(
+      new Error('No se completo el inicio de sesion con Google')
+    )
   }
 
   console.log('[GoogleAuth] signInWithGoogle finished')

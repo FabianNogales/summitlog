@@ -9,9 +9,20 @@ interface CreatePostCommentInput {
 
 const MIN_COMMENT_LENGTH = 3
 
+function normalizeAuthor(author: unknown) {
+  if (Array.isArray(author)) {
+    return (author[0] ?? null) as SocialPostAuthor | null
+  }
+
+  if (author && typeof author === 'object') {
+    return author as SocialPostAuthor
+  }
+
+  return null
+}
+
 function normalizeCommentRecord(record: any): SocialPostComment {
-  const authorArray = Array.isArray(record.author) ? record.author : []
-  const author = (authorArray[0] ?? null) as SocialPostAuthor | null
+  const author = normalizeAuthor(record.author)
 
   return {
     id: record.id,

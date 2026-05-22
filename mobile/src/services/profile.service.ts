@@ -34,6 +34,15 @@ function isDuplicateUsernameError(error: unknown) {
   return Boolean(pgError && pgError.code === "23505" && pgError.message?.includes("username"));
 }
 
+function mapProfileUpdateErrorMessage(error: unknown) {
+  if (isDuplicateUsernameError(error)) {
+    return "Ese username ya esta en uso. Elige otro.";
+  }
+
+  const pgError = error as PostgrestError | null;
+  return pgError?.message ?? "No se pudo actualizar el perfil.";
+}
+
 export async function createProfile(params: CreateProfileParams) {
   const { data, error } = await withTimeout(
     supabase
@@ -52,6 +61,9 @@ export async function createProfile(params: CreateProfileParams) {
   );
 
   if (error) {
+    if (isDuplicateUsernameError(error)) {
+      throw new Error("Ese username ya esta en uso. Elige otro.");
+    }
     throw error;
   }
 
@@ -72,10 +84,12 @@ export async function getProfileById(userId: string) {
 }
 
 export async function updateProfile(params: UpdateProfileParams) {
+  const normalizedUsername = params.username?.trim();
+
   const { data, error } = await supabase
     .from("profiles")
     .update({
-      username: params.username,
+      username: normalizedUsername,
       full_name: params.full_name ?? null,
       avatar_url: params.avatar_url ?? null,
       bio: params.bio ?? null,
@@ -86,7 +100,7 @@ export async function updateProfile(params: UpdateProfileParams) {
     .single();
 
   if (error) {
-    throw error;
+    throw new Error(mapProfileUpdateErrorMessage(error));
   }
 
   return data as Profile;
@@ -120,10 +134,16 @@ function buildBaseUsername(user: User) {
       ? metadata.user_name
       : typeof metadata.preferred_username === "string"
         ? metadata.preferred_username
+        : typeof metadata.full_name === "string"
+          ? metadata.full_name
+          : typeof metadata.name === "string"
+            ? metadata.name
         : null;
 
-  const raw = metadataName ?? emailPrefix ?? user.id.slice(0, 8);
+  const raw = emailPrefix ?? metadataName ?? user.id.slice(0, 8);
   const normalized = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9._-]/g, "")
     .replace(/^[._-]+|[._-]+$/g, "");

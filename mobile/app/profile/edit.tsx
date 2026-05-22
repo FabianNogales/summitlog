@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,10 +17,15 @@ import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
 import { AuthButton } from '../../src/components/auth/AuthButton'
 import { AuthInput } from '../../src/components/auth/AuthInput'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
 
 export default function EditProfileScreen() {
   const router = useRouter()
   const { user, profile, updateMyProfile } = useAuth()
+  const scrollRef = useRef<ScrollView | null>(null)
 
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
@@ -36,8 +41,15 @@ export default function EditProfileScreen() {
   }, [profile])
 
   async function handleSave() {
-    if (!username.trim()) {
+    const normalizedUsername = username.trim()
+
+    if (!normalizedUsername) {
       Alert.alert('Campo obligatorio', 'El username es obligatorio.')
+      return
+    }
+
+    if (normalizedUsername.length < 3) {
+      Alert.alert('Username invalido', 'El username debe tener al menos 3 caracteres.')
       return
     }
 
@@ -45,7 +57,7 @@ export default function EditProfileScreen() {
       setIsSubmitting(true)
 
       await updateMyProfile({
-        username: username.trim(),
+        username: normalizedUsername,
         full_name: fullName.trim() || null,
         bio: bio.trim() || null,
       })
@@ -66,10 +78,16 @@ export default function EditProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 36 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -121,6 +139,7 @@ export default function EditProfileScreen() {
               value={username}
               onChangeText={setUsername}
               iconName="user"
+              onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
             <AuthInput
@@ -130,6 +149,7 @@ export default function EditProfileScreen() {
               onChangeText={setFullName}
               iconName="edit-3"
               autoCapitalize="words"
+              onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
             <View style={{ marginBottom: 18 }}>
@@ -176,6 +196,7 @@ export default function EditProfileScreen() {
               <TextInput
                 value={bio}
                 onChangeText={setBio}
+                onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                 placeholder="Cuéntanos algo sobre ti..."
                 placeholderTextColor={colors.placeholder}
                 multiline

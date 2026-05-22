@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,10 @@ import {
   updateContentReportStatus,
 } from '../../src/services/moderation.service'
 import type { ModerationContentReport, ModerationStatusFilter } from '../../src/types/moderation'
+import {
+  FORM_SCROLL_BOTTOM_PADDING,
+  scrollToFocusedInput,
+} from '../../src/utils/keyboard'
 
 function shortId(value: string) {
   if (!value) return '-'
@@ -32,6 +36,7 @@ function shortId(value: string) {
 export default function ModerationScreen() {
   const router = useRouter()
   const { loading: authLoading, profile } = useAuth()
+  const scrollRef = useRef<ScrollView | null>(null)
 
   const [reports, setReports] = useState<ModerationContentReport[]>([])
   const [loading, setLoading] = useState(true)
@@ -161,10 +166,16 @@ export default function ModerationScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          ref={scrollRef}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+          }}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
@@ -340,6 +351,7 @@ export default function ModerationScreen() {
                     <TextInput
                       value={statusDraft}
                       onChangeText={(value) => updateStatusDraft(report.id, value)}
+                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                       placeholder="Nuevo estado"
                       placeholderTextColor={colors.placeholder}
                       autoCapitalize="none"
