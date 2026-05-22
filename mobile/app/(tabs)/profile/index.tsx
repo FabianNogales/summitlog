@@ -1,6 +1,8 @@
 import { Alert, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useState } from "react";
+import * as ImagePicker from "expo-image-picker";
 
 import { useAuth } from "../../../src/hooks/useAuth";
 import { colors } from "../../../src/theme/colors";
@@ -11,11 +13,13 @@ import { ProfileSummaryCard } from "../../../src/components/profile/ProfileSumma
 import { HistoryEmptyState } from "../../../src/components/profile/HistoryEmptyState";
 import { TripHistoryItem } from "../../../src/components/profile/TripHistoryItem";
 import { useTripHistory } from "../../../src/hooks/useTripHistory";
+import { uploadAvatarToStorage } from "../../../src/services/profile.service";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, updateMyProfile } = useAuth();
   const { trips, stats, loading } = useTripHistory();
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
   async function handleSignOut() {
@@ -33,6 +37,82 @@ export default function ProfileScreen() {
     );
   }
 
+  async function handleChangeAvatar() {
+    console.log("[Avatar] user exists", Boolean(user));
+
+    if (!user) {
+      Alert.alert("Inicia sesion", "Debes iniciar sesion para actualizar tu avatar.");
+      return;
+    }
+
+    if (!profile) {
+      Alert.alert("Perfil no disponible", "No se pudo cargar tu perfil.");
+      return;
+    }
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permiso requerido",
+          "Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: false,
+        selectionLimit: 1,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const selectedImage = result.assets[0];
+      const fileExtension = selectedImage.fileName?.split(".").pop()?.toLowerCase() ?? null;
+      console.log("[Avatar] selected asset uri exists", Boolean(selectedImage.uri));
+      console.log("[Avatar] file name/ext", selectedImage.fileName ?? "unknown", fileExtension);
+      console.log("[Avatar] mime type", selectedImage.mimeType ?? "unknown");
+      console.log("[Avatar] file size", selectedImage.fileSize ?? "unknown");
+
+      setAvatarUploading(true);
+      const { publicUrl } = await uploadAvatarToStorage({
+        userId: user.id,
+        fileUri: selectedImage.uri,
+        fileName: selectedImage.fileName ?? null,
+        mimeType: selectedImage.mimeType ?? null,
+        fileSize: selectedImage.fileSize ?? null,
+      });
+
+      try {
+        console.log("[Avatar] update profile start");
+        await updateMyProfile({
+          username: profile.username,
+          full_name: profile.full_name,
+          bio: profile.bio,
+          avatar_url: publicUrl,
+        });
+        console.log("[Avatar] update profile success");
+      } catch (profileError: any) {
+        console.log("[Avatar] update profile error", profileError?.message ?? "unknown");
+        throw new Error("La imagen se subio, pero no se pudo actualizar el perfil.");
+      }
+
+      Alert.alert("Avatar actualizado", "Tu foto de perfil se actualizo correctamente.");
+    } catch (error: any) {
+      console.log("[Avatar] flow error", error?.message ?? "unknown");
+      Alert.alert("Error al actualizar avatar", error.message ?? "No se pudo actualizar el avatar.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -43,15 +123,12 @@ export default function ProfileScreen() {
             fullName={profile?.full_name}
             username={profile?.username}
             email={user?.email}
+            avatarUrl={profile?.avatar_url}
+            avatarUploading={avatarUploading}
             completedRoutes={stats.completedTrips}
             journalCount={stats.journalCount}
             kilometers={stats.totalDistanceKm}
-            onPressAvatar={() =>
-              Alert.alert(
-                "Proximamente",
-                "La actualizacion de foto de perfil la implementaremos despues.",
-              )
-            }
+            onPressAvatar={handleChangeAvatar}
           />
 
           <View style={{ marginTop: 20 }}>

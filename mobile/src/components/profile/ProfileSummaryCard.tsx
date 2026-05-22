@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native'
+import { useEffect, useState } from 'react'
 import { Feather } from '@expo/vector-icons'
 import { colors } from '../../theme/colors'
 import { ProfileStat } from './ProfileStat'
@@ -7,6 +8,8 @@ interface ProfileSummaryCardProps {
   fullName?: string | null
   username?: string | null
   email?: string | null
+  avatarUrl?: string | null
+  avatarUploading?: boolean
   completedRoutes?: number
   journalCount?: number
   kilometers?: number
@@ -34,17 +37,26 @@ export function ProfileSummaryCard({
   fullName,
   username,
   email,
+  avatarUrl,
+  avatarUploading = false,
   completedRoutes = 0,
   journalCount = 0,
   kilometers = 0,
   onPressAvatar,
 }: ProfileSummaryCardProps) {
   const initials = getInitials(fullName, username)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
   const normalizedUsername = username?.trim() || ''
   const displayName =
     normalizedUsername.length > 0
       ? `@${normalizedUsername}`
       : fullName?.trim() || 'Usuario SummitLog'
+  const canRenderAvatar = Boolean(avatarUrl) && !avatarLoadFailed
+  const safeAvatarUrl = canRenderAvatar && avatarUrl ? avatarUrl : undefined
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+  }, [avatarUrl])
 
   return (
     <View
@@ -58,7 +70,9 @@ export function ProfileSummaryCard({
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ position: 'relative', marginRight: 14 }}>
-          <View
+          <Pressable
+            onPress={onPressAvatar}
+            disabled={avatarUploading}
             style={{
               width: 62,
               height: 62,
@@ -66,21 +80,35 @@ export function ProfileSummaryCard({
               backgroundColor: colors.primary,
               alignItems: 'center',
               justifyContent: 'center',
+              overflow: 'hidden',
             }}
           >
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 24,
-                fontWeight: '700',
-              }}
-            >
-              {initials}
-            </Text>
-          </View>
+            {safeAvatarUrl ? (
+              <Image
+                source={{ uri: safeAvatarUrl }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+                onError={() => {
+                  console.log('[Avatar] image render error');
+                  setAvatarLoadFailed(true)
+                }}
+              />
+            ) : (
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 24,
+                  fontWeight: '700',
+                }}
+              >
+                {initials}
+              </Text>
+            )}
+          </Pressable>
 
           <Pressable
             onPress={onPressAvatar}
+            disabled={avatarUploading}
             style={{
               position: 'absolute',
               bottom: -2,
@@ -95,7 +123,11 @@ export function ProfileSummaryCard({
               borderColor: colors.border,
             }}
           >
-            <Feather name="camera" size={12} color={colors.text} />
+            {avatarUploading ? (
+              <ActivityIndicator size="small" color={colors.text} />
+            ) : (
+              <Feather name="camera" size={12} color={colors.text} />
+            )}
           </Pressable>
         </View>
 

@@ -69,7 +69,11 @@ export default function JournalEditorScreen() {
 
   async function handleAddPhotos() {
     try {
-      await pickAndUploadImages()
+      const { uploadedCount } = await pickAndUploadImages()
+
+      if (uploadedCount === 0) {
+        return
+      }
 
       Alert.alert(
         'Fotos cargadas',
@@ -308,3 +312,4 @@ export default function JournalEditorScreen() {
     </SafeAreaView>
   )
 }
+

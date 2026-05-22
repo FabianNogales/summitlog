@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase";
 import type { Profile } from "../types/profile";
 import type { PostgrestError, User } from "@supabase/supabase-js";
+import * as FileSystem from "expo-file-system/legacy";
+import { decode as decodeBase64 } from "base64-arraybuffer";
 
 interface CreateProfileParams {
   id: string;
@@ -19,6 +21,44 @@ interface UpdateProfileParams {
 }
 
 const PROFILE_TIMEOUT_MS = 8000;
+export const AVATAR_BUCKET = "avatars";
+export const MAX_AVATAR_IMAGE_SIZE_MB = 10;
+const MAX_AVATAR_IMAGE_SIZE_BYTES = MAX_AVATAR_IMAGE_SIZE_MB * 1024 * 1024;
+const SUPPORTED_AVATAR_MIME_TYPES = new Set(["image/jpeg", "image/jpg", "image/png"]);
+const SUPPORTED_AVATAR_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
+
+interface UploadAvatarParams {
+  userId: string;
+  fileUri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+}
+
+interface UploadAvatarResult {
+  publicUrl: string;
+  path: string;
+}
+
+type AvatarErrorCode =
+  | "invalid_format"
+  | "size_exceeded"
+  | "file_read"
+  | "arraybuffer_conversion"
+  | "bucket_missing"
+  | "storage_permission"
+  | "storage_upload"
+  | "public_url";
+
+class AvatarUploadError extends Error {
+  code: AvatarErrorCode;
+
+  constructor(code: AvatarErrorCode, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "AvatarUploadError";
+  }
+}
 
 function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string) {
   return Promise.race<T>([
@@ -41,6 +81,189 @@ function mapProfileUpdateErrorMessage(error: unknown) {
 
   const pgError = error as PostgrestError | null;
   return pgError?.message ?? "No se pudo actualizar el perfil.";
+}
+
+function getFileExtension(fileName?: string | null) {
+  return fileName?.split(".").pop()?.toLowerCase() ?? null;
+}
+
+function resolveAvatarContentType(mimeType?: string | null, extension?: string | null) {
+  const normalizedMime = mimeType?.toLowerCase();
+
+  if (normalizedMime === "image/png") {
+    return "image/png";
+  }
+
+  if (normalizedMime === "image/jpeg" || normalizedMime === "image/jpg") {
+    return "image/jpeg";
+  }
+
+  if (extension === "png") {
+    return "image/png";
+  }
+
+  return "image/jpeg";
+}
+
+function isSupportedAvatar(mimeType?: string | null, fileName?: string | null) {
+  const normalizedMime = mimeType?.toLowerCase() ?? "";
+  const extension = getFileExtension(fileName);
+
+  if (normalizedMime && SUPPORTED_AVATAR_MIME_TYPES.has(normalizedMime)) {
+    return true;
+  }
+
+  if (extension && SUPPORTED_AVATAR_EXTENSIONS.has(extension)) {
+    return true;
+  }
+
+  return false;
+}
+
+function normalizeStorageErrorFields(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return {
+      name: null,
+      message: null,
+      statusCode: null,
+      details: null,
+      errorCode: null,
+    };
+  }
+
+  const raw = error as Record<string, unknown>;
+
+  return {
+    name: typeof raw.name === "string" ? raw.name : null,
+    message: typeof raw.message === "string" ? raw.message : null,
+    statusCode:
+      typeof raw.statusCode === "string" || typeof raw.statusCode === "number"
+        ? raw.statusCode
+        : null,
+    details: typeof raw.details === "string" ? raw.details : null,
+    errorCode: typeof raw.error === "string" ? raw.error : null,
+  };
+}
+
+function mapStorageUploadError(error: unknown) {
+  const fields = normalizeStorageErrorFields(error);
+  const combined = `${fields.message ?? ""} ${fields.details ?? ""} ${fields.errorCode ?? ""}`.toLowerCase();
+  const statusCode = String(fields.statusCode ?? "");
+
+  if (
+    statusCode === "404" ||
+    combined.includes("bucket not found") ||
+    (combined.includes("not found") && combined.includes("bucket"))
+  ) {
+    return new AvatarUploadError("bucket_missing", "No existe el bucket de avatares en Storage.");
+  }
+
+  if (
+    statusCode === "401" ||
+    statusCode === "403" ||
+    combined.includes("row-level security") ||
+    combined.includes("permission denied") ||
+    combined.includes("not allowed")
+  ) {
+    return new AvatarUploadError(
+      "storage_permission",
+      "No tienes permisos para subir avatar. Revisa policies del bucket avatars."
+    );
+  }
+
+  return new AvatarUploadError("storage_upload", "No se pudo subir el avatar a Storage.");
+}
+
+function mapAvatarUploadError(error: unknown) {
+  if (error instanceof AvatarUploadError) {
+    return error;
+  }
+
+  const fields = normalizeStorageErrorFields(error);
+  console.log("[Avatar] unknown error details", fields);
+
+  return new AvatarUploadError("storage_upload", "No se pudo subir el avatar.");
+}
+
+export async function uploadAvatarToStorage(params: UploadAvatarParams): Promise<UploadAvatarResult> {
+  console.log("[Avatar] bucket avatars");
+
+  if (!isSupportedAvatar(params.mimeType, params.fileName)) {
+    throw new AvatarUploadError("invalid_format", "Solo se permiten imagenes JPG o PNG.");
+  }
+
+  if ((params.fileSize ?? 0) > MAX_AVATAR_IMAGE_SIZE_BYTES) {
+    throw new AvatarUploadError("size_exceeded", "La imagen supera el limite permitido.");
+  }
+
+  const extension =
+    getFileExtension(params.fileName) || (params.mimeType?.includes("png") ? "png" : "jpg");
+  const contentType = resolveAvatarContentType(params.mimeType, extension);
+  const path = `${params.userId}/avatar-${Date.now()}.${extension}`;
+  let base64Content: string;
+  let arrayBuffer: ArrayBuffer;
+
+  try {
+    console.log("[Avatar] read base64 start");
+    base64Content = await FileSystem.readAsStringAsync(params.fileUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    console.log("[Avatar] read base64 success");
+  } catch (error) {
+    console.log("[Avatar] file read error", normalizeStorageErrorFields(error));
+    throw new AvatarUploadError("file_read", "No se pudo leer la imagen seleccionada.");
+  }
+
+  try {
+    arrayBuffer = decodeBase64(base64Content);
+    if (!arrayBuffer.byteLength) {
+      throw new AvatarUploadError(
+        "arraybuffer_conversion",
+        "No se pudo convertir la imagen seleccionada."
+      );
+    }
+    console.log("[Avatar] arrayBuffer size", arrayBuffer.byteLength);
+  } catch (error) {
+    console.log("[Avatar] arrayBuffer conversion error", normalizeStorageErrorFields(error));
+    throw new AvatarUploadError(
+      "arraybuffer_conversion",
+      "No se pudo convertir la imagen seleccionada."
+    );
+  }
+
+  try {
+    console.log("[Avatar] upload start");
+    const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(path, arrayBuffer, {
+      contentType,
+      upsert: true,
+    });
+
+    if (uploadError) {
+      const mappedError = mapStorageUploadError(uploadError);
+      console.log("[Avatar] upload error", {
+        status: normalizeStorageErrorFields(uploadError).statusCode,
+        message: normalizeStorageErrorFields(uploadError).message,
+        name: normalizeStorageErrorFields(uploadError).name,
+        details: normalizeStorageErrorFields(uploadError).details,
+      });
+      throw mappedError;
+    }
+
+    console.log("[Avatar] upload success path", path);
+    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+    console.log("[Avatar] public URL generated", Boolean(data.publicUrl));
+
+    if (!data.publicUrl) {
+      throw new AvatarUploadError("public_url", "No se pudo obtener la URL publica del avatar.");
+    }
+
+    return {
+      publicUrl: data.publicUrl,
+      path,
+    };
+  } catch (error) {
+    throw mapAvatarUploadError(error);
+  }
 }
 
 export async function createProfile(params: CreateProfileParams) {

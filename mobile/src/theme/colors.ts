@@ -17,15 +17,15 @@ export const colors = {
   textMuted: '#7F9187',
 
   // Brand - Neon Green
-  primary: '#39FF88',
-  primaryHover: '#62FF9F',
-  primaryDark: '#2DCC6D',
-  primaryGradient: 'linear-gradient(135deg, #39FF88 0%, #00E676 100%)',
+  primary: '#22C55E',
+  primaryHover: '#2DD06A',
+  primaryDark: '#199347',
+  primaryGradient: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
 
   // Accent
-  accent: '#00E676',
-  accentHover: '#39FF88',
-  accentDark: '#00C25C',
+  accent: '#16A34A',
+  accentHover: '#22C55E',
+  accentDark: '#127A39',
 
   // States
   success: '#6EE7A8',
@@ -35,36 +35,36 @@ export const colors = {
   // UI Elements
   inputBg: '#0A0F0C',
   chipBg: '#131A17',
-  chipActiveBg: '#39FF88',
+  chipActiveBg: '#22C55E',
   chipActiveText: '#050706',
 
   // Navigation
   navInactive: '#7F9187',
-  navActive: '#39FF88',
+  navActive: '#22C55E',
 
   // Map / Pins
   mapPinBg: 'rgba(13, 18, 16, 0.85)',
-  mapPinBorder: '#00E676',
+  mapPinBorder: '#16A34A',
 
   // Buttons
   buttonSecondaryBg: 'transparent',
-  buttonSecondaryBorder: '#00E676',
-  buttonSecondaryText: '#00E676',
+  buttonSecondaryBorder: '#16A34A',
+  buttonSecondaryText: '#16A34A',
 
   // Overlays
   overlay: 'rgba(5, 7, 6, 0.84)',
   overlayLight: 'rgba(5, 7, 6, 0.58)',
 
   // Transparency variants
-  borderTransparent: 'rgba(57, 255, 136, 0.22)',
-  bgElevatedTransparent: 'rgba(57, 255, 136, 0.08)',
+  borderTransparent: 'rgba(34, 197, 94, 0.22)',
+  bgElevatedTransparent: 'rgba(34, 197, 94, 0.08)',
   textSecondaryLight: 'rgba(234, 247, 238, 0.82)',
 
   // Legacy aliases for backwards compatibility
   background: '#050706',
   card: '#0D1210',
   cardSecondary: '#131A17',
-  primaryPressed: '#2DCC6D',
+  primaryPressed: '#199347',
   text: '#EAF7EE',
   placeholder: '#7F9187',
   border: '#22312A',
