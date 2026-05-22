@@ -1,8 +1,20 @@
-import { Alert, SafeAreaView, Text, View } from 'react-native'
+import { Alert, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { AuthButton } from '../../src/components/auth/AuthButton'
 import { colors } from '../../src/theme/colors'
 import { useOfflineTripRecorder } from '../../src/hooks/useOfflineTripRecorder'
 import { useOfflineSync } from '../../src/hooks/useOfflineSync'
+
+function getSyncStatusLabel(
+  syncStatus: 'idle' | 'syncing' | 'synced' | 'empty' | 'error',
+  pendingCount: number
+) {
+  if (syncStatus === 'syncing') return 'Sincronizando...'
+  if (syncStatus === 'error') return 'Error al sincronizar'
+  if (pendingCount === 0 && syncStatus === 'synced') return 'Todo sincronizado'
+  if (pendingCount === 0) return 'No hay recorridos pendientes'
+  return 'Sincronizar recorridos'
+}
 
 export default function RecordScreen() {
   const {
@@ -11,6 +23,9 @@ export default function RecordScreen() {
     totalDistanceM,
     lastLatitude,
     lastLongitude,
+    backgroundPermissionGranted,
+    backgroundTrackingActive,
+    backgroundStatusMessage,
     isStarting,
     isTracking,
     isFinishing,
@@ -21,8 +36,21 @@ export default function RecordScreen() {
   const {
     pendingCount,
     syncing,
+    syncStatus,
+    lastSyncError,
     syncNow,
   } = useOfflineSync()
+
+  const syncStatusLabel = getSyncStatusLabel(syncStatus, pendingCount)
+  const syncButtonTitle = syncing
+    ? 'Sincronizando...'
+    : pendingCount === 0
+      ? syncStatus === 'error'
+        ? 'Error al sincronizar'
+        : syncStatus === 'synced'
+          ? 'Todo sincronizado'
+          : 'No hay recorridos pendientes'
+      : 'Sincronizar recorridos'
 
   async function handleStartTrip() {
     try {
@@ -30,7 +58,7 @@ export default function RecordScreen() {
 
       Alert.alert(
         'Tracking offline iniciado',
-        'El recorrido se está guardando localmente en el dispositivo.'
+        'El recorrido se esta guardando localmente en el dispositivo.'
       )
     } catch (error: any) {
       Alert.alert(
@@ -46,7 +74,7 @@ export default function RecordScreen() {
 
       Alert.alert(
         'Recorrido guardado',
-        'El recorrido se guardó localmente y quedó pendiente de sincronización.'
+        'El recorrido se guardo localmente y quedo pendiente de sincronizacion.'
       )
     } catch (error: any) {
       Alert.alert(
@@ -57,12 +85,30 @@ export default function RecordScreen() {
   }
 
   async function handleManualSync() {
+    if (syncing) {
+      return
+    }
+
+    if (pendingCount === 0) {
+      Alert.alert(
+        'Sincronizacion',
+        'No hay recorridos pendientes por sincronizar.'
+      )
+      return
+    }
+
     try {
       const result = await syncNow()
+      const summary = [
+        `Total pendientes: ${result.total}`,
+        `Sincronizados: ${result.synced}`,
+        `Ya sincronizados: ${result.alreadySynced}`,
+        `Fallidos: ${result.failed}`,
+      ].join('\n')
 
       Alert.alert(
-        'Sincronización completada',
-        `Total pendientes: ${result.total}\nSincronizados: ${result.synced}\nFallidos: ${result.failed}`
+        result.failed > 0 ? 'Sincronizacion con errores' : 'Sincronizacion completada',
+        summary
       )
     } catch (error: any) {
       Alert.alert(
@@ -94,7 +140,7 @@ export default function RecordScreen() {
             lineHeight: 22,
           }}
         >
-          Inicia una actividad y SummitLog guardará el recorrido localmente,
+          Inicia una actividad y SummitLog guardara el recorrido localmente,
           incluso si no tienes internet.
         </Text>
 
@@ -110,12 +156,20 @@ export default function RecordScreen() {
           }}
         >
           <Text style={{ color: colors.text, fontWeight: '700' }}>
-            Sincronización offline
+            Sincronizacion offline
+          </Text>
+
+          <Text style={{ color: colors.textSecondary }}>
+            Estado: {syncStatusLabel}
           </Text>
 
           <Text style={{ color: colors.textSecondary }}>
             Recorridos pendientes: {pendingCount}
           </Text>
+
+          {syncStatus === 'error' && lastSyncError ? (
+            <Text style={{ color: colors.danger }}>{lastSyncError}</Text>
+          ) : null}
         </View>
 
         {activeLocalTripId ? (
@@ -147,11 +201,27 @@ export default function RecordScreen() {
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Última ubicación:{' '}
+              Ultima ubicacion:{' '}
               {lastLatitude && lastLongitude
                 ? `${lastLatitude.toFixed(5)}, ${lastLongitude.toFixed(5)}`
-                : 'Aún no disponible'}
+                : 'Aun no disponible'}
             </Text>
+
+            <Text style={{ color: colors.textSecondary }}>
+              Tracking en segundo plano:{' '}
+              {backgroundTrackingActive ? 'Activo' : 'No activo'}
+            </Text>
+
+            <Text style={{ color: colors.textSecondary }}>
+              Permiso background:{' '}
+              {backgroundPermissionGranted ? 'Concedido' : 'No concedido'}
+            </Text>
+
+            {backgroundStatusMessage ? (
+              <Text style={{ color: colors.textSecondary }}>
+                {backgroundStatusMessage}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -172,7 +242,7 @@ export default function RecordScreen() {
             />
 
             <AuthButton
-              title="Sincronizar ahora"
+              title={syncButtonTitle}
               onPress={handleManualSync}
               loading={syncing}
             />

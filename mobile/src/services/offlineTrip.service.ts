@@ -26,6 +26,17 @@ interface AddOfflineTripPointParams {
   capturedAt?: string
 }
 
+interface AddOfflineTripPointAutoOrderParams {
+  localTripId: string
+  latitude: number
+  longitude: number
+  altitudeM?: number | null
+  accuracyM?: number | null
+  speedMps?: number | null
+  headingDeg?: number | null
+  capturedAt?: string
+}
+
 interface CompleteOfflineTripParams {
   localTripId: string
   endedAt: string
@@ -126,6 +137,34 @@ export async function addOfflineRecordedTripPoint(
   )
 
   return getOfflineRecordedTripPointById(localId)
+}
+
+export async function addOfflineRecordedTripPointWithAutoOrder(
+  params: AddOfflineTripPointAutoOrderParams
+) {
+  const db = await getOfflineDb()
+  const orderRow = await db.getFirstAsync<{ max_order: number | null }>(
+    `
+      SELECT MAX(point_order) as max_order
+      FROM offline_recorded_trip_points
+      WHERE local_trip_id = ?
+    `,
+    [params.localTripId]
+  )
+
+  const nextPointOrder = Number(orderRow?.max_order ?? -1) + 1
+
+  return addOfflineRecordedTripPoint({
+    localTripId: params.localTripId,
+    pointOrder: nextPointOrder,
+    latitude: params.latitude,
+    longitude: params.longitude,
+    altitudeM: params.altitudeM ?? null,
+    accuracyM: params.accuracyM ?? null,
+    speedMps: params.speedMps ?? null,
+    headingDeg: params.headingDeg ?? null,
+    capturedAt: params.capturedAt,
+  })
 }
 
 export async function completeOfflineRecordedTrip(
@@ -249,7 +288,7 @@ export async function setOfflineTripRemoteId(
 ) {
   const db = await getOfflineDb()
 
-  await db.runAsync(
+  const result = await db.runAsync(
     `
       UPDATE offline_recorded_trips
       SET
@@ -259,6 +298,8 @@ export async function setOfflineTripRemoteId(
     `,
     [remoteId, new Date().toISOString(), localTripId]
   )
+
+  return result.changes > 0
 }
 
 export async function markOfflineTripSyncing(localTripId: string) {
@@ -328,5 +369,30 @@ export async function markOfflineTripPointsSynced(
       WHERE local_trip_id = ?
     `,
     [remoteTripId, 'synced', localTripId]
+  )
+}
+
+export async function markOfflineTripPointsSyncedByPointOrders(
+  localTripId: string,
+  remoteTripId: string,
+  pointOrders: number[]
+) {
+  if (pointOrders.length === 0) {
+    return
+  }
+
+  const db = await getOfflineDb()
+  const placeholders = pointOrders.map(() => '?').join(',')
+
+  await db.runAsync(
+    `
+      UPDATE offline_recorded_trip_points
+      SET
+        remote_trip_id = ?,
+        sync_status = ?
+      WHERE local_trip_id = ?
+      AND point_order IN (${placeholders})
+    `,
+    [remoteTripId, 'synced', localTripId, ...pointOrders]
   )
 }

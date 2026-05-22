@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
 import { AuthButton } from '../../src/components/auth/AuthButton'
@@ -282,7 +284,14 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ padding: 24 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
         <Text
           style={{
             color: colors.text,
@@ -416,6 +425,7 @@ export default function HomeScreen() {
           <ScrollView
             nestedScrollEnabled
             style={{ maxHeight: 420 }}
+            keyboardShouldPersistTaps="handled"
             refreshControl={
               <RefreshControl
                 refreshing={refreshingFeed}
@@ -638,7 +648,8 @@ export default function HomeScreen() {
             )}
           </ScrollView>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <ContentReportModal
         visible={Boolean(reportTargetDraft)}

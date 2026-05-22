@@ -1,4 +1,13 @@
-import { Modal, Pressable, Text, TextInput, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 
 import { AuthButton } from '../auth/AuthButton'
 import { colors } from '../../theme/colors'
@@ -56,124 +65,134 @@ export function ContentReportModal({
       transparent
       onRequestClose={onClose}
     >
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          justifyContent: 'center',
-          padding: 18,
-        }}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View
           style={{
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            borderWidth: 1,
-            borderRadius: 16,
-            padding: 16,
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            justifyContent: 'center',
+            padding: 18,
           }}
         >
-          <Text
-            style={{
-              color: colors.text,
-              fontSize: 18,
-              fontWeight: '700',
-              marginBottom: 6,
-            }}
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
           >
-            Denunciar contenido
-          </Text>
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 18,
+                  fontWeight: '700',
+                  marginBottom: 6,
+                }}
+              >
+                Denunciar contenido
+              </Text>
 
-          <Text style={{ color: colors.textSecondary, marginBottom: 14 }}>
-            Reportaras: {targetLabel}
-          </Text>
+              <Text style={{ color: colors.textSecondary, marginBottom: 14 }}>
+                Reportaras: {targetLabel}
+              </Text>
 
-          <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Motivo</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 }}>
-            {CONTENT_REPORT_REASONS.map((reasonOption) => {
-              const isActive = reasonOption === reason
-              return (
-                <Pressable
-                  key={reasonOption}
-                  onPress={() => onChangeReason(reasonOption)}
-                  style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: isActive ? colors.primary : colors.border,
-                    backgroundColor: isActive ? colors.primary : colors.cardSecondary,
-                    marginRight: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: isActive ? colors.text : colors.textSecondary,
-                      fontWeight: '600',
-                      fontSize: 12,
-                    }}
-                  >
-                    {formatReasonLabel(reasonOption)}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Motivo</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 }}>
+                {CONTENT_REPORT_REASONS.map((reasonOption) => {
+                  const isActive = reasonOption === reason
+                  return (
+                    <Pressable
+                      key={reasonOption}
+                      onPress={() => onChangeReason(reasonOption)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: isActive ? colors.primary : colors.border,
+                        backgroundColor: isActive ? colors.primary : colors.cardSecondary,
+                        marginRight: 8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: isActive ? colors.text : colors.textSecondary,
+                          fontWeight: '600',
+                          fontSize: 12,
+                        }}
+                      >
+                        {formatReasonLabel(reasonOption)}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
 
-          <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-            Descripcion (opcional)
-          </Text>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Descripcion (opcional)
+              </Text>
 
-          <TextInput
-            value={description}
-            onChangeText={onChangeDescription}
-            multiline
-            textAlignVertical="top"
-            placeholder="Describe por que este contenido es inapropiado..."
-            placeholderTextColor={colors.placeholder}
-            style={{
-              minHeight: 110,
-              backgroundColor: colors.cardSecondary,
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 12,
-              color: colors.text,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              marginBottom: 12,
-            }}
-          />
+              <TextInput
+                value={description}
+                onChangeText={onChangeDescription}
+                multiline
+                textAlignVertical="top"
+                placeholder="Describe por que este contenido es inapropiado..."
+                placeholderTextColor={colors.placeholder}
+                style={{
+                  minHeight: 110,
+                  backgroundColor: colors.cardSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 12,
+                  color: colors.text,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  marginBottom: 12,
+                }}
+              />
 
-          {errorMessage ? (
-            <Text style={{ color: colors.danger, marginBottom: 10 }}>
-              {errorMessage}
-            </Text>
-          ) : null}
+              {errorMessage ? (
+                <Text style={{ color: colors.danger, marginBottom: 10 }}>
+                  {errorMessage}
+                </Text>
+              ) : null}
 
-          <AuthButton title="Enviar denuncia" onPress={onSubmit} loading={loading} />
+              <AuthButton title="Enviar denuncia" onPress={onSubmit} loading={loading} />
 
-          <Pressable
-            onPress={onClose}
-            disabled={loading}
-            style={{
-              minHeight: 44,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.cardSecondary,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: 10,
-              opacity: loading ? 0.65 : 1,
-            }}
-          >
-            <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-              Cancelar
-            </Text>
-          </Pressable>
+              <Pressable
+                onPress={onClose}
+                disabled={loading}
+                style={{
+                  minHeight: 44,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.cardSecondary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 10,
+                  opacity: loading ? 0.65 : 1,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+                  Cancelar
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

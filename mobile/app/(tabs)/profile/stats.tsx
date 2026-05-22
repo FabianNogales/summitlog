@@ -1,6 +1,7 @@
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors } from '../../../src/theme/colors'
 import { useUserStats } from '../../../src/hooks/useUserStats'
 import { ProfileStat } from '../../../src/components/profile/ProfileStat'

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { completeOAuthFromUrl } from '../../src/services/auth.service'
 
@@ -110,15 +111,17 @@ export default function AuthCallbackScreen() {
   }, [routeParams, router])
 
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 24,
-      }}
-    >
-      <Text>Procesando inicio de sesion...</Text>
-    </View>
+    <SafeAreaView style={{ flex: 1 }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+        }}
+      >
+        <Text>Procesando inicio de sesion...</Text>
+      </View>
+    </SafeAreaView>
   )
 }

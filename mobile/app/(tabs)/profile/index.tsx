@@ -1,5 +1,6 @@
-import { Alert, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Alert, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../../src/hooks/useAuth";
 import { colors } from "../../../src/theme/colors";

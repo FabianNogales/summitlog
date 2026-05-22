@@ -179,6 +179,21 @@ export async function createRecordedTripPointsBulk(
   }
 }
 
+export async function getRecordedTripPointOrdersByTripId(recordedTripId: string) {
+  const { data, error } = await supabase
+    .from('recorded_trip_points')
+    .select('point_order')
+    .eq('recorded_trip_id', recordedTripId)
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? [])
+    .map((row) => Number(row.point_order))
+    .filter((value) => Number.isFinite(value))
+}
+
 export async function getRecordedTripPointsByTripId(recordedTripId: string) {
   const { data, error } = await supabase
     .from('recorded_trip_points')

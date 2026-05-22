@@ -1,7 +1,8 @@
-import { SafeAreaView, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { useCallback } from 'react'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { RoutesMap } from '../../src/components/map/RoutesMap'
 import { RoutesFiltersPanel } from '../../src/components/routes/RoutesFiltersPanel'
@@ -40,45 +41,50 @@ export default function RoutesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ padding: 16 }}>
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 24,
-            fontWeight: '700',
-            marginBottom: 6,
-          }}
-        >
-          Explorar rutas
-        </Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={{ padding: 16 }}>
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: 24,
+              fontWeight: '700',
+              marginBottom: 6,
+            }}
+          >
+            Explorar rutas
+          </Text>
 
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: 14,
-          }}
-        >
-          Descubre rutas publicadas por la comunidad.
-        </Text>
-      </View>
+          <Text
+            style={{
+              color: colors.textSecondary,
+              fontSize: 14,
+            }}
+          >
+            Descubre rutas publicadas por la comunidad.
+          </Text>
+        </View>
 
-      <View style={{ flex: 1 }}>
-        <RoutesMap
-          routes={filteredRoutes}
-          loading={loading}
-          error={error}
-          onPressRoute={handlePressRoute}
+        <View style={{ flex: 1 }}>
+          <RoutesMap
+            routes={filteredRoutes}
+            loading={loading}
+            error={error}
+            onPressRoute={handlePressRoute}
+          />
+        </View>
+
+        <RoutesFiltersPanel
+          filters={filters}
+          resultCount={filteredRoutes.length}
+          onChangeDifficulty={setDifficulty}
+          onChangeMaxDistanceKm={setMaxDistanceKm}
+          onChangeMaxDurationMin={setMaxDurationMin}
+          onClearFilters={clearFilters}
         />
-      </View>
-
-      <RoutesFiltersPanel
-        filters={filters}
-        resultCount={filteredRoutes.length}
-        onChangeDifficulty={setDifficulty}
-        onChangeMaxDistanceKm={setMaxDistanceKm}
-        onChangeMaxDurationMin={setMaxDurationMin}
-        onClearFilters={clearFilters}
-      />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }

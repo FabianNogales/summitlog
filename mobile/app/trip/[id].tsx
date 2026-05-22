@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   Switch,
   Text,
@@ -11,6 +12,7 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
@@ -149,7 +151,14 @@ export default function TripDetailScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
         <View
           style={{
             flexDirection: 'row',
@@ -451,7 +460,8 @@ export default function TripDetailScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
