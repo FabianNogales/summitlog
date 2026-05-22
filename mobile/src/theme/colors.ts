@@ -1,72 +1,71 @@
-// Color system for SummitLog - Mountain & Hiking App
-// Alpine Night Theme: volcanic black + glacier blue + campfire amber
+// Color system for SummitLog - Black + Neon Green theme
 
 export const colors = {
   // Backgrounds
-  bgMain: '#060708',          // negro roca profundo
-  bgSecondary: '#0D1012',     // fondo secundario tipo carbón
-  bgCard: '#151A1D',          // cards, filtros, navbar
-  bgElevated: '#1D2428',      // modales, paneles elevados
+  bgMain: '#050706',
+  bgSecondary: '#0A0F0C',
+  bgCard: '#0D1210',
+  bgElevated: '#131A17',
 
   // Borders
-  borderSoft: '#293136',
-  borderStrong: '#3F4A50',
+  borderSoft: '#22312A',
+  borderStrong: '#2D4037',
 
   // Text
-  textPrimary: '#F5F3EA',     // blanco cálido tipo nieve
-  textSecondary: '#C3C8C4',   // gris claro legible
-  textMuted: '#828B88',       // placeholders / texto apagado
+  textPrimary: '#EAF7EE',
+  textSecondary: '#A8B8AE',
+  textMuted: '#7F9187',
 
-  // Brand - Campfire Amber
-  primary: '#F2A65A',         // botón principal / activo
-  primaryHover: '#FFB86B',
-  primaryDark: '#B87534',
-  primaryGradient: 'linear-gradient(135deg, #F2A65A 0%, #E8893A 100%)',
+  // Brand - Neon Green
+  primary: '#39FF88',
+  primaryHover: '#62FF9F',
+  primaryDark: '#2DCC6D',
+  primaryGradient: 'linear-gradient(135deg, #39FF88 0%, #00E676 100%)',
 
-  // Accent - Glacier Blue (mapas, ubicaciones, info)
-  accent: '#7FA7B5',
-  accentHover: '#93BDCB',
-  accentDark: '#5D8A9A',
+  // Accent
+  accent: '#00E676',
+  accentHover: '#39FF88',
+  accentDark: '#00C25C',
 
   // States
-  success: '#7FA66A',         // verde natural, solo para éxito
-  warning: '#D9A441',
-  danger: '#D95F4C',
+  success: '#6EE7A8',
+  warning: '#E6C75A',
+  danger: '#E46A6A',
 
   // UI Elements
-  inputBg: '#0B0E12',
-  chipBg: '#181E21',
-  chipActiveBg: '#F2A65A',
-  chipActiveText: '#060708',
-  
+  inputBg: '#0A0F0C',
+  chipBg: '#131A17',
+  chipActiveBg: '#39FF88',
+  chipActiveText: '#050706',
+
   // Navigation
-  navInactive: '#828B88',
-  navActive: '#F2A65A',
-  
+  navInactive: '#7F9187',
+  navActive: '#39FF88',
+
   // Map / Pins
-  mapPinBg: 'rgba(21, 26, 29, 0.85)',
-  mapPinBorder: '#7FA7B5',
-  
+  mapPinBg: 'rgba(13, 18, 16, 0.85)',
+  mapPinBorder: '#00E676',
+
   // Buttons
   buttonSecondaryBg: 'transparent',
-  buttonSecondaryBorder: '#7FA7B5',
-  buttonSecondaryText: '#7FA7B5',
+  buttonSecondaryBorder: '#00E676',
+  buttonSecondaryText: '#00E676',
 
   // Overlays
-  overlay: 'rgba(6, 7, 8, 0.84)',
-  overlayLight: 'rgba(6, 7, 8, 0.58)',
+  overlay: 'rgba(5, 7, 6, 0.84)',
+  overlayLight: 'rgba(5, 7, 6, 0.58)',
 
   // Transparency variants
-  borderTransparent: 'rgba(242, 166, 90, 0.22)',
-  bgElevatedTransparent: 'rgba(242, 166, 90, 0.08)',
-  textSecondaryLight: 'rgba(245, 243, 234, 0.82)',
+  borderTransparent: 'rgba(57, 255, 136, 0.22)',
+  bgElevatedTransparent: 'rgba(57, 255, 136, 0.08)',
+  textSecondaryLight: 'rgba(234, 247, 238, 0.82)',
 
   // Legacy aliases for backwards compatibility
-  background: '#060708',
-  card: '#151A1D',
-  cardSecondary: '#1D2428',
-  primaryPressed: '#B87534',
-  text: '#F5F3EA',
-  placeholder: '#828B88',
-  border: '#293136',
-};
+  background: '#050706',
+  card: '#0D1210',
+  cardSecondary: '#131A17',
+  primaryPressed: '#2DCC6D',
+  text: '#EAF7EE',
+  placeholder: '#7F9187',
+  border: '#22312A',
+}

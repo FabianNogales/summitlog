@@ -20,6 +20,7 @@ interface AuthInputProps {
   keyboardType?: KeyboardTypeOptions
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
   onFocus?: TextInputProps['onFocus']
+  hideLabel?: boolean
 }
 
 export function AuthInput({
@@ -32,23 +33,26 @@ export function AuthInput({
   keyboardType = 'default',
   autoCapitalize = 'none',
   onFocus,
+  hideLabel = false,
 }: AuthInputProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
   const shouldHideText = secureTextEntry && !isPasswordVisible
 
   return (
-    <View style={{ marginBottom: 18 }}>
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: 14,
-          fontWeight: '600',
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </Text>
+    <View style={{ marginBottom: hideLabel ? 16 : 18 }}>
+      {!hideLabel ? (
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 14,
+            fontWeight: '600',
+            marginBottom: 8,
+          }}
+        >
+          {label}
+        </Text>
+      ) : null}
 
       <View
         style={{
@@ -57,16 +61,16 @@ export function AuthInput({
           backgroundColor: colors.cardSecondary,
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: 14,
-          paddingHorizontal: 14,
-          minHeight: 54,
+          borderRadius: 18,
+          paddingHorizontal: hideLabel ? 18 : 14,
+          minHeight: hideLabel ? 70 : 54,
         }}
       >
         <Feather
           name={iconName}
           size={18}
           color={colors.textSecondary}
-          style={{ marginRight: 10 }}
+          style={{ marginRight: 12 }}
         />
 
         <TextInput
@@ -81,7 +85,7 @@ export function AuthInput({
           style={{
             flex: 1,
             color: colors.text,
-            fontSize: 15,
+            fontSize: hideLabel ? 16 : 15,
           }}
         />
 

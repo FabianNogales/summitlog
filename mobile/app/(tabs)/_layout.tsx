@@ -1,6 +1,7 @@
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Tabs } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Activity, Home, Map, User } from "lucide-react-native";
 import { useAuth } from "../../src/hooks/useAuth";
 import { colors } from "../../src/theme/colors";
 
@@ -34,27 +35,39 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 64,
+          paddingTop: 8,
+          paddingBottom: 8,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
+        tabBarLabelStyle: {
+          fontSize: 12,
+        },
       }}
     >
       <Tabs.Screen
         name="routes"
         options={{
           title: "Explorar",
+          tabBarIcon: ({ color, size }) => <Map color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="home"
         options={{
           title: "Comunidad",
+          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="record"
         options={{
           title: "Registrar",
+          tabBarIcon: ({ color, size }) => (
+            <Activity color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -62,6 +75,7 @@ export default function TabsLayout() {
         options={{
           title: "Perfil",
           tabBarLabel: "Perfil",
+          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
       <Tabs.Screen
