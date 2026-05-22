@@ -22,6 +22,7 @@ export default function RootLayout() {
         <Stack.Screen name="trip/[id]" />
         <Stack.Screen name="route/[id]" />
         <Stack.Screen name="journal/[tripId]" />
+        <Stack.Screen name="moderation/index" />
       </Stack>
     </AuthProvider>
   )

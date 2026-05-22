@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
@@ -21,6 +21,14 @@ import {
   type RouteReportSeverity,
   type RouteReportType,
 } from '../../src/services/routeReport.service'
+import {
+  createRouteComment,
+  getRouteComments,
+} from '../../src/services/routeComment.service'
+import type { RouteComment } from '../../src/types/routeComment'
+import { ContentReportModal } from '../../src/components/community/ContentReportModal'
+import { createContentReport } from '../../src/services/contentReport.service'
+import type { ContentReportReason } from '../../src/types/contentReport'
 
 function formatReportTypeLabel(reportType: RouteReportType) {
   switch (reportType) {
@@ -65,12 +73,57 @@ export default function RouteDetailScreen() {
   const [description, setDescription] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittingReport, setSubmittingReport] = useState(false)
+  const [comments, setComments] = useState<RouteComment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [commentsError, setCommentsError] = useState<string | null>(null)
+  const [commentInput, setCommentInput] = useState('')
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [reportCommentDraft, setReportCommentDraft] = useState<RouteComment | null>(null)
+  const [reportReason, setReportReason] = useState<ContentReportReason>('spam')
+  const [reportDescription, setReportDescription] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   const trimmedDescription = description.trim()
   const descriptionTooShort = trimmedDescription.length > 0 && trimmedDescription.length < 10
+  const trimmedComment = commentInput.trim()
 
   const reportTypeOptions = useMemo(() => ROUTE_REPORT_TYPES, [])
   const reportSeverityOptions = useMemo(() => ROUTE_REPORT_SEVERITIES, [])
+
+  const loadComments = useCallback(
+    async (routeId: string) => {
+      if (!routeId) {
+        setComments([])
+        setCommentsLoading(false)
+        return
+      }
+
+      try {
+        setCommentsLoading(true)
+        setCommentsError(null)
+        const loadedComments = await getRouteComments(routeId)
+        setComments(loadedComments)
+      } catch (error: any) {
+        setCommentsError(
+          error?.message ?? 'No se pudieron cargar los comentarios de la ruta.'
+        )
+      } finally {
+        setCommentsLoading(false)
+      }
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!id) {
+      setComments([])
+      setCommentsLoading(false)
+      return
+    }
+
+    loadComments(id)
+  }, [id, loadComments])
 
   function resetReportForm() {
     setReportType('mud')
@@ -126,6 +179,102 @@ export default function RouteDetailScreen() {
       )
     } finally {
       setSubmittingReport(false)
+    }
+  }
+
+  async function handleSubmitRouteComment() {
+    if (!id) {
+      setCommentsError('No se encontro la ruta para comentar.')
+      return
+    }
+
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para comentar rutas.')
+      return
+    }
+
+    if (!route?.comments_enabled) {
+      setCommentsError('Los comentarios estan deshabilitados para esta ruta.')
+      return
+    }
+
+    if (trimmedComment.length < 3) {
+      setCommentsError('El comentario debe tener al menos 3 caracteres.')
+      return
+    }
+
+    if (commentSubmitting) {
+      return
+    }
+
+    try {
+      setCommentSubmitting(true)
+      setCommentsError(null)
+      await createRouteComment({
+        routeId: id,
+        content: trimmedComment,
+      })
+      setCommentInput('')
+      await loadComments(id)
+    } catch (error: any) {
+      setCommentsError(
+        error?.message ?? 'No se pudo crear el comentario de la ruta.'
+      )
+    } finally {
+      setCommentSubmitting(false)
+    }
+  }
+
+  function handleOpenReportComment(comment: RouteComment) {
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      return
+    }
+
+    setReportCommentDraft(comment)
+    setReportReason('spam')
+    setReportDescription('')
+    setReportError(null)
+  }
+
+  function handleCloseReportModal() {
+    setReportCommentDraft(null)
+    setReportReason('spam')
+    setReportDescription('')
+    setReportError(null)
+  }
+
+  async function handleSubmitCommentReport() {
+    if (!reportCommentDraft) {
+      return
+    }
+
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      return
+    }
+
+    if (reportSubmitting) {
+      return
+    }
+
+    try {
+      setReportSubmitting(true)
+      setReportError(null)
+
+      await createContentReport({
+        targetType: 'comment',
+        targetId: reportCommentDraft.id,
+        reason: reportReason,
+        description: reportDescription,
+      })
+
+      handleCloseReportModal()
+      Alert.alert('Denuncia enviada', 'La denuncia se envio correctamente.')
+    } catch (error: any) {
+      setReportError(error?.message ?? 'No se pudo enviar la denuncia.')
+    } finally {
+      setReportSubmitting(false)
     }
   }
 
@@ -472,6 +621,141 @@ export default function RouteDetailScreen() {
                 borderWidth: 1,
                 borderColor: colors.border,
                 padding: 18,
+                marginBottom: 18,
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 18,
+                  fontWeight: '700',
+                  marginBottom: 10,
+                }}
+              >
+                Comentarios
+              </Text>
+
+              {commentsLoading ? (
+                <Text style={{ color: colors.textSecondary }}>
+                  Cargando comentarios...
+                </Text>
+              ) : commentsError ? (
+                <Text style={{ color: colors.danger }}>{commentsError}</Text>
+              ) : comments.length === 0 ? (
+                <Text style={{ color: colors.textSecondary }}>
+                  Aun no hay comentarios para esta ruta.
+                </Text>
+              ) : (
+                comments.map((comment) => {
+                  const commentAuthor =
+                    comment.author?.username?.trim() ||
+                    comment.author?.full_name?.trim() ||
+                    `Usuario ${comment.user_id.slice(0, 8)}`
+
+                  return (
+                    <View
+                      key={comment.id}
+                      style={{
+                        backgroundColor: colors.cardSecondary,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        padding: 10,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontWeight: '700',
+                          marginBottom: 4,
+                        }}
+                      >
+                        @{commentAuthor}
+                      </Text>
+
+                      <Text style={{ color: colors.text, marginBottom: 4 }}>
+                        {comment.content}
+                      </Text>
+
+                      <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
+                        {new Date(comment.created_at).toLocaleString()}
+                      </Text>
+
+                      <Pressable
+                        onPress={() => handleOpenReportComment(comment)}
+                        style={{
+                          alignSelf: 'flex-start',
+                          marginTop: 8,
+                          paddingVertical: 4,
+                          paddingHorizontal: 8,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: colors.danger,
+                            fontWeight: '600',
+                            fontSize: 12,
+                          }}
+                        >
+                          Denunciar
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )
+                })
+              )}
+
+              {!user ? (
+                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
+                  Inicia sesion para comentar.
+                </Text>
+              ) : !route.comments_enabled ? (
+                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
+                  Los comentarios estan deshabilitados para esta ruta.
+                </Text>
+              ) : (
+                <View style={{ marginTop: 8 }}>
+                  <TextInput
+                    value={commentInput}
+                    onChangeText={setCommentInput}
+                    placeholder="Escribe un comentario sobre la ruta..."
+                    placeholderTextColor={colors.placeholder}
+                    multiline
+                    textAlignVertical="top"
+                    style={{
+                      minHeight: 80,
+                      backgroundColor: colors.cardSecondary,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 12,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      color: colors.text,
+                      marginBottom: 8,
+                    }}
+                  />
+
+                  <AuthButton
+                    title="Enviar comentario"
+                    onPress={handleSubmitRouteComment}
+                    loading={commentSubmitting}
+                  />
+                </View>
+              )}
+            </View>
+
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 18,
               }}
             >
               <Text
@@ -507,6 +791,19 @@ export default function RouteDetailScreen() {
           </>
         )}
       </ScrollView>
+
+      <ContentReportModal
+        visible={Boolean(reportCommentDraft)}
+        targetLabel="comentario de ruta"
+        reason={reportReason}
+        description={reportDescription}
+        loading={reportSubmitting}
+        errorMessage={reportError}
+        onChangeReason={setReportReason}
+        onChangeDescription={setReportDescription}
+        onClose={handleCloseReportModal}
+        onSubmit={handleSubmitCommentReport}
+      />
     </SafeAreaView>
   )
 }

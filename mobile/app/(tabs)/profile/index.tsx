@@ -15,19 +15,20 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
   const { trips, stats, loading } = useTripHistory();
+  const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
   async function handleSignOut() {
     try {
       await signOut();
     } catch (error: any) {
-      Alert.alert("Error", error.message ?? "No se pudo cerrar sesión");
+      Alert.alert("Error", error.message ?? "No se pudo cerrar sesion");
     }
   }
 
   function handleComingSoon(title: string) {
     Alert.alert(
-      "Próximamente",
-      `La opción "${title}" se implementará después.`,
+      "Proximamente",
+      `La opcion "${title}" se implementara despues.`,
     );
   }
 
@@ -46,8 +47,8 @@ export default function ProfileScreen() {
             kilometers={stats.totalDistanceKm}
             onPressAvatar={() =>
               Alert.alert(
-                "Próximamente",
-                "La actualización de foto de perfil la implementaremos después.",
+                "Proximamente",
+                "La actualizacion de foto de perfil la implementaremos despues.",
               )
             }
           />
@@ -89,19 +90,30 @@ export default function ProfileScreen() {
 
             <ProfileSection title="Actividad">
               <ProfileMenuItem
-                label="Ver estadísticas"
+                label="Ver estadisticas"
                 iconName="bar-chart-2"
                 onPress={() => router.push('/profile/stats')}
               />
             </ProfileSection>
 
-            <ProfileSection title="Configuración">
+            <ProfileSection title="Configuracion">
               <ProfileMenuItem
                 label="Editar Perfil"
                 iconName="user"
                 onPress={() => router.push('/profile/edit')}
               />
               <View style={{ height: 1, backgroundColor: colors.border }} />
+
+              {canModerate ? (
+                <>
+                  <ProfileMenuItem
+                    label="Moderacion de contenido"
+                    iconName="shield"
+                    onPress={() => router.push('/moderation/index' as never)}
+                  />
+                  <View style={{ height: 1, backgroundColor: colors.border }} />
+                </>
+              ) : null}
 
               <ProfileMenuItem
                 label="Notificaciones"
@@ -135,7 +147,7 @@ export default function ProfileScreen() {
               }}
             >
               <ProfileMenuItem
-                label="Cerrar Sesión"
+                label="Cerrar Sesion"
                 iconName="log-out"
                 onPress={handleSignOut}
                 danger

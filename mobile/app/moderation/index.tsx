@@ -1,0 +1,365 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import { useRouter } from 'expo-router'
+
+import { useAuth } from '../../src/hooks/useAuth'
+import { colors } from '../../src/theme/colors'
+import { AuthButton } from '../../src/components/auth/AuthButton'
+import {
+  getContentReports,
+  updateContentReportStatus,
+} from '../../src/services/moderation.service'
+import type { ModerationContentReport, ModerationStatusFilter } from '../../src/types/moderation'
+
+function shortId(value: string) {
+  if (!value) return '-'
+  if (value.length <= 12) return value
+  return `${value.slice(0, 8)}...${value.slice(-4)}`
+}
+
+export default function ModerationScreen() {
+  const router = useRouter()
+  const { loading: authLoading, profile } = useAuth()
+
+  const [reports, setReports] = useState<ModerationContentReport[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [activeStatusFilter, setActiveStatusFilter] = useState<ModerationStatusFilter>('all')
+  const [statusDraftById, setStatusDraftById] = useState<Record<string, string>>({})
+  const [statusSubmittingById, setStatusSubmittingById] = useState<Record<string, boolean>>({})
+
+  const canModerate = profile?.role === 'admin' || profile?.role === 'moderator'
+
+  const hydrateStatusDrafts = useCallback((items: ModerationContentReport[]) => {
+    setStatusDraftById((prev) => {
+      const next: Record<string, string> = { ...prev }
+      for (const item of items) {
+        if (!next[item.id]) {
+          next[item.id] = item.status
+        }
+      }
+      return next
+    })
+  }, [])
+
+  const loadReports = useCallback(
+    async (statusFilter: ModerationStatusFilter) => {
+      if (!canModerate) {
+        setReports([])
+        setLoading(false)
+        setError(null)
+        return
+      }
+
+      try {
+        setError(null)
+        const loadedReports = await getContentReports({
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          limit: 50,
+        })
+
+        setReports(loadedReports)
+        hydrateStatusDrafts(loadedReports)
+      } catch (loadError: any) {
+        setReports([])
+        setError(loadError?.message ?? 'No se pudieron cargar las denuncias.')
+      }
+    },
+    [canModerate, hydrateStatusDrafts]
+  )
+
+  useEffect(() => {
+    async function bootstrap() {
+      try {
+        setLoading(true)
+        await loadReports(activeStatusFilter)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (authLoading) {
+      return
+    }
+
+    bootstrap()
+  }, [activeStatusFilter, authLoading, loadReports])
+
+  async function handleRefresh() {
+    try {
+      setRefreshing(true)
+      await loadReports(activeStatusFilter)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const availableStatuses = useMemo(() => {
+    const values = new Set<string>()
+    for (const report of reports) {
+      if (report.status?.trim()) {
+        values.add(report.status.trim())
+      }
+    }
+    return ['all', ...Array.from(values)]
+  }, [reports])
+
+  function updateStatusDraft(reportId: string, value: string) {
+    setStatusDraftById((prev) => ({
+      ...prev,
+      [reportId]: value,
+    }))
+  }
+
+  async function handleUpdateReportStatus(report: ModerationContentReport) {
+    const nextStatus = (statusDraftById[report.id] ?? '').trim()
+
+    if (!nextStatus) {
+      Alert.alert('Estado requerido', 'Ingresa un estado valido para la denuncia.')
+      return
+    }
+
+    if (nextStatus === report.status) {
+      Alert.alert('Sin cambios', 'El estado ya coincide con el valor actual.')
+      return
+    }
+
+    if (statusSubmittingById[report.id]) {
+      return
+    }
+
+    try {
+      setStatusSubmittingById((prev) => ({ ...prev, [report.id]: true }))
+      const updated = await updateContentReportStatus(report.id, nextStatus)
+      setReports((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+      updateStatusDraft(updated.id, updated.status)
+      Alert.alert('Estado actualizado', 'La denuncia se actualizo correctamente.')
+    } catch (updateError: any) {
+      Alert.alert(
+        'No se pudo actualizar',
+        updateError?.message ?? 'No se pudo actualizar el estado de la denuncia.'
+      )
+    } finally {
+      setStatusSubmittingById((prev) => ({ ...prev, [report.id]: false }))
+    }
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <Text style={{ color: colors.text, fontSize: 24, fontWeight: '700' }}>
+            Moderacion minima
+          </Text>
+
+          <Pressable onPress={() => router.back()}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>Volver</Text>
+          </Pressable>
+        </View>
+
+        {authLoading || loading ? (
+          <View style={{ paddingVertical: 24 }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : !canModerate ? (
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              padding: 16,
+            }}
+          >
+            <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 6 }}>
+              Sin permisos
+            </Text>
+            <Text style={{ color: colors.textSecondary }}>
+              No tienes permisos para moderar contenido en este entorno.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 14,
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 10 }}>
+                Filtro por estado
+              </Text>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {availableStatuses.map((statusOption) => {
+                  const active = activeStatusFilter === statusOption
+                  return (
+                    <Pressable
+                      key={statusOption}
+                      onPress={() => setActiveStatusFilter(statusOption)}
+                      style={{
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: active ? colors.primary : colors.border,
+                        backgroundColor: active ? colors.primary : colors.cardSecondary,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        marginRight: 8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: active ? colors.text : colors.textSecondary,
+                          fontWeight: '600',
+                          fontSize: 12,
+                        }}
+                      >
+                        {statusOption}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+
+            {error ? (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  padding: 16,
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ color: colors.danger }}>{error}</Text>
+              </View>
+            ) : null}
+
+            {reports.length === 0 ? (
+              <View
+                style={{
+                  backgroundColor: colors.card,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  padding: 16,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary }}>
+                  No hay denuncias para el filtro actual.
+                </Text>
+              </View>
+            ) : (
+              reports.map((report) => {
+                const submitting = statusSubmittingById[report.id] ?? false
+                const statusDraft = statusDraftById[report.id] ?? report.status
+
+                return (
+                  <View
+                    key={report.id}
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      padding: 14,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 6 }}>
+                      Motivo: {report.reason}
+                    </Text>
+
+                    <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+                      Tipo: {report.target_type}
+                    </Text>
+
+                    <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+                      Target: {shortId(report.target_id)}
+                    </Text>
+
+                    <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+                      Reportado por: {shortId(report.reporter_user_id)}
+                    </Text>
+
+                    <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+                      Estado actual: {report.status}
+                    </Text>
+
+                    <Text style={{ color: colors.textSecondary, marginBottom: 8, fontSize: 12 }}>
+                      {new Date(report.created_at).toLocaleString()}
+                    </Text>
+
+                    {report.description?.trim() ? (
+                      <Text style={{ color: colors.text, marginBottom: 8 }}>
+                        {report.description}
+                      </Text>
+                    ) : null}
+
+                    <TextInput
+                      value={statusDraft}
+                      onChangeText={(value) => updateStatusDraft(report.id, value)}
+                      placeholder="Nuevo estado"
+                      placeholderTextColor={colors.placeholder}
+                      autoCapitalize="none"
+                      style={{
+                        backgroundColor: colors.cardSecondary,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        color: colors.text,
+                        paddingHorizontal: 10,
+                        paddingVertical: 10,
+                        marginBottom: 8,
+                      }}
+                    />
+
+                    <AuthButton
+                      title="Actualizar estado"
+                      onPress={() => handleUpdateReportStatus(report)}
+                      loading={submitting}
+                    />
+                  </View>
+                )
+              })
+            )}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  )
+}

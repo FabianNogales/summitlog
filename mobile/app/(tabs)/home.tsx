@@ -19,6 +19,18 @@ import {
   getPostComments,
 } from '../../src/services/postComment.service'
 import type { SocialPostComment } from '../../src/types/postComment'
+import { ContentReportModal } from '../../src/components/community/ContentReportModal'
+import { createContentReport } from '../../src/services/contentReport.service'
+import type {
+  ContentReportReason,
+  ContentReportTargetType,
+} from '../../src/types/contentReport'
+
+interface ReportTargetDraft {
+  targetType: ContentReportTargetType
+  targetId: string
+  targetLabel: string
+}
 
 export default function HomeScreen() {
   const { profile, user } = useAuth()
@@ -45,6 +57,11 @@ export default function HomeScreen() {
   const [commentSubmittingByPostId, setCommentSubmittingByPostId] = useState<
     Record<string, boolean>
   >({})
+  const [reportTargetDraft, setReportTargetDraft] = useState<ReportTargetDraft | null>(null)
+  const [reportReason, setReportReason] = useState<ContentReportReason>('spam')
+  const [reportDescription, setReportDescription] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   const trimmedContent = content.trim()
   const contentTooShort = trimmedContent.length > 0 && trimmedContent.length < 10
@@ -193,6 +210,73 @@ export default function HomeScreen() {
       )
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function resetReportDraftState() {
+    setReportReason('spam')
+    setReportDescription('')
+    setReportError(null)
+  }
+
+  function handleOpenReportModal(
+    targetType: ContentReportTargetType,
+    targetId: string,
+    targetLabel: string
+  ) {
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      return
+    }
+
+    if (!targetId) {
+      return
+    }
+
+    resetReportDraftState()
+    setReportTargetDraft({
+      targetType,
+      targetId,
+      targetLabel,
+    })
+  }
+
+  function handleCloseReportModal() {
+    setReportTargetDraft(null)
+    resetReportDraftState()
+  }
+
+  async function handleSubmitReport() {
+    if (!reportTargetDraft) {
+      return
+    }
+
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      return
+    }
+
+    if (reportSubmitting) {
+      return
+    }
+
+    try {
+      setReportSubmitting(true)
+      setReportError(null)
+
+      await createContentReport({
+        targetType: reportTargetDraft.targetType,
+        targetId: reportTargetDraft.targetId,
+        reason: reportReason,
+        description: reportDescription,
+      })
+
+      handleCloseReportModal()
+      Alert.alert('Denuncia enviada', 'La denuncia se envio correctamente.')
+    } catch (error: any) {
+      setReportError(error?.message ?? 'No se pudo enviar la denuncia.')
+    } finally {
+      setReportSubmitting(false)
     }
   }
 
@@ -386,23 +470,48 @@ export default function HomeScreen() {
                       Estado: {post.moderation_status}
                     </Text>
 
-                    <Pressable
-                      onPress={() => handleToggleComments(post.id)}
-                      style={{
-                        marginTop: 10,
-                        alignSelf: 'flex-start',
-                        paddingVertical: 6,
-                        paddingHorizontal: 10,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.card,
-                      }}
-                    >
-                      <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                        {isExpanded ? 'Ocultar comentarios' : 'Comentar'}
-                      </Text>
-                    </Pressable>
+                    <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                      <Pressable
+                        onPress={() => handleToggleComments(post.id)}
+                        style={{
+                          alignSelf: 'flex-start',
+                          paddingVertical: 6,
+                          paddingHorizontal: 10,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                          marginRight: 8,
+                        }}
+                      >
+                        <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                          {isExpanded ? 'Ocultar comentarios' : 'Comentar'}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() =>
+                          handleOpenReportModal(
+                            'post',
+                            post.id,
+                            `publicacion de @${authorName}`
+                          )
+                        }
+                        style={{
+                          alignSelf: 'flex-start',
+                          paddingVertical: 6,
+                          paddingHorizontal: 10,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        }}
+                      >
+                        <Text style={{ color: colors.danger, fontWeight: '600' }}>
+                          Denunciar
+                        </Text>
+                      </Pressable>
+                    </View>
 
                     {isExpanded ? (
                       <View
@@ -453,6 +562,36 @@ export default function HomeScreen() {
                                 <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
                                   {new Date(comment.created_at).toLocaleString()}
                                 </Text>
+
+                                <Pressable
+                                  onPress={() =>
+                                    handleOpenReportModal(
+                                      'comment',
+                                      comment.id,
+                                      `comentario de @${commentAuthor}`
+                                    )
+                                  }
+                                  style={{
+                                    alignSelf: 'flex-start',
+                                    marginTop: 8,
+                                    paddingVertical: 4,
+                                    paddingHorizontal: 8,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                    backgroundColor: colors.card,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: colors.danger,
+                                      fontWeight: '600',
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    Denunciar
+                                  </Text>
+                                </Pressable>
                               </View>
                             )
                           })
@@ -500,6 +639,19 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       </ScrollView>
+
+      <ContentReportModal
+        visible={Boolean(reportTargetDraft)}
+        targetLabel={reportTargetDraft?.targetLabel ?? 'contenido'}
+        reason={reportReason}
+        description={reportDescription}
+        loading={reportSubmitting}
+        errorMessage={reportError}
+        onChangeReason={setReportReason}
+        onChangeDescription={setReportDescription}
+        onClose={handleCloseReportModal}
+        onSubmit={handleSubmitReport}
+      />
     </SafeAreaView>
   )
 }
