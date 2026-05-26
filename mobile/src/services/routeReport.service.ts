@@ -29,6 +29,7 @@ export async function getRouteReports(routeId: string) {
     .select('*')
     .eq('route_id', routeId)
     .eq('moderation_status', 'visible')
+    .eq('report_status', 'active') 
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -48,12 +49,12 @@ export async function createRouteReport(input: CreateRouteReportInput) {
 
   const currentUser = authData.user
   if (!currentUser) {
-    throw new Error('Debes iniciar sesion para reportar una condicion.')
+    throw new Error('Debes iniciar sesión para reportar una condición.')
   }
 
   const normalizedDescription = input.description.trim()
   if (!normalizedDescription) {
-    throw new Error('La descripcion del reporte es obligatoria.')
+    throw new Error('La descripción del reporte es obligatoria.')
   }
 
   const { data, error } = await supabase
@@ -62,22 +63,34 @@ export async function createRouteReport(input: CreateRouteReportInput) {
       route_id: input.routeId,
       user_id: currentUser.id,
       report_type: input.reportType,
-      report_status: input.reportStatus,
+      severity: input.reportStatus, 
       description: normalizedDescription,
       latitude: null,
       longitude: null,
       photo_path: null,
+      report_status: 'active', 
       moderation_status: 'visible',
     })
     .select('*')
     .single()
 
   if (error) {
+    console.error("Error detallado de Supabase:", error)
     throw new Error(
-      error.message ??
-        'No se pudo crear el reporte de condicion para la ruta.'
+      error.message ?? 'No se pudo crear el reporte de condición para la ruta.'
     )
   }
 
   return data as RouteReport
+}
+
+export async function resolveRouteReport(reportId: string): Promise<void> {
+  const { error } = await supabase
+    .from('route_reports')
+    .update({ report_status: 'resolved' })
+    .eq('id', reportId)
+
+  if (error) {
+    throw new Error(error.message ?? 'No se pudo marcar el reporte como resuelto.')
+  }
 }

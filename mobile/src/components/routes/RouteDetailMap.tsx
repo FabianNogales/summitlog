@@ -6,9 +6,10 @@ import type { RouteItem, RoutePoint } from '../../types/route'
 interface RouteDetailMapProps {
   route: RouteItem
   points: RoutePoint[]
+  setIsMapActive?: (active: boolean) => void 
 }
 
-export function RouteDetailMap({ route, points }: RouteDetailMapProps) {
+export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMapProps) {
   const hasPolyline = points.length >= 2
 
   const lineCoordinates = points.map((point) => [
@@ -41,6 +42,10 @@ export function RouteDetailMap({ route, points }: RouteDetailMapProps) {
         borderColor: colors.border,
         marginBottom: 18,
       }}
+      onStartShouldSetResponder={() => {
+        setIsMapActive?.(true);
+        return false; 
+      }}
     >
       <Mapbox.MapView
         style={{ flex: 1 }}
@@ -48,6 +53,7 @@ export function RouteDetailMap({ route, points }: RouteDetailMapProps) {
         logoEnabled={false}
         compassEnabled
         attributionEnabled={false}
+        requestDisallowInterceptTouchEvent={true}
       >
         <Mapbox.Camera
           defaultSettings={{

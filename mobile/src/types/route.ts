@@ -38,7 +38,9 @@ export interface RouteReport {
   route_id: string
   user_id: string
   report_type: string
-  description: string | null
+  severity: 'low' | 'medium' | 'high'
+  
+  description: string
   latitude: number | null
   longitude: number | null
   photo_path: string | null

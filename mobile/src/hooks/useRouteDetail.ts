@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { RouteItem, RoutePoint, RouteReport } from '../types/route'
 import {
-  getRecentRouteReportsByRouteId,
   getRouteById,
   getRoutePointsByRouteId,
 } from '../services/route.service'
+import { getRouteReports } from '../services/routeReport.service' 
 
 export function useRouteDetail(routeId?: string) {
   const [route, setRoute] = useState<RouteItem | null>(null)
@@ -26,7 +26,7 @@ export function useRouteDetail(routeId?: string) {
       const [loadedRoute, loadedPoints, loadedReports] = await Promise.all([
         getRouteById(routeId),
         getRoutePointsByRouteId(routeId),
-        getRecentRouteReportsByRouteId(routeId),
+        getRouteReports(routeId), 
       ])
 
       setRoute(loadedRoute)
