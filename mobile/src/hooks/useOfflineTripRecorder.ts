@@ -35,6 +35,8 @@ interface LastCoords {
 interface TripSnapshot {
   pointCount: number
   distanceM: number
+  elevationGainM: number
+  calories: number
   lastCoords: LastCoords | null
 }
 
@@ -45,24 +47,47 @@ function buildTripSnapshot(
     return {
       pointCount: 0,
       distanceM: 0,
+      elevationGainM: 0,
+      calories: 0,
       lastCoords: null,
     }
   }
 
   let distanceM = 0
+  let elevationGainM = 0
+
+  let lastAltitude =
+    (points[0] as any).altitudeM ?? (points[0] as any).altitude ?? null
+
   for (let index = 1; index < points.length; index += 1) {
     const previous = points[index - 1]
     const current = points[index]
+
     distanceM += calculateDistanceInMeters(
       { latitude: previous.latitude, longitude: previous.longitude },
       { latitude: current.latitude, longitude: current.longitude }
     )
+
+    const currentAlt =
+      (current as any).altitudeM ?? (current as any).altitude ?? null
+
+    if (lastAltitude !== null && currentAlt !== null && currentAlt > lastAltitude) {
+      elevationGainM += currentAlt - lastAltitude
+    }
+
+    if (currentAlt !== null) {
+      lastAltitude = currentAlt
+    }
   }
 
+  const calories = Math.floor((distanceM / 1000) * 65)
   const lastPoint = points[points.length - 1]
+
   return {
     pointCount: points.length,
     distanceM,
+    elevationGainM,
+    calories,
     lastCoords: {
       latitude: lastPoint.latitude,
       longitude: lastPoint.longitude,
@@ -81,6 +106,9 @@ export function useOfflineTripRecorder() {
   const totalDistanceRef = useRef(0)
   const backgroundTrackingEnabledRef = useRef(false)
 
+  const lastAltitudeRef = useRef<number | null>(null)
+  const totalElevationGainRef = useRef(0)
+
   const [status, setStatus] = useState<RecorderStatus>('idle')
   const [activeLocalTripId, setActiveLocalTripId] = useState<string | null>(null)
   const [pointCount, setPointCount] = useState(0)
@@ -91,19 +119,99 @@ export function useOfflineTripRecorder() {
   const [backgroundTrackingActive, setBackgroundTrackingActive] = useState(false)
   const [backgroundStatusMessage, setBackgroundStatusMessage] = useState<string | null>(null)
 
+  const [pathPoints, setPathPoints] = useState<[number, number][]>([])
+  const [totalElevationGainM, setTotalElevationGainM] = useState(0)
+  const [totalCalories, setTotalCalories] = useState(0)
+
   async function refreshTripSnapshot(localTripId: string) {
     const points = await getOfflineTripPointsByTripId(localTripId)
     const snapshot = buildTripSnapshot(points)
 
     setPointCount(snapshot.pointCount)
+
     totalDistanceRef.current = snapshot.distanceM
     setTotalDistanceM(snapshot.distanceM)
+
+    totalElevationGainRef.current = snapshot.elevationGainM
+    setTotalElevationGainM(snapshot.elevationGainM)
+
+    setTotalCalories(snapshot.calories)
+
+    if (points.length > 0) {
+      lastAltitudeRef.current =
+        (points[points.length - 1] as any).altitudeM ??
+        (points[points.length - 1] as any).altitude ??
+        null
+    }
+
     lastCoordsRef.current = snapshot.lastCoords
     setLastLatitude(snapshot.lastCoords?.latitude ?? null)
     setLastLongitude(snapshot.lastCoords?.longitude ?? null)
 
+    setPathPoints(points.map((p) => [p.longitude, p.latitude]))
+
     return snapshot
   }
+
+  const updateLiveTrackingState = useCallback(
+    (location: Location.LocationObject) => {
+      const currentCoords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      }
+
+      const currentAltitude = location.coords.altitude ?? null
+      const previousCoords = lastCoordsRef.current
+      const previousAltitude = lastAltitudeRef.current
+
+      setLastLatitude(currentCoords.latitude)
+      setLastLongitude(currentCoords.longitude)
+
+      if (previousCoords) {
+        const addedDistance = calculateDistanceInMeters(
+          previousCoords,
+          currentCoords
+        )
+
+        totalDistanceRef.current += addedDistance
+        setTotalDistanceM(totalDistanceRef.current)
+
+        const computedCalories = Math.floor((totalDistanceRef.current / 1000) * 65)
+        setTotalCalories(computedCalories)
+      }
+
+      if (previousAltitude !== null && currentAltitude !== null) {
+        if (currentAltitude > previousAltitude) {
+          const gain = currentAltitude - previousAltitude
+          totalElevationGainRef.current += gain
+          setTotalElevationGainM(totalElevationGainRef.current)
+        }
+      }
+
+      lastCoordsRef.current = currentCoords
+      lastAltitudeRef.current = currentAltitude
+
+      const nextPoint: [number, number] = [
+        currentCoords.longitude,
+        currentCoords.latitude,
+      ]
+
+      setPathPoints((prev) => {
+        const lastPoint = prev[prev.length - 1]
+
+        if (
+          lastPoint &&
+          lastPoint[0] === nextPoint[0] &&
+          lastPoint[1] === nextPoint[1]
+        ) {
+          return prev
+        }
+
+        return [...prev, nextPoint]
+      })
+    },
+    []
+  )
 
   const persistPoint = useCallback((location: Location.LocationObject) => {
     const persistTask = async () => {
@@ -111,6 +219,7 @@ export function useOfflineTripRecorder() {
       if (!currentLocalTripId) return
 
       console.log('[OfflineRecorder] persist point start')
+
       try {
         const inserted = await addOfflineRecordedTripPointWithAutoOrder({
           localTripId: currentLocalTripId,
@@ -126,22 +235,51 @@ export function useOfflineTripRecorder() {
         })
 
         const newPointOrder = inserted?.point_order ?? 0
+
         console.log('[OfflineRecorder] point order:', newPointOrder)
+
         setPointCount(newPointOrder + 1)
 
         const currentCoords = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         }
+
         const previousCoords = lastCoordsRef.current
+        const currentAltitude = location.coords.altitude ?? null
+        const previousAltitude = lastAltitudeRef.current
+
         if (previousCoords) {
-          totalDistanceRef.current += calculateDistanceInMeters(previousCoords, currentCoords)
+          totalDistanceRef.current += calculateDistanceInMeters(
+            previousCoords,
+            currentCoords
+          )
+
           setTotalDistanceM(totalDistanceRef.current)
+
+          const computedCalories = Math.floor((totalDistanceRef.current / 1000) * 65)
+          setTotalCalories(computedCalories)
+        }
+
+        if (previousAltitude !== null && currentAltitude !== null) {
+          if (currentAltitude > previousAltitude) {
+            const gain = currentAltitude - previousAltitude
+            totalElevationGainRef.current += gain
+            setTotalElevationGainM(totalElevationGainRef.current)
+          }
         }
 
         lastCoordsRef.current = currentCoords
         setLastLatitude(currentCoords.latitude)
         setLastLongitude(currentCoords.longitude)
+
+        lastAltitudeRef.current = currentAltitude
+
+        setPathPoints((prev) => [
+          ...prev,
+          [currentCoords.longitude, currentCoords.latitude],
+        ])
+
         console.log('[OfflineRecorder] persist point success')
       } catch (error) {
         console.log('[OfflineRecorder] persist point error')
@@ -151,17 +289,20 @@ export function useOfflineTripRecorder() {
 
     const queuedTask = persistQueueRef.current.then(persistTask)
     persistQueueRef.current = queuedTask.catch(() => undefined)
+
     return queuedTask
   }, [])
 
   const startForegroundWatcher = useCallback(async () => {
     subscriptionRef.current?.remove()
+
     subscriptionRef.current = await startForegroundLocationWatcher(
       (location) => {
         setLastLatitude(location.coords.latitude)
         setLastLongitude(location.coords.longitude)
 
         if (backgroundTrackingEnabledRef.current) {
+          updateLiveTrackingState(location)
           return
         }
 
@@ -173,7 +314,7 @@ export function useOfflineTripRecorder() {
         console.error('Error de ubicacion:', reason)
       }
     )
-  }, [persistPoint])
+  }, [persistPoint, updateLiveTrackingState])
 
   async function startTracking() {
     if (!user) {
@@ -191,13 +332,12 @@ export function useOfflineTripRecorder() {
 
     if (!foregroundPermission.granted) {
       setStatus('idle')
-      throw new Error(
-        'No es posible iniciar el seguimiento sin permiso de ubicacion.'
-      )
+      throw new Error('No es posible iniciar el seguimiento sin permiso de ubicacion.')
     }
 
     const backgroundPermission = await requestBackgroundLocationPermission()
     const hasBackgroundPermission = backgroundPermission.granted
+
     setBackgroundPermissionGranted(hasBackgroundPermission)
 
     if (!hasBackgroundPermission) {
@@ -222,18 +362,27 @@ export function useOfflineTripRecorder() {
 
     localTripIdRef.current = localTrip.local_id
     startedAtRef.current = startedAt
+
     setActiveLocalTripId(localTrip.local_id)
+
     setPointCount(0)
     setTotalDistanceM(0)
+    setTotalElevationGainM(0)
+    setTotalCalories(0)
     setLastLatitude(null)
     setLastLongitude(null)
+    setPathPoints([])
+
     totalDistanceRef.current = 0
+    totalElevationGainRef.current = 0
     lastCoordsRef.current = null
+    lastAltitudeRef.current = null
 
     await setActiveTripForBackground(localTrip.local_id)
     await persistPoint(currentLocation)
 
     let backgroundStarted = false
+
     if (hasBackgroundPermission) {
       try {
         await startBackgroundLocationTracking()
@@ -243,6 +392,7 @@ export function useOfflineTripRecorder() {
           'No se pudo iniciar tracking en segundo plano:',
           backgroundStartError?.message ?? 'unknown'
         )
+
         setBackgroundStatusMessage(
           'No se pudo activar el tracking en segundo plano. Se registrara solo con la app abierta.'
         )
@@ -253,6 +403,7 @@ export function useOfflineTripRecorder() {
     setBackgroundTrackingActive(backgroundStarted)
 
     await startForegroundWatcher()
+
     setStatus('tracking')
   }
 
@@ -279,6 +430,7 @@ export function useOfflineTripRecorder() {
 
     backgroundTrackingEnabledRef.current = false
     setBackgroundTrackingActive(false)
+
     await persistQueueRef.current
 
     const localTripId = localTripIdRef.current
@@ -295,8 +447,10 @@ export function useOfflineTripRecorder() {
     )
 
     let endCoords = snapshot.lastCoords
+
     if (!endCoords) {
       const fallbackLocation = await getCurrentLocation()
+
       endCoords = {
         latitude: fallbackLocation.coords.latitude,
         longitude: fallbackLocation.coords.longitude,
@@ -313,13 +467,17 @@ export function useOfflineTripRecorder() {
     })
 
     await clearActiveTripForBackground()
+
     localTripIdRef.current = null
     startedAtRef.current = null
     lastCoordsRef.current = null
+    lastAltitudeRef.current = null
     totalDistanceRef.current = 0
+    totalElevationGainRef.current = 0
     persistQueueRef.current = Promise.resolve()
 
     setActiveLocalTripId(null)
+    setPathPoints([])
     setStatus('idle')
     setBackgroundStatusMessage(null)
   }
@@ -330,11 +488,11 @@ export function useOfflineTripRecorder() {
     async function restoreTrackingState() {
       try {
         const activeBackgroundTripId = await getActiveTripForBackground()
-        if (!mounted || !activeBackgroundTripId) {
-          return
-        }
+
+        if (!mounted || !activeBackgroundTripId) return
 
         const offlineTrip = await getOfflineRecordedTripById(activeBackgroundTripId)
+
         if (!offlineTrip || offlineTrip.status !== 'recording') {
           await clearActiveTripForBackground()
           return
@@ -342,18 +500,20 @@ export function useOfflineTripRecorder() {
 
         localTripIdRef.current = offlineTrip.local_id
         startedAtRef.current = offlineTrip.started_at
+
         setActiveLocalTripId(offlineTrip.local_id)
         setStatus('tracking')
+
         await refreshTripSnapshot(offlineTrip.local_id)
 
         const backgroundActive = await isBackgroundLocationTrackingActive()
-        if (!mounted) {
-          return
-        }
+
+        if (!mounted) return
 
         backgroundTrackingEnabledRef.current = backgroundActive
         setBackgroundTrackingActive(backgroundActive)
         setBackgroundPermissionGranted(backgroundActive)
+
         if (!backgroundActive) {
           setBackgroundStatusMessage(
             'El recorrido activo se registrara solo mientras la app este abierta.'
@@ -384,6 +544,8 @@ export function useOfflineTripRecorder() {
     activeLocalTripId,
     pointCount,
     totalDistanceM,
+    totalElevationGainM,
+    totalCalories,
     lastLatitude,
     lastLongitude,
     backgroundPermissionGranted,
@@ -394,5 +556,6 @@ export function useOfflineTripRecorder() {
     isFinishing: status === 'finishing',
     startTracking,
     stopTracking,
+    pathPoints,
   }
 }
