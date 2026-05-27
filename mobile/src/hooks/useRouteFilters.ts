@@ -22,6 +22,7 @@ function normalizeDifficulty(value: string | null | undefined) {
 
 export function useRouteFilters(routes: RouteItem[]) {
   const [filters, setFilters] = useState<RouteFilters>(DEFAULT_FILTERS)
+  const [searchQuery, setSearchQuery] = useState('')
 
   function setDifficulty(difficulty: RouteDifficultyFilter) {
     setFilters((prev) => ({
@@ -46,9 +47,12 @@ export function useRouteFilters(routes: RouteItem[]) {
 
   function clearFilters() {
     setFilters(DEFAULT_FILTERS)
+    setSearchQuery('')
   }
 
   const filteredRoutes = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase()
+
     return routes.filter((route) => {
       const difficultyOk =
         filters.difficulty === 'all' ||
@@ -66,13 +70,20 @@ export function useRouteFilters(routes: RouteItem[]) {
         !filters.maxDurationMin ||
         (Number.isFinite(maxDurationMin) && durationMin <= maxDurationMin)
 
-      return difficultyOk && distanceOk && durationOk
+      const haystack = `${route.title ?? ''} ${route.description ?? ''} ${route.category ?? ''}`
+        .trim()
+        .toLowerCase()
+      const searchOk = !normalizedSearch || haystack.includes(normalizedSearch)
+
+      return difficultyOk && distanceOk && durationOk && searchOk
     })
-  }, [routes, filters])
+  }, [routes, filters, searchQuery])
 
   return {
     filters,
+    searchQuery,
     filteredRoutes,
+    setSearchQuery,
     setDifficulty,
     setMaxDistanceKm,
     setMaxDurationMin,

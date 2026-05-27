@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from 'react-native'
 import { useRouter } from 'expo-router'
@@ -62,7 +63,9 @@ export default function RoutesScreen() {
 
   const {
     filters,
+    searchQuery,
     filteredRoutes,
+    setSearchQuery,
     setDifficulty,
     setMaxDistanceKm,
     setMaxDurationMin,
@@ -72,10 +75,11 @@ export default function RoutesScreen() {
   const hasActiveFilters = useMemo(() => {
     return (
       filters.difficulty !== 'all' ||
+      Boolean(searchQuery.trim()) ||
       Boolean(filters.maxDistanceKm) ||
       Boolean(filters.maxDurationMin)
     )
-  }, [filters])
+  }, [filters, searchQuery])
 
   const difficultyLabel = useMemo(() => {
     if (filters.difficulty === 'easy') return 'Facil'
@@ -214,15 +218,18 @@ export default function RoutesScreen() {
             }}
           >
             <Search size={18} color={colors.textSecondary} />
-            <Text
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Buscar rutas, lugares..."
+              placeholderTextColor={colors.placeholder}
               style={{
-                color: colors.placeholder,
+                flex: 1,
+                color: colors.text,
                 fontSize: 14,
                 marginLeft: 10,
               }}
-            >
-              Buscar rutas, lugares...
-            </Text>
+            />
           </View>
 
           <ScrollView
@@ -381,7 +388,10 @@ export default function RoutesScreen() {
             {filteredRoutes.length} rutas encontradas
           </Text>
 
-          {(filters.difficulty !== 'all' || filters.maxDistanceKm || filters.maxDurationMin) && (
+          {(filters.difficulty !== 'all' ||
+            filters.maxDistanceKm ||
+            filters.maxDurationMin ||
+            searchQuery.trim()) && (
             <Text
               style={{
                 color: colors.textMuted,
@@ -389,7 +399,9 @@ export default function RoutesScreen() {
                 marginTop: 4,
               }}
             >
-              {`Filtros activos: dificultad ${difficultyLabel}`}
+              {`Filtros activos: dificultad ${difficultyLabel}${
+                searchQuery.trim() ? `, busqueda "${searchQuery.trim()}"` : ''
+              }`}
             </Text>
           )}
         </View>

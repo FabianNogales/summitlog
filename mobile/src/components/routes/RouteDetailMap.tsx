@@ -1,5 +1,9 @@
 import { Text, View } from 'react-native'
-import { Mapbox } from '../../lib/mapbox'
+import {
+  isMapboxTokenConfigured,
+  mapboxTokenErrorMessage,
+  Mapbox,
+} from '../../lib/mapbox'
 import { colors } from '../../theme/colors'
 import type { RouteItem, RoutePoint } from '../../types/route'
 
@@ -31,6 +35,28 @@ export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMap
     route.end_lat != null && route.end_lng != null
       ? [Number(route.end_lng), Number(route.end_lat)]
       : null
+
+  if (!isMapboxTokenConfigured) {
+    return (
+      <View
+        style={{
+          height: 260,
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: colors.border,
+          marginBottom: 18,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 16,
+          backgroundColor: colors.card,
+        }}
+      >
+        <Text style={{ color: colors.text, textAlign: 'center' }}>
+          {mapboxTokenErrorMessage}
+        </Text>
+      </View>
+    )
+  }
 
   return (
     <View

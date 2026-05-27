@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -24,7 +23,7 @@ import {
 
 export default function RegisterScreen() {
   const router = useRouter()
-  const { signUp, user } = useAuth()
+  const { signUp, signInWithGoogle, user } = useAuth()
   const scrollRef = useRef<ScrollView | null>(null)
 
   const [username, setUsername] = useState('')
@@ -33,33 +32,41 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  }
 
   if (user) {
     return <Redirect href="/(tabs)/home" />
   }
 
   async function handleRegister() {
-    if (!username.trim() || !email.trim() || !password.trim()) {
-      Alert.alert(
-        'Campos incompletos',
-        'Username, correo y contraseña son obligatorios.'
-      )
+    setEmailError(null)
+    setFormError(null)
+
+    const normalizedEmail = email.trim()
+
+    if (!username.trim() || !normalizedEmail || !password.trim()) {
+      setFormError('Username, correo y contrasena son obligatorios.')
+      return
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setEmailError('Ingresa un correo electronico valido.')
       return
     }
 
     if (password.length < 6) {
-      Alert.alert(
-        'Contraseña inválida',
-        'La contraseña debe tener al menos 6 caracteres.'
-      )
+      setFormError('La contrasena debe tener al menos 6 caracteres.')
       return
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(
-        'Contraseñas distintas',
-        'La confirmación no coincide con la contraseña.'
-      )
+      setFormError('La confirmacion no coincide con la contrasena.')
       return
     }
 
@@ -67,18 +74,36 @@ export default function RegisterScreen() {
       setIsSubmitting(true)
 
       await signUp({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
         username: username.trim(),
         fullName: fullName.trim(),
       })
     } catch (error: any) {
-      Alert.alert(
-        'Error al crear cuenta',
-        error.message ?? 'No se pudo registrar el usuario'
-      )
+      setFormError(error.message ?? 'No se pudo registrar el usuario')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleGoogleRegister() {
+    setFormError(null)
+
+    try {
+      setIsGoogleSubmitting(true)
+      const session = await signInWithGoogle()
+
+      if (session) {
+        router.replace('/(tabs)/home')
+      }
+    } catch (error: any) {
+      if (error?.code === 'oauth_cancelled') {
+        return
+      }
+
+      setFormError(error?.message ?? 'No se pudo iniciar sesion con Google')
+    } finally {
+      setIsGoogleSubmitting(false)
     }
   }
 
@@ -162,7 +187,7 @@ export default function RegisterScreen() {
                 lineHeight: 22,
               }}
             >
-              Únete a miles de senderistas
+              Unete a miles de senderistas
             </Text>
           </View>
 
@@ -171,7 +196,10 @@ export default function RegisterScreen() {
               label="Nombre de usuario"
               placeholder="fabian_nogales"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(value) => {
+                setUsername(value)
+                if (formError) setFormError(null)
+              }}
               iconName="user"
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
@@ -180,41 +208,68 @@ export default function RegisterScreen() {
               label="Nombre completo"
               placeholder="Fabian Nogales"
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={(value) => {
+                setFullName(value)
+                if (formError) setFormError(null)
+              }}
               iconName="edit-3"
               autoCapitalize="words"
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
             <AuthInput
-              label="Correo electrónico"
+              label="Correo electronico"
               placeholder="tu@email.com"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => {
+                setEmail(value)
+                if (emailError) setEmailError(null)
+                if (formError) setFormError(null)
+              }}
               iconName="mail"
               keyboardType="email-address"
+              errorText={emailError}
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
             <AuthInput
-              label="Contraseña"
-              placeholder="Contraseña"
+              label="Contrasena"
+              placeholder="Contrasena"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => {
+                setPassword(value)
+                if (formError) setFormError(null)
+              }}
               iconName="lock"
               secureTextEntry
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
             <AuthInput
-              label="Confirmar contraseña"
-              placeholder="Contraseña"
+              label="Confirmar contrasena"
+              placeholder="Contrasena"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(value) => {
+                setConfirmPassword(value)
+                if (formError) setFormError(null)
+              }}
               iconName="lock"
               secureTextEntry
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
+
+            {formError ? (
+              <Text
+                style={{
+                  color: colors.danger,
+                  fontSize: 13,
+                  marginTop: -2,
+                  marginBottom: 14,
+                }}
+              >
+                {formError}
+              </Text>
+            ) : null}
 
             <AuthButton
               title="Crear cuenta"
@@ -245,7 +300,7 @@ export default function RegisterScreen() {
                   fontSize: 14,
                 }}
               >
-                o continúa con
+                o continua con
               </Text>
               <View
                 style={{
@@ -258,10 +313,10 @@ export default function RegisterScreen() {
 
             <AuthButton
               title="Continuar con Google"
-              onPress={() => {}}
+              onPress={handleGoogleRegister}
+              loading={isGoogleSubmitting}
               variant="secondary"
               leftIcon={<FontAwesome name="google" size={20} color={colors.text} />}
-              disabled
             />
 
             <Pressable
@@ -275,9 +330,9 @@ export default function RegisterScreen() {
                   fontSize: 16,
                 }}
               >
-                ¿Ya tienes cuenta?{' '}
+                Ya tienes cuenta?{' '}
                 <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                  Inicia sesión
+                  Inicia sesion
                 </Text>
               </Text>
             </Pressable>

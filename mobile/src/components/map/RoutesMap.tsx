@@ -1,7 +1,11 @@
 import { useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Minus, Plus } from 'lucide-react-native'
-import { Mapbox } from '../../lib/mapbox'
+import {
+  isMapboxTokenConfigured,
+  mapboxTokenErrorMessage,
+  Mapbox,
+} from '../../lib/mapbox'
 import { colors } from '../../theme/colors'
 import type { RouteItem } from '../../types/route'
 
@@ -17,6 +21,24 @@ const COCHABAMBA_CENTER: [number, number] = [-66.1568, -17.3895]
 export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapProps) {
   const cameraRef = useRef<any>(null)
   const [zoomLevel, setZoomLevel] = useState(13)
+
+  if (!isMapboxTokenConfigured) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+          padding: 20,
+        }}
+      >
+        <Text style={{ color: colors.text, textAlign: 'center' }}>
+          {mapboxTokenErrorMessage}
+        </Text>
+      </View>
+    )
+  }
 
   function handleZoom(delta: number) {
     const nextZoom = Math.min(18, Math.max(3, zoomLevel + delta))

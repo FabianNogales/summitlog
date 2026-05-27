@@ -30,13 +30,6 @@ export default function ProfileScreen() {
     }
   }
 
-  function handleComingSoon(title: string) {
-    Alert.alert(
-      "Proximamente",
-      `La opcion "${title}" se implementara despues.`,
-    );
-  }
-
   async function handleChangeAvatar() {
     console.log("[Avatar] user exists", Boolean(user));
 
@@ -193,25 +186,6 @@ export default function ProfileScreen() {
                 </>
               ) : null}
 
-              <ProfileMenuItem
-                label="Notificaciones"
-                iconName="bell"
-                onPress={() => handleComingSoon("Notificaciones")}
-              />
-              <View style={{ height: 1, backgroundColor: colors.border }} />
-
-              <ProfileMenuItem
-                label="Privacidad"
-                iconName="lock"
-                onPress={() => handleComingSoon("Privacidad")}
-              />
-              <View style={{ height: 1, backgroundColor: colors.border }} />
-
-              <ProfileMenuItem
-                label="Modo Offline"
-                iconName="wifi-off"
-                onPress={() => handleComingSoon("Modo Offline")}
-              />
             </ProfileSection>
 
             <View

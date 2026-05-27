@@ -21,6 +21,7 @@ interface AuthInputProps {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
   onFocus?: TextInputProps['onFocus']
   hideLabel?: boolean
+  errorText?: string | null
 }
 
 export function AuthInput({
@@ -34,6 +35,7 @@ export function AuthInput({
   autoCapitalize = 'none',
   onFocus,
   hideLabel = false,
+  errorText = null,
 }: AuthInputProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
@@ -60,7 +62,7 @@ export function AuthInput({
           alignItems: 'center',
           backgroundColor: colors.cardSecondary,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor: errorText ? colors.danger : colors.border,
           borderRadius: 18,
           paddingHorizontal: hideLabel ? 18 : 14,
           minHeight: hideLabel ? 70 : 54,
@@ -99,6 +101,18 @@ export function AuthInput({
           </Pressable>
         ) : null}
       </View>
+
+      {errorText ? (
+        <Text
+          style={{
+            color: colors.danger,
+            fontSize: 12,
+            marginTop: 6,
+          }}
+        >
+          {errorText}
+        </Text>
+      ) : null}
     </View>
   )
 }

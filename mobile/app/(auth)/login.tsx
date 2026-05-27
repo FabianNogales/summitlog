@@ -33,6 +33,12 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  }
 
   useEffect(() => {
     const errorMessage =
@@ -43,7 +49,7 @@ export default function LoginScreen() {
     }
 
     authErrorShownRef.current = errorMessage
-    Alert.alert('Error con Google', errorMessage)
+    setFormError(errorMessage)
   }, [authError])
 
   if (user) {
@@ -51,25 +57,33 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Campos incompletos', 'Ingresa tu correo y tu contrasena.')
+    setFormError(null)
+    setEmailError(null)
+
+    const normalizedEmail = email.trim()
+
+    if (!normalizedEmail || !password.trim()) {
+      setFormError('Ingresa tu correo y tu contrasena.')
+      return
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      setEmailError('Ingresa un correo electronico valido.')
       return
     }
 
     try {
       setIsSubmitting(true)
-      await signIn(email.trim(), password)
+      await signIn(normalizedEmail, password)
     } catch (error: any) {
-      Alert.alert(
-        'Error al iniciar sesion',
-        error.message ?? 'No se pudo iniciar sesion'
-      )
+      setFormError(error.message ?? 'No se pudo iniciar sesion')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   async function handleGoogleLogin() {
+    setFormError(null)
     try {
       setIsGoogleSubmitting(true)
       console.log('[Login] Google sign-in started')
@@ -165,10 +179,15 @@ export default function LoginScreen() {
                 label="Correo electronico"
                 placeholder="Correo electronico"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setEmail(value)
+                  if (emailError) setEmailError(null)
+                  if (formError) setFormError(null)
+                }}
                 iconName="mail"
                 keyboardType="email-address"
                 hideLabel
+                errorText={emailError}
                 onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
@@ -176,33 +195,28 @@ export default function LoginScreen() {
                 label="Contrasena"
                 placeholder="Contrasena"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(value) => {
+                  setPassword(value)
+                  if (formError) setFormError(null)
+                }}
                 iconName="lock"
                 secureTextEntry
                 hideLabel
                 onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
-              <Pressable
-                onPress={() =>
-                  Alert.alert(
-                    'Proximamente',
-                    'La recuperacion de contrasena la implementaremos despues.'
-                  )
-                }
-                style={{ marginBottom: 20, marginTop: -4 }}
-              >
+              {formError ? (
                 <Text
                   style={{
-                    color: colors.primary,
-                    textAlign: 'right',
-                    fontSize: 14,
-                    fontWeight: '600',
+                    color: colors.danger,
+                    fontSize: 13,
+                    marginTop: -2,
+                    marginBottom: 14,
                   }}
                 >
-                  Olvidaste tu contrasena?
+                  {formError}
                 </Text>
-              </Pressable>
+              ) : null}
 
               <AuthButton
                 title="Iniciar sesion"

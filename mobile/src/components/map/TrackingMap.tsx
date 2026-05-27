@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Pressable, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import { Minus, Plus, LocateFixed } from 'lucide-react-native'
-import { Mapbox } from '../../lib/mapbox'
+import {
+  isMapboxTokenConfigured,
+  mapboxTokenErrorMessage,
+  Mapbox,
+} from '../../lib/mapbox'
 import { colors } from '../../theme/colors'
 
 interface TrackingMapProps {
@@ -57,6 +61,24 @@ export function TrackingMap({ coordinates, isTracking }: TrackingMapProps) {
       coordinates: startPoint,
     },
   } as const : null
+
+  if (!isMapboxTokenConfigured) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+          padding: 20,
+        }}
+      >
+        <Text style={{ color: colors.text, textAlign: 'center' }}>
+          {mapboxTokenErrorMessage}
+        </Text>
+      </View>
+    )
+  }
 
   return (
     <View style={{ flex: 1 }}>
