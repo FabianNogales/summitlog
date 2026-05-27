@@ -80,10 +80,28 @@ function formatSeverityLabel(status: RouteReportSeverity) {
 
 export default function RouteDetailScreen() {
   const router = useRouter()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
   const { user } = useAuth()
   const scrollRef = useRef<ScrollView | null>(null)
-  const { route, points, reports, loading, error, refreshRouteDetail } = useRouteDetail(id)
+  const routeId = useMemo(() => {
+    if (Array.isArray(rawId)) {
+      return rawId[0]?.trim() || ''
+    }
+
+    return typeof rawId === 'string' ? rawId.trim() : ''
+  }, [rawId])
+  const {
+    route,
+    points,
+    reports,
+    loading,
+    error,
+    pointsLoading,
+    pointsError,
+    reportsLoading,
+    reportsError,
+    refreshRouteDetail,
+  } = useRouteDetail(routeId || undefined)
   const [isReportFormOpen, setIsReportFormOpen] = useState(false)
   const [reportType, setReportType] = useState<RouteReportType>('mud')
   const [reportStatus, setReportStatus] = useState<RouteReportSeverity>('medium')
@@ -136,14 +154,16 @@ export default function RouteDetailScreen() {
   )
 
   useEffect(() => {
-    if (!id) {
+    if (!routeId) {
       setComments([])
+      setCommentsError('No se encontro la ruta para cargar comentarios.')
       setCommentsLoading(false)
       return
     }
 
-    loadComments(id)
-  }, [id, loadComments])
+    setCommentsError(null)
+    loadComments(routeId)
+  }, [routeId, loadComments])
 
   function resetReportForm() {
     setReportType('mud')
@@ -214,7 +234,7 @@ export default function RouteDetailScreen() {
   }
 
   async function handleSubmitRouteComment() {
-    if (!id) {
+    if (!routeId) {
       setCommentsError('No se encontro la ruta para comentar.')
       return
     }
@@ -242,11 +262,11 @@ export default function RouteDetailScreen() {
       setCommentSubmitting(true)
       setCommentsError(null)
       await createRouteComment({
-        routeId: id,
+        routeId,
         content: trimmedComment,
       })
       setCommentInput('')
-      await loadComments(id)
+      await loadComments(routeId)
     } catch (error: any) {
       setCommentsError(
         error?.message ?? 'No se pudo crear el comentario de la ruta.'
@@ -408,6 +428,25 @@ export default function RouteDetailScreen() {
                 setIsMapActive={setIsMapActive} 
               />
 
+              {pointsLoading ? (
+                <Text style={{ color: colors.textSecondary, marginBottom: 18 }}>
+                  Cargando trazado de la ruta...
+                </Text>
+              ) : pointsError ? (
+                <View
+                  style={{
+                    backgroundColor: colors.card,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    padding: 12,
+                    marginBottom: 18,
+                  }}
+                >
+                  <Text style={{ color: colors.danger }}>{pointsError}</Text>
+                </View>
+              ) : null}
+
               <View
                 style={{
                   backgroundColor: colors.card,
@@ -465,7 +504,41 @@ export default function RouteDetailScreen() {
                   Reportes recientes
                 </Text>
 
-                {reports.length === 0 ? (
+                {reportsLoading ? (
+                  <Text style={{ color: colors.textSecondary }}>
+                    Cargando reportes...
+                  </Text>
+                ) : reportsError ? (
+                  <View
+                    style={{
+                      backgroundColor: colors.card,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      padding: 16,
+                    }}
+                  >
+                    <Text style={{ color: colors.danger, marginBottom: 10 }}>
+                      {reportsError}
+                    </Text>
+                    <Pressable
+                      onPress={() => refreshRouteDetail()}
+                      style={{
+                        alignSelf: 'flex-start',
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.cardSecondary,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                      }}
+                    >
+                      <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+                        Reintentar
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : reports.length === 0 ? (
                   <View
                     style={{
                       backgroundColor: colors.card,
@@ -708,7 +781,30 @@ export default function RouteDetailScreen() {
                     Cargando comentarios...
                   </Text>
                 ) : commentsError ? (
-                  <Text style={{ color: colors.danger }}>{commentsError}</Text>
+                  <View>
+                    <Text style={{ color: colors.danger, marginBottom: 10 }}>
+                      {commentsError}
+                    </Text>
+                    {routeId ? (
+                      <Pressable
+                        onPress={() => loadComments(routeId)}
+                        style={{
+                          alignSelf: 'flex-start',
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          backgroundColor: colors.cardSecondary,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          marginBottom: 2,
+                        }}
+                      >
+                        <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+                          Reintentar
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 ) : comments.length === 0 ? (
                   <Text style={{ color: colors.textSecondary }}>
                     Aun no hay comentarios para esta ruta.
