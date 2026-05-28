@@ -5,6 +5,10 @@ import { decode as decodeBase64 } from 'base64-arraybuffer'
 
 const JOURNAL_MEDIA_BUCKET = 'journal-media'
 
+export const MAX_JOURNAL_PHOTOS = 6
+export const MAX_JOURNAL_IMAGE_SIZE_MB = 20
+export const MAX_JOURNAL_IMAGE_SIZE_BYTES = MAX_JOURNAL_IMAGE_SIZE_MB * 1024 * 1024
+
 export async function getJournalMediaByJournalId(journalId: string) {
   const { data, error } = await supabase
     .from('journal_media')
@@ -28,10 +32,18 @@ interface UploadJournalImageParams {
   sortOrder: number
 }
 
-function resolveContentType(
-  mimeType?: string | null,
-  extension?: string | null
-) {
+interface DeleteJournalMediaParams {
+  mediaId: string
+  journalId: string
+  filePath?: string | null
+}
+
+interface DeleteJournalMediaResult {
+  orphanedFilePath: string | null
+  storageDeleted: boolean
+}
+
+function resolveContentType(mimeType?: string | null, extension?: string | null) {
   const normalizedMime = mimeType?.toLowerCase()
 
   if (normalizedMime === 'image/png') {
@@ -86,7 +98,6 @@ export async function uploadJournalImage(params: UploadJournalImageParams) {
   if (uploadError) {
     throw uploadError
   }
-  console.log('[JournalMedia] upload success path', path)
 
   const { data, error } = await supabase
     .from('journal_media')
@@ -102,33 +113,54 @@ export async function uploadJournalImage(params: UploadJournalImageParams) {
   if (error) {
     throw error
   }
-  console.log('[JournalMedia] saved file_path', data.file_path)
 
   return data as JournalMedia
+}
+
+export async function deleteJournalMedia(
+  params: DeleteJournalMediaParams
+): Promise<DeleteJournalMediaResult> {
+  const normalizedPath = params.filePath?.trim() ?? ''
+
+  const { error: deleteRowError } = await supabase
+    .from('journal_media')
+    .delete()
+    .eq('id', params.mediaId)
+    .eq('journal_id', params.journalId)
+
+  if (deleteRowError) {
+    throw new Error(deleteRowError.message ?? 'No se pudo eliminar la foto de la bitacora.')
+  }
+
+  if (!normalizedPath) {
+    return { orphanedFilePath: null, storageDeleted: false }
+  }
+
+  const { error: deleteStorageError } = await supabase.storage
+    .from(JOURNAL_MEDIA_BUCKET)
+    .remove([normalizedPath])
+
+  if (deleteStorageError) {
+    return {
+      orphanedFilePath: normalizedPath,
+      storageDeleted: false,
+    }
+  }
+
+  return { orphanedFilePath: null, storageDeleted: true }
 }
 
 export function getJournalMediaPublicUrl(filePath?: string | null) {
   const normalizedPath = filePath?.trim() ?? ''
   if (!normalizedPath) {
-    console.log('[JournalMedia] publicUrl generated', false)
     return ''
   }
 
-  console.log('[JournalMedia] raw file_path', normalizedPath)
-
-  if (
-    normalizedPath.startsWith('http://') ||
-    normalizedPath.startsWith('https://')
-  ) {
-    console.log('[JournalMedia] publicUrl generated', true)
+  if (normalizedPath.startsWith('http://') || normalizedPath.startsWith('https://')) {
     return normalizedPath
   }
 
-  const { data } = supabase.storage
-    .from(JOURNAL_MEDIA_BUCKET)
-    .getPublicUrl(normalizedPath)
-
-  console.log('[JournalMedia] publicUrl generated', Boolean(data.publicUrl))
+  const { data } = supabase.storage.from(JOURNAL_MEDIA_BUCKET).getPublicUrl(normalizedPath)
 
   return data.publicUrl
 }
