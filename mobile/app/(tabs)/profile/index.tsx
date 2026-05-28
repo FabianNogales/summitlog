@@ -18,7 +18,8 @@ import { uploadAvatarToStorage } from "../../../src/services/profile.service";
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut, updateMyProfile } = useAuth();
-  const { trips, stats, loading, refreshing, error, pendingSyncCount, refreshHistory } = useTripHistory();
+  const { trips, stats, loading, refreshing, error, pendingSyncCount, refreshHistory } =
+    useTripHistory({ limit: 3 });
   const [avatarUploading, setAvatarUploading] = useState(false);
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
@@ -134,16 +135,47 @@ export default function ProfileScreen() {
           />
 
           <View style={{ marginTop: 20 }}>
-            <Text
+            <View
               style={{
-                color: colors.text,
-                fontSize: 18,
-                fontWeight: "700",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
                 marginBottom: 12,
+                gap: 12,
               }}
             >
-              Historial de actividades
-            </Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: 18,
+                    fontWeight: "700",
+                    marginBottom: 4,
+                  }}
+                >
+                  Historial reciente
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                  Tus ultimos 3 recorridos completados
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => router.push("/profile/history")}
+                style={{
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.cardSecondary,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
+                  Ver historial completo
+                </Text>
+              </Pressable>
+            </View>
 
             {pendingSyncCount > 0 ? (
               <View

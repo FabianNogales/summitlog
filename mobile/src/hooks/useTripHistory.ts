@@ -8,15 +8,23 @@ import {
 import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
 import type { RecordedTrip } from '../types/trip'
 
-export function useTripHistory() {
+const initialStats: TripHistoryStats = {
+  completedTrips: 0,
+  journalCount: 0,
+  totalDistanceKm: 0,
+}
+
+interface UseTripHistoryOptions {
+  limit?: number
+  includeStats?: boolean
+}
+
+export function useTripHistory(options: UseTripHistoryOptions = {}) {
   const { user } = useAuth()
+  const { limit, includeStats = true } = options
 
   const [trips, setTrips] = useState<RecordedTrip[]>([])
-  const [stats, setStats] = useState<TripHistoryStats>({
-    completedTrips: 0,
-    journalCount: 0,
-    totalDistanceKm: 0,
-  })
+  const [stats, setStats] = useState<TripHistoryStats>(initialStats)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,11 +45,7 @@ export function useTripHistory() {
   const loadHistory = useCallback(async (isRefresh = false) => {
     if (!user) {
       setTrips([])
-      setStats({
-        completedTrips: 0,
-        journalCount: 0,
-        totalDistanceKm: 0,
-      })
+      setStats(initialStats)
       setError(null)
       setRefreshing(false)
       setLoading(false)
@@ -58,8 +62,8 @@ export function useTripHistory() {
       setError(null)
 
       const [loadedTrips, loadedStats, pendingTrips] = await Promise.all([
-        getCompletedTripsByUser(user.id),
-        getTripHistoryStats(user.id),
+        getCompletedTripsByUser(user.id, { limit }),
+        includeStats ? getTripHistoryStats(user.id) : Promise.resolve(initialStats),
         getPendingOfflineTripsByUser(user.id),
       ])
 
@@ -73,7 +77,7 @@ export function useTripHistory() {
       setRefreshing(false)
       setLoading(false)
     }
-  }, [user])
+  }, [includeStats, limit, user])
 
   useEffect(() => {
     loadHistory()

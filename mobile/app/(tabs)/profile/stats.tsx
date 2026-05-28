@@ -44,6 +44,10 @@ export default function ProfileStatsScreen() {
   const { stats, pendingSyncCount, loading, error, refreshStats } = useUserStats()
   const [refreshing, setRefreshing] = useState(false)
 
+  function handleBackToProfile() {
+    router.replace('/(tabs)/profile')
+  }
+
   async function handleRefresh() {
     try {
       setRefreshing(true)
@@ -74,7 +78,7 @@ export default function ProfileStatsScreen() {
           }}
         >
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleBackToProfile}
             style={{
               width: 40,
               height: 40,

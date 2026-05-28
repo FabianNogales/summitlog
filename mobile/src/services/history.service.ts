@@ -18,13 +18,30 @@ export interface UserStats {
   totalGpsPoints: number | null
 }
 
-export async function getCompletedTripsByUser(userId: string) {
-  const { data, error } = await supabase
+interface GetCompletedTripsByUserOptions {
+  limit?: number
+}
+
+export async function getCompletedTripsByUser(
+  userId: string,
+  options: GetCompletedTripsByUserOptions = {}
+) {
+  let query = supabase
     .from('recorded_trips')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'completed')
     .order('started_at', { ascending: false })
+
+  if (
+    typeof options.limit === 'number' &&
+    Number.isFinite(options.limit) &&
+    options.limit > 0
+  ) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw error
