@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,10 +12,15 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as ImagePicker from 'expo-image-picker'
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
 import { AuthButton } from '../../src/components/auth/AuthButton'
-import { createPost, getPosts } from '../../src/services/post.service'
+import {
+  createPost,
+  getPostMediaPublicUrl,
+  getPosts,
+} from '../../src/services/post.service'
 import type { SocialPost } from '../../src/types/post'
 import {
   createPostComment,
@@ -39,6 +45,13 @@ interface ReportTargetDraft {
   targetId: string
   targetLabel: string
   targetOwnerId?: string | null
+}
+
+interface DraftPostImage {
+  uri: string
+  fileName: string | null
+  mimeType: string | null
+  fileSize: number | null
 }
 
 export default function HomeScreen() {
@@ -73,6 +86,9 @@ export default function HomeScreen() {
   const [reportDescription, setReportDescription] = useState('')
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [selectedPostImage, setSelectedPostImage] = useState<DraftPostImage | null>(
+    null
+  )
 
   const trimmedContent = content.trim()
   const contentTooShort = trimmedContent.length > 0 && trimmedContent.length < 10
@@ -219,10 +235,36 @@ export default function HomeScreen() {
     try {
       setSubmitting(true)
       setSubmitError(null)
-      await createPost({ content: trimmedContent })
+      const created = await createPost({
+        content: trimmedContent,
+        image: selectedPostImage
+          ? {
+              fileUri: selectedPostImage.uri,
+              fileName: selectedPostImage.fileName,
+              mimeType: selectedPostImage.mimeType,
+              fileSize: selectedPostImage.fileSize,
+            }
+          : undefined,
+      })
       setContent('')
+      setSelectedPostImage(null)
       await loadPosts()
-      Alert.alert('Publicacion creada', 'Tu publicacion social se guardo correctamente.')
+
+      if (created.imageStatus === 'failed_after_post') {
+        Alert.alert(
+          'Publicacion creada con advertencia',
+          created.imageError ??
+            'La publicacion se guardo, pero no se pudo asociar la imagen.'
+        )
+        return
+      }
+
+      Alert.alert(
+        'Publicacion creada',
+        created.imageStatus === 'uploaded'
+          ? 'Tu publicacion social se guardo con imagen.'
+          : 'Tu publicacion social se guardo correctamente.'
+      )
     } catch (error: any) {
       setSubmitError(
         error?.message ?? 'No se pudo crear la publicacion social.'
@@ -230,6 +272,38 @@ export default function HomeScreen() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handlePickPostImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+    if (!permission.granted) {
+      setSubmitError(
+        'Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.'
+      )
+      return
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: false,
+      allowsEditing: false,
+      quality: 0.8,
+      selectionLimit: 1,
+    })
+
+    if (result.canceled || !result.assets?.length) {
+      return
+    }
+
+    const selected = result.assets[0]
+    setSelectedPostImage({
+      uri: selected.uri,
+      fileName: selected.fileName ?? null,
+      mimeType: selected.mimeType ?? null,
+      fileSize: selected.fileSize ?? null,
+    })
+    setSubmitError(null)
   }
 
   function resetReportDraftState() {
@@ -415,6 +489,74 @@ export default function HomeScreen() {
             Minimo 10 caracteres.
           </Text>
 
+          {selectedPostImage ? (
+            <View
+              style={{
+                marginBottom: 10,
+                borderRadius: 12,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.cardSecondary,
+              }}
+            >
+              <Image
+                source={{ uri: selectedPostImage.uri }}
+                style={{ width: '100%', height: 160 }}
+                resizeMode="cover"
+              />
+              <View
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{ color: colors.textSecondary, fontSize: 12, flex: 1 }}
+                  numberOfLines={1}
+                >
+                  {selectedPostImage.fileName ?? 'Imagen seleccionada'}
+                </Text>
+                <Pressable
+                  onPress={() => setSelectedPostImage(null)}
+                  style={{
+                    marginLeft: 10,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                  }}
+                >
+                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                    Quitar
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          <Pressable
+            onPress={handlePickPostImage}
+            style={{
+              minHeight: 42,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.border,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.cardSecondary,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+              Agregar imagen
+            </Text>
+          </Pressable>
+
           {submitError ? (
             <Text
               style={{
@@ -495,6 +637,8 @@ export default function HomeScreen() {
                 const commentInput = commentInputByPostId[post.id] ?? ''
                 const trimmedCommentInput = commentInput.trim()
                 const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
+                const postImage = (post.media ?? []).length > 0 ? post.media?.[0] : null
+                const postImageUrl = getPostMediaPublicUrl(postImage?.file_path)
 
                 return (
                   <View
@@ -514,6 +658,20 @@ export default function HomeScreen() {
                     <Text style={{ color: colors.text, marginBottom: 8 }}>
                       {post.content}
                     </Text>
+
+                    {postImageUrl ? (
+                      <Image
+                        source={{ uri: postImageUrl }}
+                        style={{
+                          width: '100%',
+                          height: 180,
+                          borderRadius: 10,
+                          backgroundColor: colors.card,
+                          marginBottom: 8,
+                        }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
                     <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
                       {new Date(post.created_at).toLocaleString()}
                     </Text>
