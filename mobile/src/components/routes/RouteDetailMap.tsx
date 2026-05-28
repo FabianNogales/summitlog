@@ -14,27 +14,47 @@ interface RouteDetailMapProps {
 }
 
 export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMapProps) {
-  const hasPolyline = points.length >= 2
+  const validPoints = points.filter((point) => {
+    const lng = Number(point.longitude)
+    const lat = Number(point.latitude)
+    return Number.isFinite(lng) && Number.isFinite(lat)
+  })
+  const hasPolyline = validPoints.length >= 2
 
-  const lineCoordinates = points.map((point) => [
+  const lineCoordinates = validPoints.map((point) => [
     Number(point.longitude),
     Number(point.latitude),
   ])
 
-  const fallbackCenter: [number, number] =
-    route.start_lat != null && route.start_lng != null
-      ? [Number(route.start_lng), Number(route.start_lat)]
-      : [-66.1568, -17.3895]
+  const fallbackCenter: [number, number] = (() => {
+    if (route.start_lat == null || route.start_lng == null) {
+      return [-66.1568, -17.3895]
+    }
 
-  const startCoordinate: [number, number] | null =
-    route.start_lat != null && route.start_lng != null
-      ? [Number(route.start_lng), Number(route.start_lat)]
-      : null
+    const lat = Number(route.start_lat)
+    const lng = Number(route.start_lng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return [-66.1568, -17.3895]
+    }
 
-  const endCoordinate: [number, number] | null =
-    route.end_lat != null && route.end_lng != null
-      ? [Number(route.end_lng), Number(route.end_lat)]
-      : null
+    return [lng, lat]
+  })()
+
+  const startCoordinate: [number, number] | null = (() => {
+    if (route.start_lat == null || route.start_lng == null) return null
+    const lat = Number(route.start_lat)
+    const lng = Number(route.start_lng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    return [lng, lat]
+  })()
+
+  const endCoordinate: [number, number] | null = (() => {
+    if (route.end_lat == null || route.end_lng == null) return null
+    const lat = Number(route.end_lat)
+    const lng = Number(route.end_lng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    return [lng, lat]
+  })()
 
   if (!isMapboxTokenConfigured) {
     return (

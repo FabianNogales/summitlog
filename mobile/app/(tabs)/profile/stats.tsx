@@ -41,7 +41,7 @@ function formatDate(value: string | null) {
 
 export default function ProfileStatsScreen() {
   const router = useRouter()
-  const { stats, loading, error, refreshStats } = useUserStats()
+  const { stats, pendingSyncCount, loading, error, refreshStats } = useUserStats()
   const [refreshing, setRefreshing] = useState(false)
 
   async function handleRefresh() {
@@ -131,6 +131,23 @@ export default function ProfileStatsScreen() {
             padding: 18,
           }}
         >
+          {pendingSyncCount > 0 ? (
+            <View
+              style={{
+                marginBottom: 14,
+                backgroundColor: colors.cardSecondary,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 10,
+              }}
+            >
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                {`Tienes ${pendingSyncCount} recorrido(s) pendiente(s) de sincronizacion. Estas estadisticas pueden cambiar despues de sincronizar.`}
+              </Text>
+            </View>
+          ) : null}
+
           {loading ? (
             <View
               style={{

@@ -16,8 +16,6 @@ interface RoutesMapProps {
   onPressRoute: (route: RouteItem) => void
 }
 
-const COCHABAMBA_CENTER: [number, number] = [-66.1568, -17.3895]
-
 export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapProps) {
   const cameraRef = useRef<any>(null)
   const [zoomLevel, setZoomLevel] = useState(13)
@@ -114,14 +112,56 @@ export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapPro
     )
   }
 
-  const validRoutes = routes.filter(
-    (route) => route.start_lat != null && route.start_lng != null
-  )
+  const validRoutes = routes.filter((route) => {
+    if (route.start_lat == null || route.start_lng == null) {
+      return false
+    }
 
-  const initialCenter: [number, number] =
-    validRoutes.length > 0
-      ? [Number(validRoutes[0].start_lng), Number(validRoutes[0].start_lat)]
-      : COCHABAMBA_CENTER
+    const lat = Number(route.start_lat)
+    const lng = Number(route.start_lng)
+
+    return Number.isFinite(lat) && Number.isFinite(lng)
+  })
+
+  if (validRoutes.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+          padding: 20,
+        }}
+      >
+        <Text
+          style={{
+            color: colors.text,
+            fontSize: 16,
+            fontWeight: '700',
+            marginBottom: 8,
+            textAlign: 'center',
+          }}
+        >
+          Rutas sin coordenadas validas
+        </Text>
+
+        <Text
+          style={{
+            color: colors.textSecondary,
+            textAlign: 'center',
+          }}
+        >
+          Las rutas publicadas no tienen ubicaciones iniciales validas para mostrarse en el mapa.
+        </Text>
+      </View>
+    )
+  }
+
+  const initialCenter: [number, number] = [
+    Number(validRoutes[0].start_lng),
+    Number(validRoutes[0].start_lat),
+  ]
 
   return (
     <View style={{ flex: 1 }}>
@@ -136,7 +176,7 @@ export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapPro
           ref={cameraRef}
           defaultSettings={{
             centerCoordinate: initialCenter,
-            zoomLevel: validRoutes.length > 0 ? 13 : 11,
+            zoomLevel: 13,
           }}
         />
 

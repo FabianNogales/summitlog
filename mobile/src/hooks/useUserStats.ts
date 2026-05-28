@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from './useAuth'
 import { getUserStats, type UserStats } from '../services/history.service'
+import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
 
 const initialStats: UserStats = {
   totalTrips: 0,
@@ -16,12 +17,14 @@ const initialStats: UserStats = {
 export function useUserStats() {
   const { user } = useAuth()
   const [stats, setStats] = useState<UserStats>(initialStats)
+  const [pendingSyncCount, setPendingSyncCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const loadStats = useCallback(async () => {
     if (!user) {
       setStats(initialStats)
+      setPendingSyncCount(0)
       setError(null)
       setLoading(false)
       return
@@ -31,11 +34,17 @@ export function useUserStats() {
     setError(null)
 
     try {
-      const userStats = await getUserStats(user.id)
+      const [userStats, pendingTrips] = await Promise.all([
+        getUserStats(user.id),
+        getPendingOfflineTripsByUser(user.id),
+      ])
+
       setStats(userStats)
+      setPendingSyncCount(pendingTrips.length)
     } catch (catchError: any) {
-      setError(catchError?.message ?? 'No se pudieron cargar las estadísticas')
+      setError(catchError?.message ?? 'No se pudieron cargar las estadisticas')
       setStats(initialStats)
+      setPendingSyncCount(0)
     } finally {
       setLoading(false)
     }
@@ -47,6 +56,7 @@ export function useUserStats() {
 
   return {
     stats,
+    pendingSyncCount,
     loading,
     error,
     refreshStats: loadStats,
