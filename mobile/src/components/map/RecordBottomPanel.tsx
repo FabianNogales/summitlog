@@ -17,6 +17,7 @@ interface RecordBottomPanelProps {
   syncing: boolean
   onSync: () => void
   syncButtonTitle: string
+  syncHelperText?: string | null
 }
 
 export function RecordBottomPanel({
@@ -32,6 +33,7 @@ export function RecordBottomPanel({
   syncing,
   onSync,
   syncButtonTitle,
+  syncHelperText,
 }: RecordBottomPanelProps) {
   
   const [seconds, setSeconds] = useState(0)
@@ -118,6 +120,9 @@ export function RecordBottomPanel({
             onPress={onSync}
             loading={syncing}
           />
+          {syncHelperText ? (
+            <Text style={styles.syncHelperText}>{syncHelperText}</Text>
+          ) : null}
         </View>
       )}
       
@@ -202,5 +207,11 @@ const styles = StyleSheet.create({
   syncContainer: {
     width: '100%',
     marginTop: 16,
-  }
+  },
+  syncHelperText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+  },
 })

@@ -275,10 +275,23 @@ export function useOfflineTripRecorder() {
 
         lastAltitudeRef.current = currentAltitude
 
-        setPathPoints((prev) => [
-          ...prev,
-          [currentCoords.longitude, currentCoords.latitude],
-        ])
+        setPathPoints((prev) => {
+          const lastPoint = prev[prev.length - 1]
+          const nextPoint: [number, number] = [
+            currentCoords.longitude,
+            currentCoords.latitude,
+          ]
+
+          if (
+            lastPoint &&
+            lastPoint[0] === nextPoint[0] &&
+            lastPoint[1] === nextPoint[1]
+          ) {
+            return prev
+          }
+
+          return [...prev, nextPoint]
+        })
 
         console.log('[OfflineRecorder] persist point success')
       } catch (error) {

@@ -9,12 +9,9 @@ import { RecordBottomPanel } from '../../src/components/map/RecordBottomPanel'
 
 export default function RecordScreen() {
   const {
-    activeLocalTripId,
     totalDistanceM,
     totalElevationGainM,
     totalCalories,
-    lastLatitude,
-    lastLongitude,
     isStarting,
     isTracking,
     isFinishing,
@@ -26,6 +23,9 @@ export default function RecordScreen() {
   const {
     pendingCount,
     syncing,
+    syncStatus,
+    lastSyncError,
+    lastSyncResult,
     syncNow,
   } = useOfflineSync()
 
@@ -34,6 +34,16 @@ export default function RecordScreen() {
     : pendingCount > 0
       ? `Sincronizar (${pendingCount}) pendientes`
       : 'No hay recorridos pendientes'
+
+  const syncHelperText = syncing
+    ? 'Sincronizando recorridos pendientes...'
+    : syncStatus === 'error'
+      ? lastSyncError ?? 'Hubo un problema al sincronizar.'
+      : pendingCount > 0
+        ? `Tienes ${pendingCount} recorrido(s) pendiente(s).`
+        : lastSyncResult
+          ? 'Todo sincronizado.'
+          : 'Sin pendientes por sincronizar.'
 
   async function handleStartTrip() {
     try {
@@ -87,11 +97,6 @@ export default function RecordScreen() {
     }
   }
 
-  const currentCoordinate =
-    lastLatitude !== null && lastLongitude !== null
-      ? [lastLongitude, lastLatitude] as [number, number]
-      : null
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <TrackingMap 
@@ -112,6 +117,7 @@ export default function RecordScreen() {
         syncing={syncing}
         onSync={handleManualSync}
         syncButtonTitle={syncButtonTitle}
+        syncHelperText={syncHelperText}
       />
     </View>
   )

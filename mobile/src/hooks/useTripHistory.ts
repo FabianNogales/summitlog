@@ -5,6 +5,7 @@ import {
   getTripHistoryStats,
   type TripHistoryStats,
 } from '../services/history.service'
+import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
 import type { RecordedTrip } from '../types/trip'
 
 export function useTripHistory() {
@@ -19,6 +20,7 @@ export function useTripHistory() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingSyncCount, setPendingSyncCount] = useState(0)
 
   function dedupeTripsById(items: RecordedTrip[]) {
     const seen = new Set<string>()
@@ -43,6 +45,7 @@ export function useTripHistory() {
       setError(null)
       setRefreshing(false)
       setLoading(false)
+      setPendingSyncCount(0)
       return
     }
 
@@ -54,14 +57,16 @@ export function useTripHistory() {
       }
       setError(null)
 
-      const [loadedTrips, loadedStats] = await Promise.all([
+      const [loadedTrips, loadedStats, pendingTrips] = await Promise.all([
         getCompletedTripsByUser(user.id),
         getTripHistoryStats(user.id),
+        getPendingOfflineTripsByUser(user.id),
       ])
 
       const dedupedTrips = dedupeTripsById(loadedTrips)
       setTrips(dedupedTrips)
       setStats(loadedStats)
+      setPendingSyncCount(pendingTrips.length)
     } catch (historyError: any) {
       setError(historyError?.message ?? 'No se pudo cargar el historial de recorridos.')
     } finally {
@@ -80,6 +85,7 @@ export function useTripHistory() {
     loading,
     refreshing,
     error,
+    pendingSyncCount,
     refreshHistory: () => loadHistory(true),
   }
 }

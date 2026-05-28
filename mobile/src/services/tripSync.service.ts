@@ -110,11 +110,21 @@ async function runSyncPendingTripsForUser(
         continue
       }
 
+      // Guardamos solo un punto por point_order para evitar duplicados remotos
+      // si en local quedaron filas repetidas por reintentos/carreras.
+      const uniqueLocalPointsByOrder = new Map<number, (typeof localPoints)[number]>()
+      for (const point of localPoints) {
+        if (!uniqueLocalPointsByOrder.has(point.point_order)) {
+          uniqueLocalPointsByOrder.set(point.point_order, point)
+        }
+      }
+      const uniqueLocalPoints = Array.from(uniqueLocalPointsByOrder.values())
+
       const existingRemoteOrders = new Set(
         await getRecordedTripPointOrdersByTripId(remoteTripId)
       )
 
-      const pointsToInsert = localPoints.filter(
+      const pointsToInsert = uniqueLocalPoints.filter(
         (point) => !existingRemoteOrders.has(point.point_order)
       )
 
@@ -139,7 +149,7 @@ async function runSyncPendingTripsForUser(
       )
 
       const localOrders = Array.from(
-        new Set(localPoints.map((point) => point.point_order))
+        new Set(uniqueLocalPoints.map((point) => point.point_order))
       )
 
       const syncedOrders = localOrders.filter((order) =>

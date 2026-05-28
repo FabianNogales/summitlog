@@ -18,7 +18,7 @@ import { uploadAvatarToStorage } from "../../../src/services/profile.service";
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut, updateMyProfile } = useAuth();
-  const { trips, stats, loading, refreshing, error, refreshHistory } = useTripHistory();
+  const { trips, stats, loading, refreshing, error, pendingSyncCount, refreshHistory } = useTripHistory();
   const [avatarUploading, setAvatarUploading] = useState(false);
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
@@ -144,6 +144,24 @@ export default function ProfileScreen() {
             >
               Historial de actividades
             </Text>
+
+            {pendingSyncCount > 0 ? (
+              <View
+                style={{
+                  marginBottom: 12,
+                  backgroundColor: colors.cardSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 12,
+                  padding: 10,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary }}>
+                  Tienes {pendingSyncCount} recorrido(s) pendiente(s) de sincronizar. El historial
+                  muestra recorridos ya sincronizados.
+                </Text>
+              </View>
+            ) : null}
 
             {loading ? (
               <Text style={{ color: colors.textSecondary, marginBottom: 18 }}>
