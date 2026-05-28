@@ -1,8 +1,9 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, Alert, Image } from 'react-native'
 import { colors } from '../../theme/colors' 
 import type { RouteReport } from '../../types/route'
 import { Ionicons } from '@expo/vector-icons';
+import { getRouteReportPhotoPublicUrl } from '../../services/routeReport.service'
 
 interface RouteReportItemProps {
   report: RouteReport
@@ -11,8 +12,11 @@ interface RouteReportItemProps {
 }
 
 export function RouteReportItem({ report, currentUserId, onResolve }: RouteReportItemProps) {
+  const [imageLoadFailed, setImageLoadFailed] = React.useState(false)
   
   const isOwner = currentUserId && currentUserId === report.user_id
+  const imageUrl = getRouteReportPhotoPublicUrl(report.photo_path)
+  const canRenderImage = Boolean(imageUrl) && !imageLoadFailed
 
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
@@ -90,6 +94,39 @@ export function RouteReportItem({ report, currentUserId, onResolve }: RouteRepor
       <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 12, lineHeight: 20 }}>
         {report.description}
       </Text>
+
+      {report.photo_path ? (
+        canRenderImage ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={{
+              width: '100%',
+              height: 170,
+              borderRadius: 10,
+              marginBottom: 12,
+              backgroundColor: colors.cardSecondary,
+            }}
+            resizeMode="cover"
+            onError={() => setImageLoadFailed(true)}
+          />
+        ) : (
+          <View
+            style={{
+              backgroundColor: colors.cardSecondary,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: colors.border,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+              Imagen del reporte no disponible.
+            </Text>
+          </View>
+        )
+      ) : null}
 
       {/* SECCIÓN INFERIOR: Fecha a la izquierda, Botón "Resolver" a la derecha */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

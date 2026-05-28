@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -26,6 +28,7 @@ import {
 import { useRouteDetail } from '../../src/hooks/useRouteDetail'
 import {
   createRouteReport,
+  MAX_ROUTE_REPORT_IMAGE_SIZE_MB,
   MAX_ROUTE_REPORT_DESCRIPTION_LENGTH,
   MIN_ROUTE_REPORT_DESCRIPTION_LENGTH,
   resolveRouteReport,
@@ -48,6 +51,13 @@ import {
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
 import { getAuthorDisplayName } from '../../src/utils/displayName'
+
+interface DraftRouteReportPhoto {
+  uri: string
+  fileName: string | null
+  mimeType: string | null
+  fileSize: number | null
+}
 
 function formatReportTypeLabel(reportType: RouteReportType) {
   switch (reportType) {
@@ -111,6 +121,8 @@ export default function RouteDetailScreen() {
   const [description, setDescription] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittingReport, setSubmittingReport] = useState(false)
+  const [selectedReportPhoto, setSelectedReportPhoto] =
+    useState<DraftRouteReportPhoto | null>(null)
   const [comments, setComments] = useState<RouteComment[]>([])
   const [commentsLoading, setCommentsLoading] = useState(true)
   const [commentsError, setCommentsError] = useState<string | null>(null)
@@ -177,6 +189,39 @@ export default function RouteDetailScreen() {
     setReportType('mud')
     setReportStatus('medium')
     setDescription('')
+    setSelectedReportPhoto(null)
+    setSubmitError(null)
+  }
+
+  async function handlePickReportPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+
+    if (!permission.granted) {
+      setSubmitError(
+        'Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.'
+      )
+      return
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: false,
+      allowsEditing: false,
+      quality: 0.8,
+      selectionLimit: 1,
+    })
+
+    if (result.canceled || !result.assets?.length) {
+      return
+    }
+
+    const selected = result.assets[0]
+    setSelectedReportPhoto({
+      uri: selected.uri,
+      fileName: selected.fileName ?? null,
+      mimeType: selected.mimeType ?? null,
+      fileSize: selected.fileSize ?? null,
+    })
     setSubmitError(null)
   }
 
@@ -239,6 +284,14 @@ export default function RouteDetailScreen() {
         reportType,
         reportStatus,
         description: trimmedDescription,
+        photo: selectedReportPhoto
+          ? {
+              fileUri: selectedReportPhoto.uri,
+              fileName: selectedReportPhoto.fileName,
+              mimeType: selectedReportPhoto.mimeType,
+              fileSize: selectedReportPhoto.fileSize,
+            }
+          : undefined,
       })
 
       await refreshRouteDetail()
@@ -754,6 +807,82 @@ export default function RouteDetailScreen() {
                             {`${trimmedDescription.length}/${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} - Minimo ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`}
                           </Text>
                         </View>
+
+                        {selectedReportPhoto ? (
+                          <View
+                            style={{
+                              borderRadius: 12,
+                              overflow: 'hidden',
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                              backgroundColor: colors.cardSecondary,
+                            }}
+                          >
+                            <Image
+                              source={{ uri: selectedReportPhoto.uri }}
+                              style={{ width: '100%', height: 170 }}
+                              resizeMode="cover"
+                            />
+                            <View
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 9,
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Text
+                                style={{ color: colors.textSecondary, fontSize: 12, flex: 1 }}
+                                numberOfLines={1}
+                              >
+                                {selectedReportPhoto.fileName ?? 'Foto seleccionada'}
+                              </Text>
+                              <Pressable
+                                onPress={() => setSelectedReportPhoto(null)}
+                                style={{
+                                  marginLeft: 10,
+                                  borderRadius: 9,
+                                  borderWidth: 1,
+                                  borderColor: colors.border,
+                                  paddingHorizontal: 9,
+                                  paddingVertical: 5,
+                                  backgroundColor: colors.card,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: colors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: '600',
+                                  }}
+                                >
+                                  Quitar
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ) : null}
+
+                        <Pressable
+                          onPress={handlePickReportPhoto}
+                          style={{
+                            minHeight: 44,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: colors.cardSecondary,
+                          }}
+                        >
+                          <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>
+                            Agregar foto (opcional)
+                          </Text>
+                        </Pressable>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                          Solo JPG/PNG. Maximo {MAX_ROUTE_REPORT_IMAGE_SIZE_MB} MB.
+                        </Text>
 
                         {submitError ? (
                           <Text style={{ color: colors.danger }}>{submitError}</Text>
