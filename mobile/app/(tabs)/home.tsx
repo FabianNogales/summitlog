@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
+
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
-import { AuthButton } from '../../src/components/auth/AuthButton'
 import {
   createPost,
   getPostMediaPublicUrl,
@@ -39,6 +38,13 @@ import {
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
 import { getAuthorDisplayName } from '../../src/utils/displayName'
+import { CommunityHeader } from '../../src/components/community/CommunityHeader'
+import {
+  CreatePostComposer,
+  type DraftPostImage,
+} from '../../src/components/community/CreatePostComposer'
+import { PostCard } from '../../src/components/community/PostCard'
+import { CommentsSection } from '../../src/components/community/CommentsSection'
 
 interface ReportTargetDraft {
   targetType: ContentReportTargetType
@@ -47,20 +53,14 @@ interface ReportTargetDraft {
   targetOwnerId?: string | null
 }
 
-interface DraftPostImage {
-  uri: string
-  fileName: string | null
-  mimeType: string | null
-  fileSize: number | null
-}
-
 export default function HomeScreen() {
   const { profile, user, profileLoadError } = useAuth()
   const outerScrollRef = useRef<ScrollView | null>(null)
-  const feedScrollRef = useRef<ScrollView | null>(null)
+  const composerScrollRef = useRef<ScrollView | null>(null)
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [composerVisible, setComposerVisible] = useState(false)
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [feedLoading, setFeedLoading] = useState(true)
   const [refreshingFeed, setRefreshingFeed] = useState(false)
@@ -81,7 +81,8 @@ export default function HomeScreen() {
   const [commentSubmittingByPostId, setCommentSubmittingByPostId] = useState<
     Record<string, boolean>
   >({})
-  const [reportTargetDraft, setReportTargetDraft] = useState<ReportTargetDraft | null>(null)
+  const [reportTargetDraft, setReportTargetDraft] =
+    useState<ReportTargetDraft | null>(null)
   const [reportReason, setReportReason] = useState<ContentReportReason>('spam')
   const [reportDescription, setReportDescription] = useState('')
   const [reportSubmitting, setReportSubmitting] = useState(false)
@@ -92,6 +93,16 @@ export default function HomeScreen() {
 
   const trimmedContent = content.trim()
   const contentTooShort = trimmedContent.length > 0 && trimmedContent.length < 10
+
+  const composerDisplayName = useMemo(() => {
+    const fullName = profile?.full_name?.trim()
+    if (fullName) return fullName
+
+    const username = profile?.username?.trim()
+    if (username) return username
+
+    return 'Senderista'
+  }, [profile?.full_name, profile?.username])
 
   const loadPosts = useCallback(async () => {
     try {
@@ -248,6 +259,7 @@ export default function HomeScreen() {
       })
       setContent('')
       setSelectedPostImage(null)
+      setComposerVisible(false)
       await loadPosts()
 
       if (created.imageStatus === 'failed_after_post') {
@@ -266,9 +278,7 @@ export default function HomeScreen() {
           : 'Tu publicacion social se guardo correctamente.'
       )
     } catch (error: any) {
-      setSubmitError(
-        error?.message ?? 'No se pudo crear la publicacion social.'
-      )
+      setSubmitError(error?.message ?? 'No se pudo crear la publicacion social.')
     } finally {
       setSubmitting(false)
     }
@@ -386,494 +396,194 @@ export default function HomeScreen() {
         <ScrollView
           ref={outerScrollRef}
           contentContainerStyle={{
-            flexGrow: 1,
-            padding: 24,
+            paddingHorizontal: 16,
+            paddingTop: 14,
             paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
           }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshingFeed}
+              onRefresh={handleRefreshFeed}
+              tintColor={colors.primary}
+            />
+          }
         >
-        <Text
-          style={{
-            color: colors.text,
-            fontSize: 28,
-            fontWeight: '700',
-            marginBottom: 12,
-          }}
-        >
-          Bienvenido a SummitLog
-        </Text>
-
-        <Text
-          style={{
-            color: colors.textSecondary,
-            fontSize: 16,
-            marginBottom: 20,
-          }}
-        >
-          {profile?.username
-            ? `Sesion iniciada como @${profile.username}`
-            : 'Sesion iniciada correctamente'}
-        </Text>
-
-        {profileLoadError ? (
-          <Text
-            style={{
-              color: colors.warning,
-              fontSize: 13,
-              marginBottom: 14,
-            }}
-          >
-            {profileLoadError}
-          </Text>
-        ) : null}
-
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 18,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <Text
-            style={{
-              color: colors.text,
-              fontSize: 18,
-              fontWeight: '700',
-              marginBottom: 8,
-            }}
-          >
-            Crear publicacion social
-          </Text>
-
-          <Text
-            style={{
-              color: colors.textSecondary,
-              fontSize: 13,
-              marginBottom: 12,
-            }}
-          >
-            Comparte experiencias o recomendaciones para la comunidad.
-          </Text>
-
-          <TextInput
-            value={content}
-            onChangeText={setContent}
-            onFocus={(event) => scrollToFocusedInput(outerScrollRef, event)}
-            multiline
-            textAlignVertical="top"
-            placeholder="Escribe tu publicacion..."
-            placeholderTextColor={colors.placeholder}
-            style={{
-              minHeight: 120,
-              backgroundColor: colors.cardSecondary,
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 12,
-              color: colors.text,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              marginBottom: 8,
-            }}
+          <CommunityHeader
+            username={profile?.username}
+            profileLoadError={profileLoadError}
+            onPressCreate={() => setComposerVisible(true)}
+            createDisabled={submitting}
           />
 
-          <Text
-            style={{
-              color: contentTooShort ? colors.danger : colors.textSecondary,
-              fontSize: 12,
-              marginBottom: 10,
-            }}
-          >
-            Minimo 10 caracteres.
-          </Text>
-
-          {selectedPostImage ? (
+          {feedLoading ? (
             <View
               style={{
-                marginBottom: 10,
-                borderRadius: 12,
-                overflow: 'hidden',
+                backgroundColor: colors.cardSecondary,
                 borderWidth: 1,
                 borderColor: colors.border,
-                backgroundColor: colors.cardSecondary,
+                borderRadius: 14,
+                padding: 16,
+                marginTop: 4,
               }}
             >
-              <Image
-                source={{ uri: selectedPostImage.uri }}
-                style={{ width: '100%', height: 160 }}
-                resizeMode="cover"
-              />
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  style={{ color: colors.textSecondary, fontSize: 12, flex: 1 }}
-                  numberOfLines={1}
-                >
-                  {selectedPostImage.fileName ?? 'Imagen seleccionada'}
-                </Text>
-                <Pressable
-                  onPress={() => setSelectedPostImage(null)}
-                  style={{
-                    marginLeft: 10,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                  }}
-                >
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                    Quitar
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-
-          <Pressable
-            onPress={handlePickPostImage}
-            style={{
-              minHeight: 42,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.cardSecondary,
-              marginBottom: 10,
-            }}
-          >
-            <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-              Agregar imagen
-            </Text>
-          </Pressable>
-
-          {submitError ? (
-            <Text
-              style={{
-                color: colors.danger,
-                marginBottom: 10,
-              }}
-            >
-              {submitError}
-            </Text>
-          ) : null}
-
-          <AuthButton
-            title="Publicar"
-            onPress={handleCreatePost}
-            loading={submitting}
-          />
-        </View>
-
-        <View
-          style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 10,
-            }}
-          >
-            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>
-              Feed de la comunidad
-            </Text>
-            <Text
-              onPress={handleRefreshFeed}
-              style={{ color: colors.primary, fontWeight: '600' }}
-            >
-              Actualizar
-            </Text>
-          </View>
-
-          <ScrollView
-            ref={feedScrollRef}
-            nestedScrollEnabled
-            style={{ maxHeight: 420 }}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshingFeed}
-                onRefresh={handleRefreshFeed}
-                tintColor={colors.primary}
-              />
-            }
-          >
-            {feedLoading ? (
               <Text style={{ color: colors.textSecondary }}>Cargando publicaciones...</Text>
-            ) : feedError ? (
+            </View>
+          ) : feedError ? (
+            <View
+              style={{
+                backgroundColor: colors.cardSecondary,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 14,
+                padding: 16,
+                marginTop: 4,
+              }}
+            >
               <Text style={{ color: colors.danger }}>{feedError}</Text>
-            ) : !hasFeedData ? (
+            </View>
+          ) : !hasFeedData ? (
+            <View
+              style={{
+                backgroundColor: colors.cardSecondary,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 14,
+                padding: 16,
+                marginTop: 4,
+              }}
+            >
               <Text style={{ color: colors.textSecondary }}>
                 Aun no hay publicaciones de la comunidad.
               </Text>
-            ) : (
-              posts.map((post) => {
-                const isOwnPost = Boolean(user?.id && post.user_id === user.id)
-                const authorName = getAuthorDisplayName(post.author, {
-                  fallbackUsername: isOwnPost ? profile?.username : null,
-                })
-                const isExpanded = expandedPostId === post.id
-                const comments = commentsByPostId[post.id] ?? []
-                const commentsLoading = commentsLoadingByPostId[post.id] ?? false
-                const commentsError = commentsErrorByPostId[post.id]
-                const commentInput = commentInputByPostId[post.id] ?? ''
-                const trimmedCommentInput = commentInput.trim()
-                const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
-                const postImage = (post.media ?? []).length > 0 ? post.media?.[0] : null
-                const postImageUrl = getPostMediaPublicUrl(postImage?.file_path)
-
-                return (
-                  <View
-                    key={post.id}
-                    style={{
-                      backgroundColor: colors.cardSecondary,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      borderRadius: 14,
-                      padding: 12,
-                      marginBottom: 10,
-                    }}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 6 }}>
-                      {authorName}
-                    </Text>
-                    <Text style={{ color: colors.text, marginBottom: 8 }}>
-                      {post.content}
-                    </Text>
-
-                    {postImageUrl ? (
-                      <Image
-                        source={{ uri: postImageUrl }}
-                        style={{
-                          width: '100%',
-                          height: 180,
-                          borderRadius: 10,
-                          backgroundColor: colors.card,
-                          marginBottom: 8,
-                        }}
-                        resizeMode="cover"
-                      />
-                    ) : null}
-                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                      {new Date(post.created_at).toLocaleString()}
-                    </Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                      Estado: {post.moderation_status}
-                    </Text>
-
-                    <View style={{ flexDirection: 'row', marginTop: 10 }}>
-                      <Pressable
-                        onPress={() => handleToggleComments(post.id)}
-                        style={{
-                          alignSelf: 'flex-start',
-                          paddingVertical: 6,
-                          paddingHorizontal: 10,
-                          borderRadius: 10,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                          marginRight: 8,
-                        }}
-                      >
-                        <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                          {isExpanded ? 'Ocultar comentarios' : 'Comentar'}
-                        </Text>
-                      </Pressable>
-
-                      {!isOwnPost ? (
-                        <Pressable
-                          onPress={() =>
-                            handleOpenReportModal(
-                              'post',
-                              post.id,
-                              `publicacion de ${authorName}`,
-                              post.user_id
-                            )
-                          }
-                          style={{
-                            alignSelf: 'flex-start',
-                            paddingVertical: 6,
-                            paddingHorizontal: 10,
-                            borderRadius: 10,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            backgroundColor: colors.card,
-                          }}
-                        >
-                          <Text style={{ color: colors.danger, fontWeight: '600' }}>
-                            Denunciar
-                          </Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-
-                    {isExpanded ? (
-                      <View
-                        style={{
-                          marginTop: 10,
-                          backgroundColor: colors.card,
-                          borderRadius: 10,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          padding: 10,
-                        }}
-                      >
-                        {commentsLoading ? (
-                          <Text style={{ color: colors.textSecondary }}>
-                            Cargando comentarios...
-                          </Text>
-                        ) : commentsError ? (
-                          <Text style={{ color: colors.danger }}>{commentsError}</Text>
-                        ) : comments.length === 0 ? (
-                          <Text style={{ color: colors.textSecondary }}>
-                            Aun no hay comentarios en esta publicacion.
-                          </Text>
-                        ) : (
-                          comments.map((comment) => {
-                            const isOwnComment = Boolean(
-                              user?.id && comment.user_id === user.id
-                            )
-                            const commentAuthor = getAuthorDisplayName(comment.author, {
-                              fallbackUsername: isOwnComment ? profile?.username : null,
-                            })
-
-                            return (
-                              <View
-                                key={comment.id}
-                                style={{
-                                  backgroundColor: colors.cardSecondary,
-                                  borderWidth: 1,
-                                  borderColor: colors.border,
-                                  borderRadius: 10,
-                                  padding: 10,
-                                  marginBottom: 8,
-                                }}
-                              >
-                                <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 4 }}>
-                                  {commentAuthor}
-                                </Text>
-                                <Text style={{ color: colors.text, marginBottom: 4 }}>
-                                  {comment.content}
-                                </Text>
-                                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                                  {new Date(comment.created_at).toLocaleString()}
-                                </Text>
-
-                                {!isOwnComment ? (
-                                  <Pressable
-                                    onPress={() =>
-                                      handleOpenReportModal(
-                                        'comment',
-                                        comment.id,
-                                        `comentario de ${commentAuthor}`,
-                                        comment.user_id
-                                      )
-                                    }
-                                    style={{
-                                      alignSelf: 'flex-start',
-                                      marginTop: 8,
-                                      paddingVertical: 4,
-                                      paddingHorizontal: 8,
-                                      borderRadius: 8,
-                                      borderWidth: 1,
-                                      borderColor: colors.border,
-                                      backgroundColor: colors.card,
-                                    }}
-                                  >
-                                    <Text
-                                      style={{
-                                        color: colors.danger,
-                                        fontWeight: '600',
-                                        fontSize: 12,
-                                      }}
-                                    >
-                                      Denunciar
-                                    </Text>
-                                  </Pressable>
-                                ) : null}
-                              </View>
-                            )
-                          })
-                        )}
-
-                        {user ? (
-                          <View style={{ marginTop: 6 }}>
-                            <TextInput
-                              value={commentInput}
-                              onChangeText={(value) => updateCommentInput(post.id, value)}
-                              onFocus={(event) =>
-                                scrollToFocusedInput(feedScrollRef, event)
-                              }
-                              placeholder="Escribe un comentario..."
-                              placeholderTextColor={colors.placeholder}
-                              maxLength={MAX_POST_COMMENT_LENGTH}
-                              multiline
-                              textAlignVertical="top"
-                              style={{
-                                minHeight: 70,
-                                backgroundColor: colors.cardSecondary,
-                                borderWidth: 1,
-                                borderColor: colors.border,
-                                borderRadius: 10,
-                                color: colors.text,
-                                paddingHorizontal: 10,
-                                paddingVertical: 8,
-                                marginBottom: 8,
-                              }}
-                            />
-
-                            <Text
-                              style={{
-                                color:
-                                  trimmedCommentInput.length > MAX_POST_COMMENT_LENGTH
-                                    ? colors.danger
-                                    : colors.textSecondary,
-                                fontSize: 12,
-                                marginBottom: 8,
-                              }}
-                            >
-                              {`${trimmedCommentInput.length}/${MAX_POST_COMMENT_LENGTH}`}
-                            </Text>
-
-                            <AuthButton
-                              title="Enviar comentario"
-                              onPress={() => handleCreateComment(post.id)}
-                              loading={commentSubmitting}
-                            />
-                          </View>
-                        ) : (
-                          <Text style={{ color: colors.textSecondary, marginTop: 6 }}>
-                            Inicia sesion para comentar.
-                          </Text>
-                        )}
-                      </View>
-                    ) : null}
-                  </View>
-                )
+            </View>
+          ) : (
+            posts.map((post) => {
+              const isOwnPost = Boolean(user?.id && post.user_id === user.id)
+              const authorName = getAuthorDisplayName(post.author, {
+                fallbackUsername: isOwnPost ? profile?.username : null,
               })
-            )}
-          </ScrollView>
-        </View>
+              const isExpanded = expandedPostId === post.id
+              const comments = commentsByPostId[post.id] ?? []
+              const commentsLoading = commentsLoadingByPostId[post.id] ?? false
+              const commentsError = commentsErrorByPostId[post.id]
+              const commentInput = commentInputByPostId[post.id] ?? ''
+              const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
+              const postImage = (post.media ?? []).length > 0 ? post.media?.[0] : null
+              const postImageUrl = getPostMediaPublicUrl(postImage?.file_path)
+
+              return (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  authorName={authorName}
+                  isOwnPost={isOwnPost}
+                  postImageUrl={postImageUrl}
+                  isExpanded={isExpanded}
+                  onToggleComments={() => handleToggleComments(post.id)}
+                  onReportPost={() =>
+                    handleOpenReportModal(
+                      'post',
+                      post.id,
+                      `publicacion de ${authorName}`,
+                      post.user_id
+                    )
+                  }
+                  commentsSection={
+                    <CommentsSection
+                      comments={comments}
+                      commentsLoading={commentsLoading}
+                      commentsError={commentsError}
+                      commentInput={commentInput}
+                      commentSubmitting={commentSubmitting}
+                      userLoggedIn={Boolean(user)}
+                      currentUserId={user?.id}
+                      fallbackUsername={profile?.username ?? null}
+                      maxCommentLength={MAX_POST_COMMENT_LENGTH}
+                      onUpdateCommentInput={(value) => updateCommentInput(post.id, value)}
+                      onCreateComment={() => handleCreateComment(post.id)}
+                      onCommentInputFocus={(event) =>
+                        scrollToFocusedInput(outerScrollRef, event)
+                      }
+                      onReportComment={(
+                        commentId,
+                        commentAuthorName,
+                        commentOwnerId
+                      ) =>
+                        handleOpenReportModal(
+                          'comment',
+                          commentId,
+                          `comentario de ${commentAuthorName}`,
+                          commentOwnerId
+                        )
+                      }
+                    />
+                  }
+                />
+              )
+            })
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={composerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setComposerVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.overlay,
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Pressable
+            onPress={() => setComposerVisible(false)}
+            style={{ flex: 1 }}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              ref={composerScrollRef}
+              style={{
+                backgroundColor: colors.background,
+                borderTopLeftRadius: 22,
+                borderTopRightRadius: 22,
+                maxHeight: '88%',
+              }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingTop: 16,
+                paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <CreatePostComposer
+                displayName={composerDisplayName}
+                avatarUrl={profile?.avatar_url}
+                content={content}
+                contentTooShort={contentTooShort}
+                selectedPostImage={selectedPostImage}
+                submitting={submitting}
+                submitError={submitError}
+                onChangeContent={setContent}
+                onInputFocus={(event) =>
+                  scrollToFocusedInput(composerScrollRef, event)
+                }
+                onPickImage={handlePickPostImage}
+                onRemoveImage={() => setSelectedPostImage(null)}
+                onSubmit={handleCreatePost}
+                onCancel={() => setComposerVisible(false)}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       <ContentReportModal
         visible={Boolean(reportTargetDraft)}
