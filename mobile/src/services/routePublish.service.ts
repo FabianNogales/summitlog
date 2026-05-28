@@ -22,6 +22,8 @@ const inFlightPublishByTripId = new Map<
   string,
   Promise<PublishRecordedTripAsRouteResult>
 >()
+const MINIMUM_ROUTE_POINTS = 2
+const ALLOWED_DIFFICULTIES = new Set(['easy', 'medium', 'hard'])
 
 export async function getRouteBySourceRecordedTripId(recordedTripId: string) {
   const { data, error } = await supabase
@@ -68,7 +70,7 @@ async function getOwnedCompletedTripById(
 async function ensureRoutePointsFromTrip(
   routeId: string,
   tripId: string,
-  minimumPoints = 2
+  minimumPoints = MINIMUM_ROUTE_POINTS
 ) {
   const { count, error: countError } = await supabase
     .from('route_points')
@@ -107,6 +109,49 @@ async function ensureRoutePointsFromTrip(
   }
 }
 
+function normalizeOptionalText(value?: string | null) {
+  const normalized = value?.trim()
+  return normalized ? normalized : null
+}
+
+function normalizeDifficulty(value?: string | null) {
+  const normalized = value?.trim().toLowerCase() ?? ''
+  if (!normalized) {
+    return null
+  }
+
+  if (ALLOWED_DIFFICULTIES.has(normalized)) {
+    return normalized
+  }
+
+  return null
+}
+
+async function rollbackRouteCreation(routeId: string) {
+  const { error: deleteError } = await supabase
+    .from('routes')
+    .delete()
+    .eq('id', routeId)
+
+  if (!deleteError) {
+    return null
+  }
+
+  const { error: archiveError } = await supabase
+    .from('routes')
+    .update({
+      publication_status: 'archived',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', routeId)
+
+  if (!archiveError) {
+    return 'No se pudo eliminar la ruta creada, pero se movio a estado archived.'
+  }
+
+  return 'No se pudo revertir la ruta creada automaticamente. Requiere revision manual.'
+}
+
 export async function publishRecordedTripAsRoute(
   input: PublishRecordedTripAsRouteInput
 ): Promise<PublishRecordedTripAsRouteResult> {
@@ -138,15 +183,18 @@ async function runPublishRecordedTripAsRoute(
 
   const trip = await getOwnedCompletedTripById(input.recordedTripId, currentUser.id)
   const normalizedTitle = input.title.trim()
+  const normalizedDescription = normalizeOptionalText(input.description)
+  const normalizedDifficulty = normalizeDifficulty(input.difficulty)
+  const normalizedCategory = normalizeOptionalText(input.category)
 
   if (!normalizedTitle) {
     throw new Error('El titulo de la ruta es obligatorio.')
   }
 
   const tripPoints = await getRecordedTripPointsByTripId(trip.id)
-  if (tripPoints.length < 2) {
+  if (tripPoints.length < MINIMUM_ROUTE_POINTS) {
     throw new Error(
-      'El recorrido necesita al menos 2 puntos GPS para convertirse en ruta publica.'
+      `El recorrido necesita al menos ${MINIMUM_ROUTE_POINTS} puntos GPS para convertirse en ruta publica.`
     )
   }
 
@@ -170,9 +218,9 @@ async function runPublishRecordedTripAsRoute(
         publication_status: 'published',
         published_at: existingRoute.published_at ?? now,
         title: normalizedTitle,
-        description: input.description?.trim() || null,
-        difficulty: input.difficulty?.trim() || null,
-        category: input.category?.trim() || null,
+        description: normalizedDescription,
+        difficulty: normalizedDifficulty,
+        category: normalizedCategory,
         comments_enabled: input.commentsEnabled ?? existingRoute.comments_enabled,
         updated_at: now,
       })
@@ -198,11 +246,11 @@ async function runPublishRecordedTripAsRoute(
     .insert({
       user_id: currentUser.id,
       source_recorded_trip_id: trip.id,
-      publication_status: 'published',
+      publication_status: 'draft',
       title: normalizedTitle,
-      description: input.description?.trim() || null,
-      difficulty: input.difficulty?.trim() || null,
-      category: input.category?.trim() || null,
+      description: normalizedDescription,
+      difficulty: normalizedDifficulty,
+      category: normalizedCategory,
       cover_image_url: null,
       distance_m: trip.distance_m,
       duration_s: trip.duration_s,
@@ -211,7 +259,7 @@ async function runPublishRecordedTripAsRoute(
       start_lng: trip.start_lng,
       end_lat: trip.end_lat,
       end_lng: trip.end_lng,
-      published_at: now,
+      published_at: null,
       comments_enabled: input.commentsEnabled ?? true,
     })
     .select('*')
@@ -240,13 +288,45 @@ async function runPublishRecordedTripAsRoute(
       throw insertPointsError
     }
   } catch (error: any) {
+    const rollbackMessage = await rollbackRouteCreation(route.id)
     throw new Error(
-      `La ruta se creo, pero no se pudieron copiar los puntos GPS. route_id=${route.id}. ${error?.message ?? ''}`.trim()
+      [
+        `No se pudieron copiar los puntos GPS para publicar la ruta (route_id=${route.id}).`,
+        error?.message ?? '',
+        rollbackMessage ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+    )
+  }
+
+  const { data: publishedRoute, error: publishError } = await supabase
+    .from('routes')
+    .update({
+      publication_status: 'published',
+      published_at: now,
+      title: normalizedTitle,
+      description: normalizedDescription,
+      difficulty: normalizedDifficulty,
+      category: normalizedCategory,
+      comments_enabled: input.commentsEnabled ?? true,
+      updated_at: now,
+    })
+    .eq('id', route.id)
+    .select('*')
+    .single()
+
+  if (publishError) {
+    throw new Error(
+      `La ruta se creo con puntos, pero no se pudo publicar. route_id=${route.id}. Puedes reintentar. ${
+        publishError.message ?? ''
+      }`.trim()
     )
   }
 
   return {
-    route,
+    route: publishedRoute as RouteItem,
     alreadyPublished: false,
     routeId: route.id,
   }

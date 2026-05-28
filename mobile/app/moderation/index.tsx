@@ -19,6 +19,7 @@ import { colors } from '../../src/theme/colors'
 import { AuthButton } from '../../src/components/auth/AuthButton'
 import {
   getContentReports,
+  hideReportedContentAndManageReport,
   updateContentReportStatus,
 } from '../../src/services/moderation.service'
 import type { ModerationContentReport, ModerationStatusFilter } from '../../src/types/moderation'
@@ -45,6 +46,7 @@ export default function ModerationScreen() {
   const [activeStatusFilter, setActiveStatusFilter] = useState<ModerationStatusFilter>('all')
   const [statusDraftById, setStatusDraftById] = useState<Record<string, string>>({})
   const [statusSubmittingById, setStatusSubmittingById] = useState<Record<string, boolean>>({})
+  const [hideSubmittingById, setHideSubmittingById] = useState<Record<string, boolean>>({})
 
   const canModerate = profile?.role === 'admin' || profile?.role === 'moderator'
 
@@ -160,6 +162,48 @@ export default function ModerationScreen() {
     } finally {
       setStatusSubmittingById((prev) => ({ ...prev, [report.id]: false }))
     }
+  }
+
+  async function handleHideReportedContent(report: ModerationContentReport) {
+    if (hideSubmittingById[report.id]) {
+      return
+    }
+
+    const nextStatus = (statusDraftById[report.id] ?? '').trim() || 'resolved'
+
+    Alert.alert(
+      'Ocultar contenido',
+      'Se ocultara el contenido denunciado y se marcara la denuncia como gestionada. ¿Deseas continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Ocultar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setHideSubmittingById((prev) => ({ ...prev, [report.id]: true }))
+              const updatedReport = await hideReportedContentAndManageReport(report, nextStatus)
+              setReports((prev) =>
+                prev.map((item) => (item.id === updatedReport.id ? updatedReport : item))
+              )
+              updateStatusDraft(updatedReport.id, updatedReport.status)
+              Alert.alert(
+                'Contenido ocultado',
+                'El contenido denunciado se oculto y la denuncia quedo gestionada.'
+              )
+            } catch (hideError: any) {
+              Alert.alert(
+                'No se pudo completar la moderacion',
+                hideError?.message ??
+                  'No se pudo ocultar el contenido denunciado en este momento.'
+              )
+            } finally {
+              setHideSubmittingById((prev) => ({ ...prev, [report.id]: false }))
+            }
+          },
+        },
+      ]
+    )
   }
 
   return (
@@ -304,6 +348,7 @@ export default function ModerationScreen() {
             ) : (
               reports.map((report) => {
                 const submitting = statusSubmittingById[report.id] ?? false
+                const hideSubmitting = hideSubmittingById[report.id] ?? false
                 const statusDraft = statusDraftById[report.id] ?? report.status
 
                 return (
@@ -371,6 +416,15 @@ export default function ModerationScreen() {
                       title="Actualizar estado"
                       onPress={() => handleUpdateReportStatus(report)}
                       loading={submitting}
+                    />
+
+                    <View style={{ height: 8 }} />
+
+                    <AuthButton
+                      title="Ocultar contenido + gestionar"
+                      onPress={() => handleHideReportedContent(report)}
+                      loading={hideSubmitting}
+                      disabled={submitting}
                     />
                   </View>
                 )

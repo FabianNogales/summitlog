@@ -7,6 +7,9 @@ interface GetContentReportsOptions {
 }
 
 const DEFAULT_REPORTS_LIMIT = 50
+const DEFAULT_MANAGED_STATUS = 'resolved'
+const HIDDEN_MODERATION_STATUS = 'hidden'
+const HIDDEN_ROUTE_PUBLICATION_STATUS = 'archived'
 
 function normalizeReport(record: any): ModerationContentReport {
   return {
@@ -92,4 +95,115 @@ export async function updateContentReportStatus(reportId: string, status: string
   }
 
   return normalizeReport(data)
+}
+
+function normalizeTargetType(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? ''
+}
+
+async function hidePostById(postId: string) {
+  const { data, error } = await supabase
+    .from('posts')
+    .update({
+      moderation_status: HIDDEN_MODERATION_STATUS,
+    })
+    .eq('id', postId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(mapModerationError(error, 'No se pudo ocultar la publicacion denunciada.'))
+  }
+
+  if (!data) {
+    throw new Error('No se encontro la publicacion denunciada o no tienes permisos para ocultarla.')
+  }
+}
+
+async function hideCommentById(commentId: string) {
+  const { data, error } = await supabase
+    .from('comments')
+    .update({
+      moderation_status: HIDDEN_MODERATION_STATUS,
+    })
+    .eq('id', commentId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(mapModerationError(error, 'No se pudo ocultar el comentario denunciado.'))
+  }
+
+  if (!data) {
+    throw new Error('No se encontro el comentario denunciado o no tienes permisos para ocultarlo.')
+  }
+}
+
+async function hideRouteById(routeId: string) {
+  const { data, error } = await supabase
+    .from('routes')
+    .update({
+      publication_status: HIDDEN_ROUTE_PUBLICATION_STATUS,
+    })
+    .eq('id', routeId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(mapModerationError(error, 'No se pudo ocultar la ruta denunciada.'))
+  }
+
+  if (!data) {
+    throw new Error('No se encontro la ruta denunciada o no tienes permisos para ocultarla.')
+  }
+}
+
+async function hideReportedTarget(report: ModerationContentReport) {
+  const targetType = normalizeTargetType(report.target_type)
+  const targetId = report.target_id?.trim()
+
+  if (!targetId) {
+    throw new Error('No se encontro el contenido denunciado para ocultar.')
+  }
+
+  if (targetType === 'post') {
+    await hidePostById(targetId)
+    return
+  }
+
+  if (targetType === 'comment') {
+    await hideCommentById(targetId)
+    return
+  }
+
+  if (targetType === 'route') {
+    await hideRouteById(targetId)
+    return
+  }
+
+  throw new Error(`El tipo de contenido "${report.target_type}" no soporta ocultamiento.`)
+}
+
+export async function hideReportedContentAndManageReport(
+  report: ModerationContentReport,
+  nextStatus?: string
+) {
+  const reportId = report.id?.trim()
+  const managedStatus = nextStatus?.trim() || DEFAULT_MANAGED_STATUS
+
+  if (!reportId) {
+    throw new Error('No se encontro la denuncia a gestionar.')
+  }
+
+  await hideReportedTarget(report)
+
+  try {
+    return await updateContentReportStatus(reportId, managedStatus)
+  } catch (error: any) {
+    throw new Error(
+      error?.message
+        ? `El contenido se oculto, pero no se pudo actualizar el estado de la denuncia: ${error.message}`
+        : 'El contenido se oculto, pero no se pudo actualizar el estado de la denuncia.'
+    )
+  }
 }

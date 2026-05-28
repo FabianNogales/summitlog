@@ -60,6 +60,7 @@ export default function TripDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [publishingRoute, setPublishingRoute] = useState(false)
   const [publishedRouteId, setPublishedRouteId] = useState<string | null>(null)
+  const [associatedRouteId, setAssociatedRouteId] = useState<string | null>(null)
   const [routeTitle, setRouteTitle] = useState('')
   const [routeDescription, setRouteDescription] = useState('')
   const [routeDifficulty, setRouteDifficulty] = useState('')
@@ -85,7 +86,10 @@ export default function TripDetailScreen() {
       setPublishError(null)
 
       const existingRoute = await getRouteBySourceRecordedTripId(loadedTrip.id)
-      setPublishedRouteId(existingRoute?.id ?? null)
+      setAssociatedRouteId(existingRoute?.id ?? null)
+      setPublishedRouteId(
+        existingRoute?.publication_status === 'published' ? existingRoute.id : null
+      )
 
       if (existingRoute) {
         setRouteTitle(existingRoute.title || loadedTrip.title?.trim() || '')
@@ -133,14 +137,34 @@ export default function TripDetailScreen() {
         commentsEnabled: routeCommentsEnabled,
       })
       setPublishedRouteId(result.routeId)
+      setAssociatedRouteId(result.routeId)
       await loadTrip()
 
-      Alert.alert(
-        result.alreadyPublished ? 'Ruta ya publicada' : 'Ruta publicada',
-        result.alreadyPublished
-          ? 'Este recorrido ya estaba convertido en una ruta publica.'
-          : 'El recorrido se convirtio en ruta publica correctamente.'
-      )
+      if (result.alreadyPublished) {
+        Alert.alert('Ruta ya publicada', 'Este recorrido ya estaba convertido en una ruta publica.', [
+          { text: 'Cerrar', style: 'cancel' },
+          {
+            text: 'Ver ruta',
+            onPress: () =>
+              router.push({
+                pathname: '/route/[id]',
+                params: { id: result.routeId },
+              }),
+          },
+        ])
+      } else {
+        Alert.alert('Ruta publicada', 'El recorrido se convirtio en ruta publica correctamente.', [
+          { text: 'Cerrar', style: 'cancel' },
+          {
+            text: 'Ver ruta',
+            onPress: () =>
+              router.push({
+                pathname: '/route/[id]',
+                params: { id: result.routeId },
+              }),
+          },
+        ])
+      }
     } catch (error: any) {
       const message =
         error.message ?? 'No se pudo convertir el recorrido en ruta.'
@@ -299,6 +323,23 @@ export default function TripDetailScreen() {
                       })
                     }
                   />
+                </View>
+              ) : null}
+
+              {associatedRouteId && !publishedRouteId ? (
+                <View
+                  style={{
+                    backgroundColor: colors.cardSecondary,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 14,
+                    padding: 12,
+                    gap: 10,
+                  }}
+                >
+                  <Text style={{ color: colors.textSecondary }}>
+                    Existe una ruta asociada a este recorrido que aun no esta publicada.
+                  </Text>
                 </View>
               ) : null}
 
