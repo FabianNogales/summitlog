@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect } from '@react-navigation/native'
 
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
@@ -22,6 +24,14 @@ import {
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
 
+const MAX_FULL_NAME_LENGTH = 80
+const MAX_USERNAME_LENGTH = 30
+const MAX_BIO_LENGTH = 250
+
+function normalizeSpaces(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
 export default function EditProfileScreen() {
   const router = useRouter()
   const { user, profile, updateMyProfile } = useAuth()
@@ -30,26 +40,96 @@ export default function EditProfileScreen() {
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
   const [bio, setBio] = useState('')
+  const [initialUsername, setInitialUsername] = useState('')
+  const [initialFullName, setInitialFullName] = useState('')
+  const [initialBio, setInitialBio] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [fullNameError, setFullNameError] = useState<string | null>(null)
+  const [bioError, setBioError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (profile) {
-      setUsername(profile.username ?? '')
-      setFullName(profile.full_name ?? '')
-      setBio(profile.bio ?? '')
+      const nextUsername = profile.username ?? ''
+      const nextFullName = profile.full_name ?? ''
+      const nextBio = profile.bio ?? ''
+
+      setUsername(nextUsername)
+      setFullName(nextFullName)
+      setBio(nextBio)
+      setInitialUsername(nextUsername)
+      setInitialFullName(nextFullName)
+      setInitialBio(nextBio)
     }
   }, [profile])
 
+  const hasUnsavedChanges =
+    username !== initialUsername || fullName !== initialFullName || bio !== initialBio
+
+  function handleGoBack() {
+    if (!hasUnsavedChanges || isSubmitting) {
+      router.back()
+      return
+    }
+
+    Alert.alert(
+      'Descartar cambios',
+      'Tienes cambios sin guardar. Si sales ahora, se perderan.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() },
+      ]
+    )
+  }
+
+  useFocusEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isSubmitting) return true
+
+      if (hasUnsavedChanges) {
+        handleGoBack()
+        return true
+      }
+
+      return false
+    })
+
+    return () => subscription.remove()
+  })
+
   async function handleSave() {
-    const normalizedUsername = username.trim()
+    const normalizedUsername = normalizeSpaces(username).replace(/\s+/g, '')
+    const normalizedFullName = normalizeSpaces(fullName)
+    const normalizedBio = normalizeSpaces(bio)
+
+    setUsernameError(null)
+    setFullNameError(null)
+    setBioError(null)
+    setFormError(null)
 
     if (!normalizedUsername) {
-      Alert.alert('Campo obligatorio', 'El username es obligatorio.')
+      setUsernameError('El username es obligatorio.')
       return
     }
 
     if (normalizedUsername.length < 3) {
-      Alert.alert('Username invalido', 'El username debe tener al menos 3 caracteres.')
+      setUsernameError('El username debe tener al menos 3 caracteres.')
+      return
+    }
+
+    if (normalizedUsername.length > MAX_USERNAME_LENGTH) {
+      setUsernameError(`El username no puede superar ${MAX_USERNAME_LENGTH} caracteres.`)
+      return
+    }
+
+    if (normalizedFullName.length > MAX_FULL_NAME_LENGTH) {
+      setFullNameError(`El nombre no puede superar ${MAX_FULL_NAME_LENGTH} caracteres.`)
+      return
+    }
+
+    if (normalizedBio.length > MAX_BIO_LENGTH) {
+      setBioError(`La bio no puede superar ${MAX_BIO_LENGTH} caracteres.`)
       return
     }
 
@@ -58,17 +138,16 @@ export default function EditProfileScreen() {
 
       await updateMyProfile({
         username: normalizedUsername,
-        full_name: fullName.trim() || null,
-        bio: bio.trim() || null,
+        full_name: normalizedFullName || null,
+        bio: normalizedBio || null,
       })
 
-      Alert.alert('Éxito', 'Tu perfil se actualizó correctamente.')
+      setInitialUsername(normalizedUsername)
+      setInitialFullName(normalizedFullName)
+      setInitialBio(normalizedBio)
       router.back()
     } catch (error: any) {
-      Alert.alert(
-        'Error al actualizar perfil',
-        error.message ?? 'No se pudo actualizar el perfil'
-      )
+      setFormError(error.message ?? 'No se pudo actualizar el perfil')
     } finally {
       setIsSubmitting(false)
     }
@@ -99,7 +178,7 @@ export default function EditProfileScreen() {
             }}
           >
             <Pressable
-              onPress={() => router.back()}
+              onPress={handleGoBack}
               style={{
                 width: 36,
                 height: 36,
@@ -137,8 +216,13 @@ export default function EditProfileScreen() {
               label="Nombre de usuario"
               placeholder="fabian_nogales"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={(value) => {
+                setUsername(value)
+                if (usernameError) setUsernameError(null)
+                if (formError) setFormError(null)
+              }}
               iconName="user"
+              errorText={usernameError}
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
@@ -146,9 +230,14 @@ export default function EditProfileScreen() {
               label="Nombre completo"
               placeholder="Fabian Nogales"
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={(value) => {
+                setFullName(value)
+                if (fullNameError) setFullNameError(null)
+                if (formError) setFormError(null)
+              }}
               iconName="edit-3"
               autoCapitalize="words"
+              errorText={fullNameError}
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
@@ -161,7 +250,7 @@ export default function EditProfileScreen() {
                   marginBottom: 8,
                 }}
               >
-                Correo electrónico
+                Correo electronico
               </Text>
 
               <View
@@ -195,9 +284,13 @@ export default function EditProfileScreen() {
 
               <TextInput
                 value={bio}
-                onChangeText={setBio}
+                onChangeText={(value) => {
+                  setBio(value)
+                  if (bioError) setBioError(null)
+                  if (formError) setFormError(null)
+                }}
                 onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                placeholder="Cuéntanos algo sobre ti..."
+                placeholder="Cuentanos algo sobre ti..."
                 placeholderTextColor={colors.placeholder}
                 multiline
                 textAlignVertical="top"
@@ -205,7 +298,7 @@ export default function EditProfileScreen() {
                   minHeight: 110,
                   backgroundColor: colors.cardSecondary,
                   borderWidth: 1,
-                  borderColor: colors.border,
+                  borderColor: bioError ? colors.danger : colors.border,
                   borderRadius: 14,
                   paddingHorizontal: 14,
                   paddingVertical: 12,
@@ -213,12 +306,36 @@ export default function EditProfileScreen() {
                   fontSize: 15,
                 }}
               />
+
+              <Text
+                style={{
+                  color: bioError ? colors.danger : colors.textSecondary,
+                  fontSize: 12,
+                  marginTop: 6,
+                }}
+              >
+                {bioError ?? `${bio.length}/${MAX_BIO_LENGTH}`}
+              </Text>
             </View>
+
+            {formError ? (
+              <Text
+                style={{
+                  color: colors.danger,
+                  fontSize: 13,
+                  marginTop: -6,
+                  marginBottom: 14,
+                }}
+              >
+                {formError}
+              </Text>
+            ) : null}
 
             <AuthButton
               title="Guardar cambios"
               onPress={handleSave}
               loading={isSubmitting}
+              disabled={!hasUnsavedChanges}
             />
           </View>
         </ScrollView>

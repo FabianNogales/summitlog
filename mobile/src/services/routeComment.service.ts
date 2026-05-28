@@ -8,6 +8,7 @@ interface CreateRouteCommentInput {
 }
 
 const MIN_ROUTE_COMMENT_LENGTH = 3
+export const MAX_ROUTE_COMMENT_LENGTH = 300
 
 function normalizeAuthor(author: unknown) {
   if (Array.isArray(author)) {
@@ -65,9 +66,7 @@ export async function getRouteComments(routeId: string) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    throw new Error(
-      error.message ?? 'No se pudieron cargar los comentarios de la ruta.'
-    )
+    throw new Error(error.message ?? 'No se pudieron cargar los comentarios de la ruta.')
   }
 
   return (data ?? []).map(normalizeRouteCommentRecord)
@@ -91,6 +90,12 @@ export async function createRouteComment(input: CreateRouteCommentInput) {
     )
   }
 
+  if (normalizedContent.length > MAX_ROUTE_COMMENT_LENGTH) {
+    throw new Error(
+      `El comentario no puede superar ${MAX_ROUTE_COMMENT_LENGTH} caracteres.`
+    )
+  }
+
   const { data: authData, error: authError } = await supabase.auth.getUser()
 
   if (authError) {
@@ -100,6 +105,20 @@ export async function createRouteComment(input: CreateRouteCommentInput) {
   const currentUser = authData.user
   if (!currentUser) {
     throw new Error('Debes iniciar sesion para comentar rutas.')
+  }
+
+  const { data: routeData, error: routeError } = await supabase
+    .from('routes')
+    .select('comments_enabled')
+    .eq('id', routeId)
+    .single()
+
+  if (routeError) {
+    throw new Error(routeError.message ?? 'No se pudo validar la ruta para comentar.')
+  }
+
+  if (!routeData?.comments_enabled) {
+    throw new Error('Los comentarios fueron deshabilitados para esta ruta.')
   }
 
   const { data, error } = await supabase
@@ -128,9 +147,7 @@ export async function createRouteComment(input: CreateRouteCommentInput) {
     .single()
 
   if (error) {
-    throw new Error(
-      error.message ?? 'No se pudo crear el comentario de la ruta.'
-    )
+    throw new Error(error.message ?? 'No se pudo crear el comentario de la ruta.')
   }
 
   return normalizeRouteCommentRecord(data)

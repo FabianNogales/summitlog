@@ -34,6 +34,7 @@ interface UpdateMyProfileParams {
 interface AuthContextValue {
   user: User | null
   profile: Profile | null
+  profileLoadError: string | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<Session | null>
@@ -54,6 +55,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const loadProfile = useCallback(async (sessionUser: User) => {
@@ -61,10 +63,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const currentProfile = await ensureProfileForUser(sessionUser)
       setProfile(currentProfile)
+      setProfileLoadError(null)
       console.log('[AuthContext] ensureProfile success:', sessionUser.id)
       console.log('[AuthContext] profile exists:', Boolean(currentProfile?.id))
     } catch (error: any) {
       setProfile(null)
+      setProfileLoadError(
+        'No se pudo cargar tu perfil. Intenta cerrar sesion e iniciar nuevamente.'
+      )
       console.log(
         '[AuthContext] ensureProfile error:',
         error?.message ?? 'unknown'
@@ -102,6 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (!sessionUser) {
           setProfile(null)
+          setProfileLoadError(null)
           return
         }
 
@@ -151,11 +158,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error('No se pudo obtener el usuario registrado')
     }
 
-    await createProfile({
-      id: signedUser.id,
-      username: params.username,
-      full_name: params.fullName ?? null,
-    })
+    try {
+      await createProfile({
+        id: signedUser.id,
+        username: params.username,
+        full_name: params.fullName ?? null,
+      })
+    } catch {
+      await signOutUser().catch(() => null)
+      throw new Error(
+        'La cuenta se creo, pero no se pudo completar el perfil. Intenta iniciar sesion nuevamente.'
+      )
+    }
 
     await applySession(authData.session)
   }
@@ -234,6 +248,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       user,
       profile,
+      profileLoadError,
       loading,
       signIn,
       signInWithGoogle,
@@ -242,7 +257,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       refreshProfile,
       updateMyProfile,
     }),
-    [user, profile, loading]
+    [user, profile, profileLoadError, loading]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

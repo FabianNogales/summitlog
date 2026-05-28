@@ -19,6 +19,7 @@ import type { SocialPost } from '../../src/types/post'
 import {
   createPostComment,
   getPostComments,
+  MAX_POST_COMMENT_LENGTH,
 } from '../../src/services/postComment.service'
 import type { SocialPostComment } from '../../src/types/postComment'
 import { ContentReportModal } from '../../src/components/community/ContentReportModal'
@@ -41,7 +42,7 @@ interface ReportTargetDraft {
 }
 
 export default function HomeScreen() {
-  const { profile, user } = useAuth()
+  const { profile, user, profileLoadError } = useAuth()
   const outerScrollRef = useRef<ScrollView | null>(null)
   const feedScrollRef = useRef<ScrollView | null>(null)
   const [content, setContent] = useState('')
@@ -168,6 +169,14 @@ export default function HomeScreen() {
       setCommentsErrorByPostId((prev) => ({
         ...prev,
         [postId]: 'El comentario debe tener al menos 3 caracteres.',
+      }))
+      return
+    }
+
+    if (contentValue.length > MAX_POST_COMMENT_LENGTH) {
+      setCommentsErrorByPostId((prev) => ({
+        ...prev,
+        [postId]: `El comentario no puede superar ${MAX_POST_COMMENT_LENGTH} caracteres.`,
       }))
       return
     }
@@ -332,6 +341,18 @@ export default function HomeScreen() {
             : 'Sesion iniciada correctamente'}
         </Text>
 
+        {profileLoadError ? (
+          <Text
+            style={{
+              color: colors.warning,
+              fontSize: 13,
+              marginBottom: 14,
+            }}
+          >
+            {profileLoadError}
+          </Text>
+        ) : null}
+
         <View
           style={{
             backgroundColor: colors.card,
@@ -472,6 +493,7 @@ export default function HomeScreen() {
                 const commentsLoading = commentsLoadingByPostId[post.id] ?? false
                 const commentsError = commentsErrorByPostId[post.id]
                 const commentInput = commentInputByPostId[post.id] ?? ''
+                const trimmedCommentInput = commentInput.trim()
                 const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
 
                 return (
@@ -644,6 +666,7 @@ export default function HomeScreen() {
                               }
                               placeholder="Escribe un comentario..."
                               placeholderTextColor={colors.placeholder}
+                              maxLength={MAX_POST_COMMENT_LENGTH}
                               multiline
                               textAlignVertical="top"
                               style={{
@@ -658,6 +681,19 @@ export default function HomeScreen() {
                                 marginBottom: 8,
                               }}
                             />
+
+                            <Text
+                              style={{
+                                color:
+                                  trimmedCommentInput.length > MAX_POST_COMMENT_LENGTH
+                                    ? colors.danger
+                                    : colors.textSecondary,
+                                fontSize: 12,
+                                marginBottom: 8,
+                              }}
+                            >
+                              {`${trimmedCommentInput.length}/${MAX_POST_COMMENT_LENGTH}`}
+                            </Text>
 
                             <AuthButton
                               title="Enviar comentario"

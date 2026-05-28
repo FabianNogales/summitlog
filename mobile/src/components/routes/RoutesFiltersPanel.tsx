@@ -117,6 +117,7 @@ export function RoutesFiltersPanel({
             value={filters.maxDistanceKm}
             onChangeText={onChangeMaxDistanceKm}
             keyboardType="numeric"
+            maxLength={3}
             placeholder="Ej: 10"
             placeholderTextColor={colors.placeholder}
             style={{
@@ -129,6 +130,9 @@ export function RoutesFiltersPanel({
               color: colors.text,
             }}
           />
+          <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
+            Solo numeros. Maximo 500 km.
+          </Text>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -146,6 +150,7 @@ export function RoutesFiltersPanel({
             value={filters.maxDurationMin}
             onChangeText={onChangeMaxDurationMin}
             keyboardType="numeric"
+            maxLength={4}
             placeholder="Ej: 120"
             placeholderTextColor={colors.placeholder}
             style={{
@@ -158,6 +163,9 @@ export function RoutesFiltersPanel({
               color: colors.text,
             }}
           />
+          <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
+            Solo numeros. Maximo 1440 min.
+          </Text>
         </View>
       </View>
 

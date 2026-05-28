@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -24,7 +24,7 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter()
-  const { signIn, signInWithGoogle, user } = useAuth()
+  const { signIn, signInWithGoogle, user, loading, profileLoadError } = useAuth()
   const { authError } = useLocalSearchParams<{ authError?: string }>()
   const authErrorShownRef = useRef<string | null>(null)
   const scrollRef = useRef<ScrollView | null>(null)
@@ -34,6 +34,7 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
   function isValidEmail(value: string) {
@@ -52,6 +53,16 @@ export default function LoginScreen() {
     setFormError(errorMessage)
   }, [authError])
 
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    )
+  }
+
   if (user) {
     return <Redirect href="/(tabs)/home" />
   }
@@ -59,11 +70,17 @@ export default function LoginScreen() {
   async function handleLogin() {
     setFormError(null)
     setEmailError(null)
+    setPasswordError(null)
 
     const normalizedEmail = email.trim()
 
-    if (!normalizedEmail || !password.trim()) {
-      setFormError('Ingresa tu correo y tu contrasena.')
+    if (!normalizedEmail) {
+      setFormError('Ingresa tu correo electronico.')
+      return
+    }
+
+    if (!password.trim()) {
+      setPasswordError('Ingresa tu contrasena.')
       return
     }
 
@@ -100,10 +117,7 @@ export default function LoginScreen() {
       }
 
       console.log('[Login] Google sign-in error:', error?.message ?? 'unknown')
-      Alert.alert(
-        'Error con Google',
-        error?.message ?? 'No se pudo iniciar sesion con Google'
-      )
+      setFormError(error?.message ?? 'No se pudo iniciar sesion con Google')
     } finally {
       setIsGoogleSubmitting(false)
       console.log('[Login] google loading false')
@@ -197,11 +211,13 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value)
+                  if (passwordError) setPasswordError(null)
                   if (formError) setFormError(null)
                 }}
                 iconName="lock"
                 secureTextEntry
                 hideLabel
+                errorText={passwordError}
                 onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
               />
 
@@ -215,6 +231,18 @@ export default function LoginScreen() {
                   }}
                 >
                   {formError}
+                </Text>
+              ) : null}
+
+              {profileLoadError ? (
+                <Text
+                  style={{
+                    color: colors.warning,
+                    fontSize: 12,
+                    marginBottom: 14,
+                  }}
+                >
+                  {profileLoadError}
                 </Text>
               ) : null}
 

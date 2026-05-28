@@ -17,8 +17,22 @@ export function useTripHistory() {
     totalDistanceKm: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const loadHistory = useCallback(async () => {
+  function dedupeTripsById(items: RecordedTrip[]) {
+    const seen = new Set<string>()
+    return items.filter((trip) => {
+      if (seen.has(trip.id)) {
+        return false
+      }
+
+      seen.add(trip.id)
+      return true
+    })
+  }
+
+  const loadHistory = useCallback(async (isRefresh = false) => {
     if (!user) {
       setTrips([])
       setStats({
@@ -26,21 +40,32 @@ export function useTripHistory() {
         journalCount: 0,
         totalDistanceKm: 0,
       })
+      setError(null)
+      setRefreshing(false)
       setLoading(false)
       return
     }
 
     try {
-      setLoading(true)
+      if (isRefresh) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+      setError(null)
 
       const [loadedTrips, loadedStats] = await Promise.all([
         getCompletedTripsByUser(user.id),
         getTripHistoryStats(user.id),
       ])
 
-      setTrips(loadedTrips)
+      const dedupedTrips = dedupeTripsById(loadedTrips)
+      setTrips(dedupedTrips)
       setStats(loadedStats)
+    } catch (historyError: any) {
+      setError(historyError?.message ?? 'No se pudo cargar el historial de recorridos.')
     } finally {
+      setRefreshing(false)
       setLoading(false)
     }
   }, [user])
@@ -53,6 +78,8 @@ export function useTripHistory() {
     trips,
     stats,
     loading,
-    refreshHistory: loadHistory,
+    refreshing,
+    error,
+    refreshHistory: () => loadHistory(true),
   }
 }

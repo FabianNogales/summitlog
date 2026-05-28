@@ -26,6 +26,8 @@ import {
 import { useRouteDetail } from '../../src/hooks/useRouteDetail'
 import {
   createRouteReport,
+  MAX_ROUTE_REPORT_DESCRIPTION_LENGTH,
+  MIN_ROUTE_REPORT_DESCRIPTION_LENGTH,
   resolveRouteReport,
   ROUTE_REPORT_SEVERITIES,
   ROUTE_REPORT_TYPES,
@@ -35,6 +37,7 @@ import {
 import {
   createRouteComment,
   getRouteComments,
+  MAX_ROUTE_COMMENT_LENGTH,
 } from '../../src/services/routeComment.service'
 import type { RouteComment } from '../../src/types/routeComment'
 import { ContentReportModal } from '../../src/components/community/ContentReportModal'
@@ -123,8 +126,13 @@ export default function RouteDetailScreen() {
   const [isMapActive, setIsMapActive] = useState(false)
 
   const trimmedDescription = description.trim()
-  const descriptionTooShort = trimmedDescription.length > 0 && trimmedDescription.length < 10
+  const descriptionTooShort =
+    trimmedDescription.length > 0 &&
+    trimmedDescription.length < MIN_ROUTE_REPORT_DESCRIPTION_LENGTH
+  const descriptionTooLong =
+    trimmedDescription.length > MAX_ROUTE_REPORT_DESCRIPTION_LENGTH
   const trimmedComment = commentInput.trim()
+  const commentTooLong = trimmedComment.length > MAX_ROUTE_COMMENT_LENGTH
 
   const reportTypeOptions = useMemo(() => ROUTE_REPORT_TYPES, [])
   const reportSeverityOptions = useMemo(() => ROUTE_REPORT_SEVERITIES, [])
@@ -184,6 +192,10 @@ export default function RouteDetailScreen() {
   }
 
   async function handleSubmitReport() {
+    if (submittingReport) {
+      return
+    }
+
     if (!route?.id) {
       setSubmitError('No se encontro la ruta para reportar.')
       return
@@ -204,8 +216,17 @@ export default function RouteDetailScreen() {
       return
     }
 
-    if (trimmedDescription.length < 10) {
-      setSubmitError('La descripcion debe tener al menos 10 caracteres.')
+    if (trimmedDescription.length < MIN_ROUTE_REPORT_DESCRIPTION_LENGTH) {
+      setSubmitError(
+        `La descripcion debe tener al menos ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
+      )
+      return
+    }
+
+    if (trimmedDescription.length > MAX_ROUTE_REPORT_DESCRIPTION_LENGTH) {
+      setSubmitError(
+        `La descripcion no puede superar ${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
+      )
       return
     }
 
@@ -254,6 +275,13 @@ export default function RouteDetailScreen() {
       return
     }
 
+    if (trimmedComment.length > MAX_ROUTE_COMMENT_LENGTH) {
+      setCommentsError(
+        `El comentario no puede superar ${MAX_ROUTE_COMMENT_LENGTH} caracteres.`
+      )
+      return
+    }
+
     if (commentSubmitting) {
       return
     }
@@ -268,6 +296,12 @@ export default function RouteDetailScreen() {
       setCommentInput('')
       await loadComments(routeId)
     } catch (error: any) {
+      const message = typeof error?.message === 'string' ? error.message : ''
+      if (message.toLowerCase().includes('deshabilitados')) {
+        setCommentsError('Los comentarios fueron deshabilitados para esta ruta.')
+        return
+      }
+
       setCommentsError(
         error?.message ?? 'No se pudo crear el comentario de la ruta.'
       )
@@ -693,6 +727,7 @@ export default function RouteDetailScreen() {
                             onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                             placeholder="Describe la condicion actual de la ruta..."
                             placeholderTextColor={colors.placeholder}
+                            maxLength={MAX_ROUTE_REPORT_DESCRIPTION_LENGTH}
                             multiline
                             textAlignVertical="top"
                             style={{
@@ -709,11 +744,14 @@ export default function RouteDetailScreen() {
                           <Text
                             style={{
                               marginTop: 6,
-                              color: descriptionTooShort ? colors.danger : colors.textSecondary,
+                              color:
+                                descriptionTooShort || descriptionTooLong
+                                  ? colors.danger
+                                  : colors.textSecondary,
                               fontSize: 12,
                             }}
                           >
-                            Minimo 10 caracteres.
+                            {`${trimmedDescription.length}/${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} - Minimo ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`}
                           </Text>
                         </View>
 
@@ -892,6 +930,7 @@ export default function RouteDetailScreen() {
                       onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                       placeholder="Escribe un comentario sobre la ruta..."
                       placeholderTextColor={colors.placeholder}
+                      maxLength={MAX_ROUTE_COMMENT_LENGTH}
                       multiline
                       textAlignVertical="top"
                       style={{
@@ -906,6 +945,15 @@ export default function RouteDetailScreen() {
                         marginBottom: 8,
                       }}
                     />
+                    <Text
+                      style={{
+                        color: commentTooLong ? colors.danger : colors.textSecondary,
+                        fontSize: 12,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {`${trimmedComment.length}/${MAX_ROUTE_COMMENT_LENGTH}`}
+                    </Text>
 
                     <AuthButton
                       title="Enviar comentario"

@@ -1,17 +1,22 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useState } from 'react'
 import { colors } from '../../../src/theme/colors'
 import { useUserStats } from '../../../src/hooks/useUserStats'
 import { ProfileStat } from '../../../src/components/profile/ProfileStat'
 
 function formatKilometers(value: number | null) {
-  return value != null ? `${value.toFixed(2)} km` : 'No disponible'
+  if (value == null || !Number.isFinite(value)) {
+    return 'No disponible'
+  }
+
+  return `${value.toFixed(2)} km`
 }
 
 function formatHours(seconds: number | null) {
-  if (seconds == null || seconds === 0) {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
     return 'No disponible'
   }
 
@@ -19,7 +24,11 @@ function formatHours(seconds: number | null) {
 }
 
 function formatMinutes(value: number | null) {
-  return value != null ? `${value.toFixed(1)} min` : 'No disponible'
+  if (value == null || !Number.isFinite(value)) {
+    return 'No disponible'
+  }
+
+  return `${value.toFixed(1)} min`
 }
 
 function formatDate(value: string | null) {
@@ -32,13 +41,30 @@ function formatDate(value: string | null) {
 
 export default function ProfileStatsScreen() {
   const router = useRouter()
-  const { stats, loading, error } = useUserStats()
+  const { stats, loading, error, refreshStats } = useUserStats()
+  const [refreshing, setRefreshing] = useState(false)
+
+  async function handleRefresh() {
+    try {
+      setRefreshing(true)
+      await refreshStats()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         <View
           style={{
@@ -77,6 +103,23 @@ export default function ProfileStatsScreen() {
               Datos de tu actividad personal
             </Text>
           </View>
+
+          <Pressable
+            onPress={handleRefresh}
+            style={{
+              marginLeft: 'auto',
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.cardSecondary,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+              Actualizar
+            </Text>
+          </Pressable>
         </View>
 
         <View
@@ -115,6 +158,22 @@ export default function ProfileStatsScreen() {
               <Text style={{ color: colors.textSecondary, marginTop: 8, textAlign: 'center' }}>
                 {error}
               </Text>
+              <Pressable
+                onPress={handleRefresh}
+                style={{
+                  marginTop: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.cardSecondary,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
+                  Reintentar
+                </Text>
+              </Pressable>
             </View>
           ) : stats.totalTrips === 0 ? (
             <View
@@ -156,7 +215,7 @@ export default function ProfileStatsScreen() {
 
               <View style={{ flexDirection: 'row', marginBottom: 16 }}>
                 <ProfileStat value={
-                    stats.averageDistanceKm != null
+                    stats.averageDistanceKm != null && Number.isFinite(stats.averageDistanceKm)
                       ? `${stats.averageDistanceKm.toFixed(2)} km`
                       : 'No disponible'
                   } label="Promedio distancia" />

@@ -1,4 +1,4 @@
-import { Alert, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState } from "react";
@@ -18,7 +18,7 @@ import { uploadAvatarToStorage } from "../../../src/services/profile.service";
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut, updateMyProfile } = useAuth();
-  const { trips, stats, loading } = useTripHistory();
+  const { trips, stats, loading, refreshing, error, refreshHistory } = useTripHistory();
   const [avatarUploading, setAvatarUploading] = useState(false);
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
@@ -108,7 +108,16 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshHistory}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <ProfileHeader onPressSettings={() => router.push("/profile/edit")} />
 
         <View style={{ paddingHorizontal: 16, marginTop: -48 }}>
@@ -140,6 +149,26 @@ export default function ProfileScreen() {
               <Text style={{ color: colors.textSecondary, marginBottom: 18 }}>
                 Cargando historial...
               </Text>
+            ) : error ? (
+              <View style={{ marginBottom: 18 }}>
+                <Text style={{ color: colors.danger, marginBottom: 10 }}>{error}</Text>
+                <Pressable
+                  onPress={refreshHistory}
+                  style={{
+                    alignSelf: "flex-start",
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.cardSecondary,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                  }}
+                >
+                  <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
+                    Reintentar
+                  </Text>
+                </Pressable>
+              </View>
             ) : trips.length === 0 ? (
               <HistoryEmptyState />
             ) : (

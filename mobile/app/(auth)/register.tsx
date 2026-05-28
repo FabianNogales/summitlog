@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -23,7 +24,7 @@ import {
 
 export default function RegisterScreen() {
   const router = useRouter()
-  const { signUp, signInWithGoogle, user } = useAuth()
+  const { signUp, signInWithGoogle, user, loading, profileLoadError } = useAuth()
   const scrollRef = useRef<ScrollView | null>(null)
 
   const [username, setUsername] = useState('')
@@ -34,10 +35,22 @@ export default function RegisterScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    )
   }
 
   if (user) {
@@ -46,12 +59,24 @@ export default function RegisterScreen() {
 
   async function handleRegister() {
     setEmailError(null)
+    setPasswordError(null)
+    setConfirmPasswordError(null)
     setFormError(null)
 
     const normalizedEmail = email.trim()
 
-    if (!username.trim() || !normalizedEmail || !password.trim()) {
-      setFormError('Username, correo y contrasena son obligatorios.')
+    if (!username.trim()) {
+      setFormError('El username es obligatorio.')
+      return
+    }
+
+    if (!normalizedEmail) {
+      setFormError('El correo electronico es obligatorio.')
+      return
+    }
+
+    if (!password.trim()) {
+      setPasswordError('La contrasena es obligatoria.')
       return
     }
 
@@ -61,12 +86,12 @@ export default function RegisterScreen() {
     }
 
     if (password.length < 6) {
-      setFormError('La contrasena debe tener al menos 6 caracteres.')
+      setPasswordError('La contrasena debe tener al menos 6 caracteres.')
       return
     }
 
     if (password !== confirmPassword) {
-      setFormError('La confirmacion no coincide con la contrasena.')
+      setConfirmPasswordError('La confirmacion no coincide con la contrasena.')
       return
     }
 
@@ -238,10 +263,12 @@ export default function RegisterScreen() {
               value={password}
               onChangeText={(value) => {
                 setPassword(value)
+                if (passwordError) setPasswordError(null)
                 if (formError) setFormError(null)
               }}
               iconName="lock"
               secureTextEntry
+              errorText={passwordError}
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
@@ -251,10 +278,12 @@ export default function RegisterScreen() {
               value={confirmPassword}
               onChangeText={(value) => {
                 setConfirmPassword(value)
+                if (confirmPasswordError) setConfirmPasswordError(null)
                 if (formError) setFormError(null)
               }}
               iconName="lock"
               secureTextEntry
+              errorText={confirmPasswordError}
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
@@ -268,6 +297,19 @@ export default function RegisterScreen() {
                 }}
               >
                 {formError}
+              </Text>
+            ) : null}
+
+            {profileLoadError ? (
+              <Text
+                style={{
+                  color: colors.warning,
+                  fontSize: 12,
+                  marginTop: -4,
+                  marginBottom: 14,
+                }}
+              >
+                {profileLoadError}
               </Text>
             ) : null}
 

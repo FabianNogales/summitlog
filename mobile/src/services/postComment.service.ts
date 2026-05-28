@@ -8,6 +8,7 @@ interface CreatePostCommentInput {
 }
 
 const MIN_COMMENT_LENGTH = 3
+export const MAX_POST_COMMENT_LENGTH = 300
 
 function normalizeAuthor(author: unknown) {
   if (Array.isArray(author)) {
@@ -64,9 +65,7 @@ export async function getPostComments(postId: string) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    throw new Error(
-      error.message ?? 'No se pudieron cargar los comentarios de la publicacion.'
-    )
+    throw new Error(error.message ?? 'No se pudieron cargar los comentarios de la publicacion.')
   }
 
   return (data ?? []).map(normalizeCommentRecord)
@@ -85,9 +84,11 @@ export async function createPostComment(input: CreatePostCommentInput) {
   }
 
   if (normalizedContent.length < MIN_COMMENT_LENGTH) {
-    throw new Error(
-      `El comentario debe tener al menos ${MIN_COMMENT_LENGTH} caracteres.`
-    )
+    throw new Error(`El comentario debe tener al menos ${MIN_COMMENT_LENGTH} caracteres.`)
+  }
+
+  if (normalizedContent.length > MAX_POST_COMMENT_LENGTH) {
+    throw new Error(`El comentario no puede superar ${MAX_POST_COMMENT_LENGTH} caracteres.`)
   }
 
   const { data: authData, error: authError } = await supabase.auth.getUser()
@@ -126,9 +127,12 @@ export async function createPostComment(input: CreatePostCommentInput) {
     .single()
 
   if (error) {
-    throw new Error(
-      error.message ?? 'No se pudo crear el comentario de la publicacion.'
-    )
+    const message = error.message?.toLowerCase() ?? ''
+    if (message.includes('violates row-level security') || message.includes('permission')) {
+      throw new Error('La publicacion ya no esta disponible para comentar.')
+    }
+
+    throw new Error(error.message ?? 'No se pudo crear el comentario de la publicacion.')
   }
 
   return normalizeCommentRecord(data)

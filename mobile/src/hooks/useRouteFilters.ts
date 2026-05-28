@@ -7,6 +7,8 @@ const DEFAULT_FILTERS: RouteFilters = {
   maxDistanceKm: '',
   maxDurationMin: '',
 }
+const MAX_DISTANCE_KM_LIMIT = 500
+const MAX_DURATION_MIN_LIMIT = 1440
 
 function normalizeDifficulty(value: string | null | undefined) {
   if (!value) return ''
@@ -24,25 +26,55 @@ export function useRouteFilters(routes: RouteItem[]) {
   const [filters, setFilters] = useState<RouteFilters>(DEFAULT_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
 
+  function sanitizeNumericFilter(value: string, maxLimit: number) {
+    const normalized = value.replace(/[^0-9]/g, '')
+    if (!normalized) return ''
+
+    const numericValue = Number(normalized)
+    if (!Number.isFinite(numericValue)) return ''
+
+    return String(Math.min(maxLimit, numericValue))
+  }
+
   function setDifficulty(difficulty: RouteDifficultyFilter) {
-    setFilters((prev) => ({
-      ...prev,
-      difficulty,
-    }))
+    setFilters((prev) => {
+      if (prev.difficulty === difficulty) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        difficulty,
+      }
+    })
   }
 
   function setMaxDistanceKm(value: string) {
-    setFilters((prev) => ({
-      ...prev,
-      maxDistanceKm: value,
-    }))
+    const nextValue = sanitizeNumericFilter(value, MAX_DISTANCE_KM_LIMIT)
+    setFilters((prev) => {
+      if (prev.maxDistanceKm === nextValue) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        maxDistanceKm: nextValue,
+      }
+    })
   }
 
   function setMaxDurationMin(value: string) {
-    setFilters((prev) => ({
-      ...prev,
-      maxDurationMin: value,
-    }))
+    const nextValue = sanitizeNumericFilter(value, MAX_DURATION_MIN_LIMIT)
+    setFilters((prev) => {
+      if (prev.maxDurationMin === nextValue) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        maxDurationMin: nextValue,
+      }
+    })
   }
 
   function clearFilters() {
