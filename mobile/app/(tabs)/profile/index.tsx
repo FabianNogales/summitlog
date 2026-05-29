@@ -107,6 +107,14 @@ export default function ProfileScreen() {
     }
   }
 
+  function formatTotalHours(seconds: number) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return "0.0 h";
+    }
+
+    return `${(seconds / 3600).toFixed(1)} h`;
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
@@ -129,7 +137,7 @@ export default function ProfileScreen() {
             avatarUrl={profile?.avatar_url}
             avatarUploading={avatarUploading}
             completedRoutes={stats.completedTrips}
-            journalCount={stats.journalCount}
+            totalTime={formatTotalHours(stats.totalDurationS)}
             kilometers={stats.totalDistanceKm}
             onPressAvatar={handleChangeAvatar}
           />

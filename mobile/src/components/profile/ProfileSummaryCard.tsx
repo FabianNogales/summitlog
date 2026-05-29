@@ -11,7 +11,7 @@ interface ProfileSummaryCardProps {
   avatarUrl?: string | null
   avatarUploading?: boolean
   completedRoutes?: number
-  journalCount?: number
+  totalTime?: string | number
   kilometers?: number
   onPressAvatar?: () => void
 }
@@ -40,7 +40,7 @@ export function ProfileSummaryCard({
   avatarUrl,
   avatarUploading = false,
   completedRoutes = 0,
-  journalCount = 0,
+  totalTime = '0.0 h',
   kilometers = 0,
   onPressAvatar,
 }: ProfileSummaryCardProps) {
@@ -164,7 +164,7 @@ export function ProfileSummaryCard({
 
       <View style={{ flexDirection: 'row' }}>
         <ProfileStat value={completedRoutes} label="Rutas completadas" />
-        <ProfileStat value={journalCount} label="Bitácoras" />
+        <ProfileStat value={totalTime} label="Tiempo total" />
         <ProfileStat value={kilometers.toFixed(2)} label="Kilómetros" />
       </View>
     </View>

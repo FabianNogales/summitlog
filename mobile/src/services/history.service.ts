@@ -5,6 +5,7 @@ export interface TripHistoryStats {
   completedTrips: number
   journalCount: number
   totalDistanceKm: number
+  totalDurationS: number
 }
 
 export interface UserStats {
@@ -56,6 +57,9 @@ export async function getTripHistoryStats(userId: string): Promise<TripHistorySt
   const totalDistanceMeters = trips.reduce((acc, trip) => {
     return acc + Number(trip.distance_m ?? 0)
   }, 0)
+  const totalDurationS = trips.reduce((acc, trip) => {
+    return acc + Number(trip.duration_s ?? 0)
+  }, 0)
 
   const { count: journalCount, error: journalError } = await supabase
     .from('journals')
@@ -70,6 +74,7 @@ export async function getTripHistoryStats(userId: string): Promise<TripHistorySt
     completedTrips: trips.length,
     journalCount: journalCount ?? 0,
     totalDistanceKm: totalDistanceMeters / 1000,
+    totalDurationS,
   }
 }
 
@@ -85,12 +90,13 @@ export async function getUserStats(userId: string): Promise<UserStats> {
 
   const trips = (data ?? []) as RecordedTrip[]
   const totalTrips = trips.length
-  const completedTrips = trips.filter((trip) => trip.status === 'completed').length
-  const totalDistanceMeters = trips.reduce(
+  const completedTripsList = trips.filter((trip) => trip.status === 'completed')
+  const completedTrips = completedTripsList.length
+  const totalDistanceMeters = completedTripsList.reduce(
     (acc, trip) => acc + Number(trip.distance_m ?? 0),
     0,
   )
-  const totalDurationS = trips.reduce(
+  const totalDurationS = completedTripsList.reduce(
     (acc, trip) => acc + Number(trip.duration_s ?? 0),
     0,
   )

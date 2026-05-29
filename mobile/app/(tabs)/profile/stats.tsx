@@ -5,7 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { colors } from '../../../src/theme/colors'
 import { useUserStats } from '../../../src/hooks/useUserStats'
+import { useTripHistory } from '../../../src/hooks/useTripHistory'
 import { ProfileStat } from '../../../src/components/profile/ProfileStat'
+import { ActivityCharts } from '../../../src/components/stats/ActivityCharts'
 
 function formatKilometers(value: number | null) {
   if (value == null || !Number.isFinite(value)) {
@@ -42,6 +44,12 @@ function formatDate(value: string | null) {
 export default function ProfileStatsScreen() {
   const router = useRouter()
   const { stats, pendingSyncCount, loading, error, refreshStats } = useUserStats()
+  const {
+    trips,
+    loading: chartsLoading,
+    error: chartsError,
+    refreshHistory,
+  } = useTripHistory({ includeStats: false })
   const [refreshing, setRefreshing] = useState(false)
 
   function handleBackToProfile() {
@@ -51,7 +59,7 @@ export default function ProfileStatsScreen() {
   async function handleRefresh() {
     try {
       setRefreshing(true)
-      await refreshStats()
+      await Promise.all([refreshStats(), refreshHistory()])
     } finally {
       setRefreshing(false)
     }
@@ -225,8 +233,8 @@ export default function ProfileStatsScreen() {
               </Text>
 
               <View style={{ flexDirection: 'row', marginBottom: 16 }}>
-                <ProfileStat value={stats.totalTrips} label="Viajes registrados" />
-                <ProfileStat value={stats.completedTrips} label="Finalizados" />
+                <ProfileStat value={stats.totalTrips} label="Total registrados" />
+                <ProfileStat value={stats.completedTrips} label="Rutas completadas" />
               </View>
 
               <View style={{ flexDirection: 'row', marginBottom: 16 }}>
@@ -257,6 +265,14 @@ export default function ProfileStatsScreen() {
             </>
           )}
         </View>
+
+        {!error ? (
+          <ActivityCharts
+            trips={trips}
+            loading={chartsLoading}
+            error={chartsError}
+          />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   )
