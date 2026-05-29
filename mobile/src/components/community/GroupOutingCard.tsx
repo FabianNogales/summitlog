@@ -16,18 +16,15 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
-  // ESTADOS LOCALES: Control de UI reactiva inmediata
   const [isJoinedLocal, setIsJoinedLocal] = useState(!!outing.is_user_joined)
-  const [participantCountLocal, setParticipantCountLocal] = useState(outing.participant_count || 1)
+  const [participantCountLocal, setParticipantCountLocal] = useState(outing.participant_count || 0)
   const [isVisibleLocal, setIsVisibleLocal] = useState(true)
 
-  // Sincronizar los estados si las propiedades cambian desde el componente padre
   useEffect(() => {
     setIsJoinedLocal(!!outing.is_user_joined)
-    setParticipantCountLocal(outing.participant_count || 1)
+    setParticipantCountLocal(outing.participant_count || 0)
   }, [outing.is_user_joined, outing.participant_count])
 
-  // Obtener el ID del usuario logueado actualmente
   useEffect(() => {
     async function getSessionUser() {
       try {
@@ -40,10 +37,8 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
     getSessionUser()
   }, [])
 
-  // Si el usuario borró la card, no renderizamos absolutamente nada
   if (!isVisibleLocal) return null
 
-  // Formatear Fecha amigable
   const dateObj = new Date(outing.date_time)
   const formattedDate = dateObj.toLocaleDateString('es-ES', {
     weekday: 'short',
@@ -55,17 +50,13 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
     minute: '2-digit',
   })
 
-  // Cálculos dinámicos
   const maxPlazas = outing.max_participants || 2
   const spacesLeft = maxPlazas - participantCountLocal
   const isFull = spacesLeft <= 0
   const progressPercentage = Math.min((participantCountLocal / maxPlazas) * 100, 100)
 
-  // Identificar si el usuario actual es el dueño/organizador del evento
   const isCreator = currentUserId === outing.user_id
 
-  // EXTRAER LA IMAGEN DESDE LA NUEVA TABLA RELACIONAL
-  // Si group_outing_media tiene registros, tomamos el file_path del primero (index 0)
   const uploadedImage = outing.group_outing_media && outing.group_outing_media.length > 0
     ? outing.group_outing_media[0].file_path
     : null
@@ -77,7 +68,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
     try {
       setLoading(true)
 
-      // Actualización visual optimista para inscripción
       const newJoinedStatus = !isJoinedLocal
       setIsJoinedLocal(newJoinedStatus)
       setParticipantCountLocal(prev => newJoinedStatus ? prev + 1 : Math.max(1, prev - 1))
@@ -90,7 +80,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           ? `Te has unido con éxito a "${outing.title}".` 
           : `Te has retirado de "${outing.title}".`
       )
-      onRefresh()
     } catch (error: any) {
       setIsJoinedLocal(previousJoined)
       setParticipantCountLocal(previousCount)
@@ -112,16 +101,9 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           onPress: async () => {
             try {
               setLoading(true)
-              
-              // 1. Enviamos la petición a Supabase
               await groupOutingService.deleteGroupOuting(outing.id)
-              
-              // 2. Desvanecemos la Card localmente de inmediato
               setIsVisibleLocal(false)
-
               Alert.alert('Éxito', 'La salida ha sido eliminada correctamente.')
-              
-              // 3. Refrescamos la lista del padre en segundo plano
               onRefresh()
             } catch (err: any) {
               Alert.alert('Error', err.message || 'No se pudo eliminar el evento.')
@@ -145,7 +127,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
         overflow: 'hidden',
       }}
     >
-      {/* Contenedor Imagen Superior */}
       <View style={{ height: 160, width: '100%', backgroundColor: colors.bgElevated || '#1A1A1A', position: 'relative' }}>
         <Pressable
           onPress={() =>
@@ -162,7 +143,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           />
         </Pressable>
         
-        {/* Badge Destino */}
         <View
           style={{
             position: 'absolute',
@@ -185,7 +165,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           </Text>
         </View>
 
-        {/* Badge Plazas Restantes */}
         <View
           style={{
             position: 'absolute',
@@ -205,7 +184,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
         </View>
       </View>
 
-      {/* Cuerpo de la Tarjeta */}
       <View style={{ padding: 16 }}>
         <Text style={{ color: colors.textPrimary || '#FFF', fontSize: 18, fontWeight: '700', marginBottom: 4 }}>
           {outing.title}
@@ -215,16 +193,22 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           {outing.description || 'Sin descripción adicional para esta aventura.'}
         </Text>
 
-        {/* Barra de Progreso Dinámica */}
         <View style={{ height: 6, backgroundColor: (colors.borderSoft || '#333') + '80', borderRadius: 3, marginVertical: 8, overflow: 'hidden' }}>
           <View style={{ width: `${progressPercentage}%`, height: '100%', backgroundColor: colors.primary || '#00FF66' }} />
         </View>
 
-        {/* Detalles Metadatos */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, marginTop: 4 }}>
           <Ionicons name="time" size={15} color={colors.textSecondary || '#888'} />
           <Text style={{ color: colors.textSecondary || '#888', fontSize: 14 }}>
             {formattedDate} · {formattedTime}
+          </Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 6 }}>
+          <Ionicons name="flag" size={15} style={{ marginTop: 2 }} color={colors.primary || '#00FF66'} />
+          <Text style={{ color: colors.textSecondary || '#888', fontSize: 14, flex: 1 }} numberOfLines={2}>
+            <Text style={{ fontWeight: '600', color: colors.textPrimary || '#FFF' }}>Punto de encuentro: </Text>
+            {outing.meeting_point || 'No especificado'}
           </Text>
         </View>
 
@@ -235,7 +219,6 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           </Text>
         </View>
 
-        {/* Footer: Organizador y Botones */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.borderSoft || '#222', paddingTop: 12, marginTop: 4 }}>
           <View>
             <Text style={{ color: colors.textMuted || '#666', fontSize: 11 }}>Organiza</Text>
