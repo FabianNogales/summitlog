@@ -237,7 +237,9 @@ export default function ProfileScreen() {
                 </Pressable>
               </View>
             ) : trips.length === 0 ? (
-              <HistoryEmptyState />
+              <View style={{ marginBottom: 18 }}>
+                <HistoryEmptyState />
+              </View>
             ) : (
               <View style={{ marginBottom: 18 }}>
                 {trips.map((trip) => (
