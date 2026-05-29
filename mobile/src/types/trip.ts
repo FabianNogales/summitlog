@@ -24,6 +24,12 @@ export interface RecordedTrip {
   remote_id?: string | null
   sync_status?: string
   is_offline?: boolean
+  display_title?: string
+  display_description?: string | null
+  journal_visibility?: string | null
+  route_category?: string | null
+  route_difficulty?: string | null
+  route_publication_status?: string | null
 }
 
 export interface RecordedTripPoint {

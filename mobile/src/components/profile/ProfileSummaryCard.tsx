@@ -14,6 +14,7 @@ interface ProfileSummaryCardProps {
   totalTime?: string | number
   kilometers?: number
   onPressAvatar?: () => void
+  onPreviewAvatar?: () => void
 }
 
 function getInitials(fullName?: string | null, username?: string | null) {
@@ -43,6 +44,7 @@ export function ProfileSummaryCard({
   totalTime = '0.0 h',
   kilometers = 0,
   onPressAvatar,
+  onPreviewAvatar,
 }: ProfileSummaryCardProps) {
   const initials = getInitials(fullName, username)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
@@ -71,7 +73,7 @@ export function ProfileSummaryCard({
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ position: 'relative', marginRight: 14 }}>
           <Pressable
-            onPress={onPressAvatar}
+            onPress={safeAvatarUrl && onPreviewAvatar ? onPreviewAvatar : onPressAvatar}
             disabled={avatarUploading}
             style={{
               width: 62,

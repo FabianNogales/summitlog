@@ -16,6 +16,34 @@ export async function getCurrentLocation() {
   })
 }
 
+export async function hasLocationServicesEnabled() {
+  return await Location.hasServicesEnabledAsync()
+}
+
+export function getLocationFailureMessage(error: unknown) {
+  const rawMessage =
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+      ? (error as { message: string }).message.toLowerCase()
+      : ''
+
+  if (rawMessage.includes('disabled') || rawMessage.includes('services')) {
+    return 'Activa el GPS del dispositivo para centrar tu ubicacion.'
+  }
+
+  if (rawMessage.includes('denied') || rawMessage.includes('permission')) {
+    return 'No hay permiso de ubicacion. Habilitalo desde configuracion.'
+  }
+
+  if (rawMessage.includes('timeout')) {
+    return 'No se pudo obtener tu ubicacion a tiempo. Intenta de nuevo.'
+  }
+
+  return 'No se pudo obtener tu ubicacion actual. Intenta nuevamente.'
+}
+
 export async function startForegroundLocationWatcher(
   onLocation: (location: Location.LocationObject) => void | Promise<void>,
   onError?: (reason: string) => void

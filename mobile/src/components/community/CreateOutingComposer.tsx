@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import { Ionicons } from '@expo/vector-icons'
 import { colors } from '../../theme/colors'
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 
 interface CreateOutingComposerProps {
   submitting: boolean
@@ -43,6 +44,7 @@ export function CreateOutingComposer({
   
   // 🔴 ESTADO LOCAL: Guarda la ruta de la foto seleccionada
   const [imageUri, setImageUri] = useState<string | null>(null)
+  const [imagePreviewVisible, setImagePreviewVisible] = useState(false)
 
   // Lógica del Calendario Táctil (100% compatible con Expo Go)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -345,6 +347,27 @@ export function CreateOutingComposer({
         {imageUri ? (
           <View style={{ width: '100%', height: '100%' }}>
             <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+            <Pressable
+              onPress={(event) => {
+                event.stopPropagation()
+                setImagePreviewVisible(true)
+              }}
+              style={{
+                position: 'absolute',
+                bottom: 8,
+                left: 8,
+                backgroundColor: 'rgba(0,0,0,0.75)',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Ionicons name="expand-outline" size={14} color="#FFF" />
+              <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>Ver</Text>
+            </Pressable>
             <View style={{
               position: 'absolute',
               bottom: 8,
@@ -418,6 +441,11 @@ export function CreateOutingComposer({
           Cancelar
         </Text>
       </Pressable>
+      <ImagePreviewModal
+        visible={imagePreviewVisible}
+        imageUrl={imageUri}
+        onClose={() => setImagePreviewVisible(false)}
+      />
     </View>
   )
 }

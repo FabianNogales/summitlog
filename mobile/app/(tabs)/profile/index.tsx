@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 
+import { ImagePreviewModal } from "../../../src/components/common/ImagePreviewModal";
 import { useAuth } from "../../../src/hooks/useAuth";
 import { colors } from "../../../src/theme/colors";
 import { ProfileHeader } from "../../../src/components/profile/ProfileHeader";
@@ -21,6 +22,7 @@ export default function ProfileScreen() {
   const { trips, stats, loading, refreshing, error, pendingSyncCount, refreshHistory } =
     useTripHistory({ limit: 3 });
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarPreviewVisible, setAvatarPreviewVisible] = useState(false);
   const avatarUploadingRef = useRef(false);
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
@@ -146,6 +148,7 @@ export default function ProfileScreen() {
             totalTime={formatTotalHours(stats.totalDurationS)}
             kilometers={stats.totalDistanceKm}
             onPressAvatar={handleChangeAvatar}
+            onPreviewAvatar={() => setAvatarPreviewVisible(true)}
           />
 
           <View style={{ marginTop: 20 }}>
@@ -312,6 +315,11 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollView>
+      <ImagePreviewModal
+        visible={avatarPreviewVisible}
+        imageUrl={profile?.avatar_url ?? null}
+        onClose={() => setAvatarPreviewVisible(false)}
+      />
     </SafeAreaView>
   );
 }

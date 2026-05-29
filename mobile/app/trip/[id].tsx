@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { colors } from '../../src/theme/colors'
-import { useAuth } from '../../src/context/AuthContext'
+import { useAuth } from '../../src/hooks/useAuth'
 import { useTripDetail } from '../../src/hooks/useTripDetail'
 import { TripDetailTopBar } from '../../src/components/profile/trip-detail/TripDetailTopBar'
 import { TripDetailHero } from '../../src/components/profile/trip-detail/TripDetailHero'

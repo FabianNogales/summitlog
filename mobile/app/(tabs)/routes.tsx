@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Filter, List, Map, Search, SlidersHorizontal } from 'lucide-react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { ImagePreviewModal } from '../../src/components/common/ImagePreviewModal'
 import { RoutesMap } from '../../src/components/map/RoutesMap'
 import { RoutesFiltersPanel } from '../../src/components/routes/RoutesFiltersPanel'
 import { usePublishedRoutes } from '../../src/hooks/usePublishedRoutes'
@@ -55,11 +56,32 @@ function getDifficultyLabel(value: string | null | undefined) {
   return 'Ruta'
 }
 
+function getRouteDisplayTitle(route: RouteItem) {
+  const preferredTitle = route.display_title?.trim()
+  if (preferredTitle) return preferredTitle
+
+  const routeTitle = route.title?.trim()
+  if (routeTitle) return routeTitle
+
+  return 'Ruta sin título'
+}
+
+function getRouteDisplayImageUrl(route: RouteItem) {
+  const preferredImage = route.display_image_url?.trim()
+  if (preferredImage) return preferredImage
+
+  const coverImage = route.cover_image_url?.trim()
+  if (coverImage) return coverImage
+
+  return ''
+}
+
 export default function RoutesScreen() {
   const router = useRouter()
   const { routes, loading, error, refreshRoutes } = usePublishedRoutes()
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map')
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   const {
     filters,
@@ -441,12 +463,14 @@ export default function RoutesScreen() {
                     backgroundColor: colors.card,
                   }}
                 >
-                  {route.cover_image_url ? (
-                    <Image
-                      source={{ uri: route.cover_image_url }}
-                      style={{ width: '100%', height: 120 }}
-                      resizeMode="cover"
-                    />
+                  {getRouteDisplayImageUrl(route) ? (
+                    <Pressable onPress={() => setPreviewImageUrl(getRouteDisplayImageUrl(route))}>
+                      <Image
+                        source={{ uri: getRouteDisplayImageUrl(route) }}
+                        style={{ width: '100%', height: 120 }}
+                        resizeMode="cover"
+                      />
+                    </Pressable>
                   ) : (
                     <View
                       style={{
@@ -473,7 +497,7 @@ export default function RoutesScreen() {
                       }}
                       numberOfLines={1}
                     >
-                      {route.title}
+                      {getRouteDisplayTitle(route)}
                     </Text>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -512,6 +536,11 @@ export default function RoutesScreen() {
           />
         ) : null}
       </KeyboardAvoidingView>
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </SafeAreaView>
   )
 }

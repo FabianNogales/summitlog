@@ -1,11 +1,17 @@
 import { useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { Minus, Plus } from 'lucide-react-native'
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native'
+import { LocateFixed, Minus, Plus } from 'lucide-react-native'
 import {
   isMapboxTokenConfigured,
   mapboxTokenErrorMessage,
   Mapbox,
 } from '../../lib/mapbox'
+import {
+  getCurrentLocation,
+  getLocationFailureMessage,
+  hasLocationServicesEnabled,
+  requestForegroundLocationPermission,
+} from '../../services/location.service'
 import { colors } from '../../theme/colors'
 import type { RouteItem } from '../../types/route'
 
@@ -16,9 +22,26 @@ interface RoutesMapProps {
   onPressRoute: (route: RouteItem) => void
 }
 
-export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapProps) {
+function getRouteDisplayTitle(route: RouteItem) {
+  const preferredTitle = route.display_title?.trim()
+  if (preferredTitle) return preferredTitle
+
+  const routeTitle = route.title?.trim()
+  if (routeTitle) return routeTitle
+
+  return 'Ruta sin título'
+}
+
+export function RoutesMap({
+  routes,
+  loading,
+  error,
+  onPressRoute,
+}: RoutesMapProps) {
   const cameraRef = useRef<any>(null)
   const [zoomLevel, setZoomLevel] = useState(13)
+  const [centering, setCentering] = useState(false)
+  const [canRenderUserLocation, setCanRenderUserLocation] = useState(false)
 
   if (!isMapboxTokenConfigured) {
     return (
@@ -158,6 +181,46 @@ export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapPro
     )
   }
 
+  async function handleCenterOnUser() {
+    if (centering) return
+
+    try {
+      setCentering(true)
+
+      const permission = await requestForegroundLocationPermission()
+      if (!permission.granted) {
+        Alert.alert(
+          'Permiso requerido',
+          'No hay permiso de ubicacion para centrar el mapa. Habilitalo en configuracion.'
+        )
+        return
+      }
+
+      const servicesEnabled = await hasLocationServicesEnabled()
+      if (!servicesEnabled) {
+        Alert.alert(
+          'GPS desactivado',
+          'Activa el GPS del dispositivo para centrar tu ubicacion.'
+        )
+        return
+      }
+
+      const location = await getCurrentLocation()
+      const nextZoom = Math.max(zoomLevel, 14)
+      setZoomLevel(nextZoom)
+      setCanRenderUserLocation(true)
+      cameraRef.current?.setCamera({
+        centerCoordinate: [location.coords.longitude, location.coords.latitude],
+        zoomLevel: nextZoom,
+        animationDuration: 260,
+      })
+    } catch (error) {
+      Alert.alert('No se pudo centrar', getLocationFailureMessage(error))
+    } finally {
+      setCentering(false)
+    }
+  }
+
   const initialCenter: [number, number] = [
     Number(validRoutes[0].start_lng),
     Number(validRoutes[0].start_lat),
@@ -180,12 +243,20 @@ export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapPro
           }}
         />
 
+        {canRenderUserLocation ? (
+          <Mapbox.UserLocation
+            visible
+            showsUserHeadingIndicator={false}
+            androidRenderMode="gps"
+          />
+        ) : null}
+
         {validRoutes.map((route) => (
           <Mapbox.PointAnnotation
             key={route.id}
             id={route.id}
             coordinate={[Number(route.start_lng), Number(route.start_lat)]}
-            title={route.title}
+            title={getRouteDisplayTitle(route)}
             onSelected={() => onPressRoute(route)}
           >
             <View
@@ -210,6 +281,28 @@ export function RoutesMap({ routes, loading, error, onPressRoute }: RoutesMapPro
           gap: 10,
         }}
       >
+        <Pressable
+          onPress={handleCenterOnUser}
+          disabled={centering}
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            backgroundColor: colors.cardSecondary,
+            borderWidth: 1,
+            borderColor: colors.border,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: centering ? 0.7 : 1,
+          }}
+        >
+          {centering ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <LocateFixed size={18} color={colors.primary} />
+          )}
+        </Pressable>
+
         <Pressable
           onPress={() => handleZoom(1)}
           style={{

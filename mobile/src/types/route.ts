@@ -5,6 +5,8 @@ export interface RouteItem {
   user_id: string
   source_recorded_trip_id: string
   publication_status: RoutePublicationStatus
+  display_title?: string
+  display_image_url?: string | null
   title: string
   description: string | null
   category: string | null

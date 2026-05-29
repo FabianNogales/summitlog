@@ -46,6 +46,15 @@ function normalizeText(value?: string | null) {
   return normalized || null
 }
 
+function formatTripFallbackTitle(startedAt?: string | null) {
+  const date = startedAt ? new Date(startedAt) : null
+  if (date && Number.isFinite(date.getTime())) {
+    return `Recorrido del ${date.toLocaleDateString('es-BO')}`
+  }
+
+  return 'Recorrido registrado'
+}
+
 function getMaxAltitudeM(points: TripDetailPoint[]) {
   const altitudes = points
     .map((point) => point.altitude_m)
@@ -176,7 +185,11 @@ function buildDetailData(params: {
   const routeDescription = normalizeText(params.route?.description)
   const tripSummary = normalizeText('summary' in params.trip ? params.trip.summary : null)
 
-  const title = journalTitle ?? routeTitle ?? tripTitle ?? 'Recorrido completado'
+  const title =
+    journalTitle ??
+    tripTitle ??
+    routeTitle ??
+    formatTripFallbackTitle(params.trip.started_at)
   const description = journalContent ?? routeDescription ?? tripSummary
 
   return {

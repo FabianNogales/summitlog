@@ -1,9 +1,10 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, Alert, Image } from 'react-native'
+import { View, Text, TouchableOpacity, Alert, Image, Pressable } from 'react-native'
 import { colors } from '../../theme/colors' 
 import type { RouteReport } from '../../types/route'
 import { Ionicons } from '@expo/vector-icons';
 import { getRouteReportPhotoPublicUrl } from '../../services/routeReport.service'
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 
 interface RouteReportItemProps {
   report: RouteReport
@@ -13,6 +14,7 @@ interface RouteReportItemProps {
 
 export function RouteReportItem({ report, currentUserId, onResolve }: RouteReportItemProps) {
   const [imageLoadFailed, setImageLoadFailed] = React.useState(false)
+  const [previewImageUrl, setPreviewImageUrl] = React.useState<string | null>(null)
   
   const isOwner = currentUserId && currentUserId === report.user_id
   const imageUrl = getRouteReportPhotoPublicUrl(report.photo_path)
@@ -97,18 +99,20 @@ export function RouteReportItem({ report, currentUserId, onResolve }: RouteRepor
 
       {report.photo_path ? (
         canRenderImage ? (
-          <Image
-            source={{ uri: imageUrl }}
-            style={{
-              width: '100%',
-              height: 170,
-              borderRadius: 10,
-              marginBottom: 12,
-              backgroundColor: colors.cardSecondary,
-            }}
-            resizeMode="cover"
-            onError={() => setImageLoadFailed(true)}
-          />
+          <Pressable onPress={() => setPreviewImageUrl(imageUrl)}>
+            <Image
+              source={{ uri: imageUrl }}
+              style={{
+                width: '100%',
+                height: 170,
+                borderRadius: 10,
+                marginBottom: 12,
+                backgroundColor: colors.cardSecondary,
+              }}
+              resizeMode="cover"
+              onError={() => setImageLoadFailed(true)}
+            />
+          </Pressable>
         ) : (
           <View
             style={{
@@ -150,6 +154,11 @@ export function RouteReportItem({ report, currentUserId, onResolve }: RouteRepor
           </TouchableOpacity>
         )}
       </View>
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </View>
   )
 }

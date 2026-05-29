@@ -102,7 +102,9 @@ export function useRouteFilters(routes: RouteItem[]) {
         !filters.maxDurationMin ||
         (Number.isFinite(maxDurationMin) && durationMin <= maxDurationMin)
 
-      const haystack = `${route.title ?? ''} ${route.description ?? ''} ${route.category ?? ''}`
+      const haystack = `${route.display_title ?? ''} ${route.title ?? ''} ${
+        route.description ?? ''
+      } ${route.category ?? ''}`
         .trim()
         .toLowerCase()
       const searchOk = !normalizedSearch || haystack.includes(normalizedSearch)

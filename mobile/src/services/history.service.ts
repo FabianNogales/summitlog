@@ -53,6 +53,21 @@ function normalizeText(value?: string | null) {
   return normalized || null
 }
 
+function formatTripFallbackTitle(startedAt?: string | null) {
+  const date = startedAt ? new Date(startedAt) : null
+
+  if (date && Number.isFinite(date.getTime())) {
+    const readableDate = date.toLocaleDateString('es-BO', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+    return `Recorrido del ${readableDate}`
+  }
+
+  return 'Recorrido registrado'
+}
+
 async function decorateTripsWithJournalAndRouteData(trips: RecordedTrip[]) {
   if (trips.length === 0) {
     return []
@@ -96,9 +111,9 @@ async function decorateTripsWithJournalAndRouteData(trips: RecordedTrip[]) {
 
     const displayTitle =
       normalizeText(journal?.title) ??
-      normalizeText(route?.title) ??
       normalizeText(trip.title) ??
-      'Recorrido completado'
+      normalizeText(route?.title) ??
+      formatTripFallbackTitle(trip.started_at)
 
     const displayDescription =
       normalizeText(journal?.content) ??

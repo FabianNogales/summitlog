@@ -1,12 +1,13 @@
 import React from 'react'
 import { Alert, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { colors } from '../../src/theme/colors'
-import { useOfflineTripRecorder } from '../../src/hooks/useOfflineTripRecorder'
-import { useOfflineSync } from '../../src/hooks/useOfflineSync'
-
 import { TrackingMap } from '../../src/components/map/TrackingMap'
 import { RecordBottomPanel } from '../../src/components/map/RecordBottomPanel'
+import { useOfflineSync } from '../../src/hooks/useOfflineSync'
+import { useOfflineTripRecorder } from '../../src/hooks/useOfflineTripRecorder'
+import { colors } from '../../src/theme/colors'
+
+const RECORD_MAP_CONTROLS_BOTTOM_OFFSET = 40
 
 export default function RecordScreen() {
   const router = useRouter()
@@ -24,6 +25,7 @@ export default function RecordScreen() {
   } = useOfflineTripRecorder()
 
   const {
+    isOnline,
     pendingCount,
     syncing,
     syncStatus,
@@ -48,14 +50,33 @@ export default function RecordScreen() {
           ? 'Todo sincronizado.'
           : 'Sin pendientes por sincronizar.'
 
+  function resolveTrackingStartMessage() {
+    if (isOnline === false) {
+      return {
+        title: 'Tracking offline iniciado',
+        message: 'El recorrido se está guardando localmente en el dispositivo.',
+      }
+    }
+
+    if (syncStatus === 'synced' || syncStatus === 'empty') {
+      return {
+        title: 'Tracking iniciado',
+        message: 'El recorrido se está registrando correctamente.',
+      }
+    }
+
+    return {
+      title: 'Tracking iniciado',
+      message:
+        'El recorrido se guardará localmente y se sincronizará cuando corresponda.',
+    }
+  }
+
   async function handleStartTrip() {
     try {
       await startTracking()
-
-      Alert.alert(
-        'Tracking offline iniciado',
-        'El recorrido se está guardando localmente en el dispositivo.'
-      )
+      const startMessage = resolveTrackingStartMessage()
+      Alert.alert(startMessage.title, startMessage.message)
     } catch (error: any) {
       Alert.alert(
         'Error al iniciar recorrido',
@@ -111,6 +132,7 @@ export default function RecordScreen() {
       <TrackingMap
         coordinates={pathPoints}
         isTracking={isTracking}
+        controlsBottomOffset={RECORD_MAP_CONTROLS_BOTTOM_OFFSET}
       />
 
       <RecordBottomPanel

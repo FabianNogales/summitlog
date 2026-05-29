@@ -221,6 +221,10 @@ export function useTripJournalEditor(tripId?: string) {
   ])
 
   async function saveJournal() {
+    if (saving) {
+      throw new Error('La bitacora ya se esta guardando.')
+    }
+
     if (!user) {
       throw new Error('Debes iniciar sesión.')
     }

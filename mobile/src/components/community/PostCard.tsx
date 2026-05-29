@@ -1,5 +1,7 @@
 import { Image, Pressable, Text, View } from 'react-native'
+import { useState } from 'react'
 
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 import { colors } from '../../theme/colors'
 import type { SocialPost } from '../../types/post'
 
@@ -37,6 +39,7 @@ export function PostCard({
   commentsSection,
 }: PostCardProps) {
   const hasImage = Boolean(postImageUrl)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   return (
     <View
@@ -64,7 +67,12 @@ export function PostCard({
           }}
         >
           {post.author?.avatar_url ? (
-            <Image source={{ uri: post.author.avatar_url }} style={{ width: '100%', height: '100%' }} />
+            <Pressable
+              onPress={() => setPreviewImageUrl(post.author?.avatar_url ?? null)}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <Image source={{ uri: post.author.avatar_url }} style={{ width: '100%', height: '100%' }} />
+            </Pressable>
           ) : (
             <Text style={{ color: colors.background, fontSize: 15, fontWeight: '800' }}>
               {getInitials(authorName)}
@@ -96,15 +104,17 @@ export function PostCard({
       </View>
 
       {hasImage ? (
-        <Image
-          source={{ uri: postImageUrl }}
-          style={{
-            width: '100%',
-            height: 250,
-            backgroundColor: colors.cardSecondary,
-          }}
-          resizeMode="cover"
-        />
+        <Pressable onPress={() => setPreviewImageUrl(postImageUrl)}>
+          <Image
+            source={{ uri: postImageUrl }}
+            style={{
+              width: '100%',
+              height: 250,
+              backgroundColor: colors.cardSecondary,
+            }}
+            resizeMode="cover"
+          />
+        </Pressable>
       ) : null}
 
       <View style={{ paddingHorizontal: 14, paddingTop: hasImage ? 11 : 10, paddingBottom: 12 }}>
@@ -134,6 +144,12 @@ export function PostCard({
       </View>
 
       {isExpanded ? commentsSection : null}
+
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </View>
   )
 }

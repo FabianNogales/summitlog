@@ -1,6 +1,8 @@
 import { Image, Pressable, Text, TextInput, View } from 'react-native'
+import { useState } from 'react'
 
 import { AuthButton } from '../auth/AuthButton'
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 import { colors } from '../../theme/colors'
 
 export interface DraftPostImage {
@@ -53,6 +55,8 @@ export function CreatePostComposer({
   onSubmit,
   onCancel,
 }: CreatePostComposerProps) {
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+
   return (
     <View
       style={{
@@ -82,7 +86,12 @@ export function CreatePostComposer({
           }}
         >
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
+            <Pressable
+              onPress={() => setPreviewImageUrl(avatarUrl)}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <Image source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
+            </Pressable>
           ) : (
             <Text style={{ color: colors.background, fontSize: 16, fontWeight: '800' }}>
               {getInitials(displayName)}
@@ -144,7 +153,9 @@ export function CreatePostComposer({
             backgroundColor: colors.cardSecondary,
           }}
         >
-          <Image source={{ uri: selectedPostImage.uri }} style={{ width: '100%', height: 172 }} resizeMode="cover" />
+          <Pressable onPress={() => setPreviewImageUrl(selectedPostImage.uri)}>
+            <Image source={{ uri: selectedPostImage.uri }} style={{ width: '100%', height: 172 }} resizeMode="cover" />
+          </Pressable>
           <View
             style={{
               paddingHorizontal: 12,
@@ -223,6 +234,11 @@ export function CreatePostComposer({
           <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>Cancelar</Text>
         </Pressable>
       ) : null}
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </View>
   )
 }

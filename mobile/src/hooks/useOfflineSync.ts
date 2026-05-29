@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from './useAuth'
 import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
-import { subscribeToConnectivity } from '../services/connectivity.service'
+import { getIsOnline, subscribeToConnectivity } from '../services/connectivity.service'
 import {
   syncPendingTripsForUser,
   type TripSyncResult,
@@ -19,6 +19,7 @@ export function useOfflineSync() {
   const [syncStatus, setSyncStatus] = useState<SyncUiStatus>('idle')
   const [lastSyncError, setLastSyncError] = useState<string | null>(null)
   const [lastSyncResult, setLastSyncResult] = useState<TripSyncResult | null>(null)
+  const [isOnline, setIsOnline] = useState<boolean | null>(null)
 
   const syncPromiseRef = useRef<Promise<TripSyncResult> | null>(null)
   const syncingRef = useRef(false)
@@ -148,8 +149,16 @@ export function useOfflineSync() {
     if (!user) return
 
     lastOnlineRef.current = null
+    getIsOnline()
+      .then((online) => {
+        setIsOnline(online)
+      })
+      .catch(() => {
+        setIsOnline(null)
+      })
 
     const unsubscribe = subscribeToConnectivity((isOnline) => {
+      setIsOnline(isOnline)
       const wasOnline = lastOnlineRef.current
       lastOnlineRef.current = isOnline
 
@@ -175,6 +184,7 @@ export function useOfflineSync() {
   }, [user, syncNow])
 
   return {
+    isOnline,
     pendingCount,
     syncing,
     syncStatus,

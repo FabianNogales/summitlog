@@ -1,6 +1,8 @@
 import { Image, Pressable, Text, TextInput, View } from 'react-native'
+import { useState } from 'react'
 
 import { AuthButton } from '../auth/AuthButton'
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 import { colors } from '../../theme/colors'
 import type { SocialPostComment } from '../../types/postComment'
 import { getAuthorDisplayName } from '../../utils/displayName'
@@ -53,6 +55,7 @@ export function CommentsSection({
   onReportComment,
 }: CommentsSectionProps) {
   const trimmedCommentInput = commentInput.trim()
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   return (
     <View
@@ -107,7 +110,12 @@ export function CommentsSection({
                   }}
                 >
                   {comment.author?.avatar_url ? (
-                    <Image source={{ uri: comment.author.avatar_url }} style={{ width: '100%', height: '100%' }} />
+                    <Pressable
+                      onPress={() => setPreviewImageUrl(comment.author?.avatar_url ?? null)}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <Image source={{ uri: comment.author.avatar_url }} style={{ width: '100%', height: '100%' }} />
+                    </Pressable>
                   ) : (
                     <Text style={{ color: colors.background, fontSize: 12, fontWeight: '800' }}>
                       {getInitials(commentAuthor)}
@@ -212,6 +220,11 @@ export function CommentsSection({
           Inicia sesion para comentar.
         </Text>
       )}
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </View>
   )
 }

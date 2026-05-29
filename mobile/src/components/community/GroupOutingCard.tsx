@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { colors } from '../../theme/colors'
 import { GroupOuting } from '../../types/groupOuting'
 import { groupOutingService } from '../../services/groupOuting.service'
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 
 interface GroupOutingCardProps {
   outing: GroupOuting
@@ -13,6 +14,7 @@ interface GroupOutingCardProps {
 export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
   const [loading, setLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   // ESTADOS LOCALES: Control de UI reactiva inmediata
   const [isJoinedLocal, setIsJoinedLocal] = useState(!!outing.is_user_joined)
@@ -145,10 +147,20 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
     >
       {/* Contenedor Imagen Superior */}
       <View style={{ height: 160, width: '100%', backgroundColor: colors.bgElevated || '#1A1A1A', position: 'relative' }}>
-        <Image
-          source={{ uri: uploadedImage || 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop' }} 
-          style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
-        />
+        <Pressable
+          onPress={() =>
+            setPreviewImageUrl(
+              uploadedImage ||
+                'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop'
+            )
+          }
+          style={{ width: '100%', height: '100%' }}
+        >
+          <Image
+            source={{ uri: uploadedImage || 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop' }}
+            style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+          />
+        </Pressable>
         
         {/* Badge Destino */}
         <View
@@ -291,6 +303,11 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           )}
         </View>
       </View>
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </View>
   )
 }

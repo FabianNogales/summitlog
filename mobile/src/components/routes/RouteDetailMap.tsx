@@ -1,9 +1,17 @@
-import { Text, View } from 'react-native'
+import { useRef, useState } from 'react'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { LocateFixed } from 'lucide-react-native'
 import {
   isMapboxTokenConfigured,
   mapboxTokenErrorMessage,
   Mapbox,
 } from '../../lib/mapbox'
+import {
+  getCurrentLocation,
+  getLocationFailureMessage,
+  hasLocationServicesEnabled,
+  requestForegroundLocationPermission,
+} from '../../services/location.service'
 import { colors } from '../../theme/colors'
 import type { RouteItem, RoutePoint } from '../../types/route'
 
@@ -14,6 +22,9 @@ interface RouteDetailMapProps {
 }
 
 export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMapProps) {
+  const cameraRef = useRef<any>(null)
+  const [centering, setCentering] = useState(false)
+  const [centerMessage, setCenterMessage] = useState<string | null>(null)
   const validPoints = points.filter((point) => {
     const lng = Number(point.longitude)
     const lat = Number(point.latitude)
@@ -55,6 +66,41 @@ export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMap
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
     return [lng, lat]
   })()
+
+  async function handleCenterOnUser() {
+    if (centering) return
+
+    try {
+      setCentering(true)
+      setCenterMessage(null)
+      const permission = await requestForegroundLocationPermission()
+
+      if (!permission.granted) {
+        setCenterMessage(
+          'No hay permiso de ubicacion para centrar el mapa. Habilitalo en configuracion.'
+        )
+        return
+      }
+
+      const servicesEnabled = await hasLocationServicesEnabled()
+      if (!servicesEnabled) {
+        setCenterMessage('Activa el GPS del dispositivo para centrar tu ubicacion.')
+        return
+      }
+
+      const location = await getCurrentLocation()
+      cameraRef.current?.setCamera({
+        centerCoordinate: [location.coords.longitude, location.coords.latitude],
+        zoomLevel: 14,
+        animationDuration: 260,
+      })
+      setCenterMessage('Mapa centrado en tu ubicacion actual.')
+    } catch (error) {
+      setCenterMessage(getLocationFailureMessage(error))
+    } finally {
+      setCentering(false)
+    }
+  }
 
   if (!isMapboxTokenConfigured) {
     return (
@@ -102,6 +148,7 @@ export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMap
         requestDisallowInterceptTouchEvent={true}
       >
         <Mapbox.Camera
+          ref={cameraRef}
           defaultSettings={{
             centerCoordinate: fallbackCenter,
             zoomLevel: hasPolyline ? 13 : 12,
@@ -179,6 +226,50 @@ export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMap
           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
             Esta ruta todavía no tiene trazado público en route_points.
           </Text>
+        </View>
+      ) : null}
+
+      <Pressable
+        onPress={handleCenterOnUser}
+        disabled={centering}
+        style={{
+          position: 'absolute',
+          right: 10,
+          top: 10,
+          width: 38,
+          height: 38,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.cardSecondary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: centering ? 0.7 : 1,
+        }}
+      >
+        {centering ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <LocateFixed size={16} color={colors.primary} />
+        )}
+      </Pressable>
+
+      {centerMessage ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: 54,
+            left: 10,
+            right: 56,
+            backgroundColor: colors.overlay,
+            paddingHorizontal: 10,
+            paddingVertical: 7,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{centerMessage}</Text>
         </View>
       ) : null}
     </View>

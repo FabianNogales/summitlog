@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuth } from '../../src/hooks/useAuth'
+import { ImagePreviewModal } from '../../src/components/common/ImagePreviewModal'
 import { colors } from '../../src/theme/colors'
 import { RouteInfoRow } from '../../src/components/routes/RouteInfoRow'
 import { RouteDetailMap } from '../../src/components/routes/RouteDetailMap'
@@ -91,6 +92,28 @@ function formatSeverityLabel(status: RouteReportSeverity) {
   }
 }
 
+function getRouteDisplayTitle(params: { display_title?: string; title?: string | null }) {
+  const preferredTitle = params.display_title?.trim()
+  if (preferredTitle) return preferredTitle
+
+  const routeTitle = params.title?.trim()
+  if (routeTitle) return routeTitle
+
+  return 'Ruta sin título'
+}
+
+function getRouteDisplayImageUrl(params: {
+  display_image_url?: string | null
+  cover_image_url?: string | null
+}) {
+  const preferredImage = params.display_image_url?.trim()
+  if (preferredImage) return preferredImage
+
+  const coverImage = params.cover_image_url?.trim()
+  if (coverImage) return coverImage
+
+  return ''
+}
 export default function RouteDetailScreen() {
   const router = useRouter()
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
@@ -133,6 +156,7 @@ export default function RouteDetailScreen() {
   const [reportDescription, setReportDescription] = useState('')
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   
   const [isMapActive, setIsMapActive] = useState(false)
@@ -229,7 +253,7 @@ export default function RouteDetailScreen() {
     try {
       await resolveRouteReport(reportId)
       // Refrescamos los detalles de la ruta para que vuelva a pedir los reportes a Supabase
-      await refreshRouteDetail() 
+      await refreshRouteDetail()
       Alert.alert('Reporte resuelto', 'El reporte se ha marcado como resuelto con éxito.')
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'No se pudo resolver el reporte.')
@@ -487,6 +511,26 @@ export default function RouteDetailScreen() {
             </Text>
           ) : (
             <>
+              {getRouteDisplayImageUrl(route) ? (
+                <Pressable
+                  onPress={() => setPreviewImageUrl(getRouteDisplayImageUrl(route))}
+                  style={{
+                    marginBottom: 16,
+                    borderRadius: 18,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                  }}
+                >
+                  <Image
+                    source={{ uri: getRouteDisplayImageUrl(route) }}
+                    style={{ width: '100%', height: 180 }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ) : null}
+
               <Text
                 style={{
                   color: colors.text,
@@ -495,7 +539,7 @@ export default function RouteDetailScreen() {
                   marginBottom: 8,
                 }}
               >
-                {route.title}
+                {getRouteDisplayTitle(route)}
               </Text>
 
               <Text
@@ -818,11 +862,13 @@ export default function RouteDetailScreen() {
                               backgroundColor: colors.cardSecondary,
                             }}
                           >
-                            <Image
-                              source={{ uri: selectedReportPhoto.uri }}
-                              style={{ width: '100%', height: 170 }}
-                              resizeMode="cover"
-                            />
+                            <Pressable onPress={() => setPreviewImageUrl(selectedReportPhoto.uri)}>
+                              <Image
+                                source={{ uri: selectedReportPhoto.uri }}
+                                style={{ width: '100%', height: 170 }}
+                                resizeMode="cover"
+                              />
+                            </Pressable>
                             <View
                               style={{
                                 paddingHorizontal: 12,
@@ -1148,6 +1194,11 @@ export default function RouteDetailScreen() {
         onChangeDescription={setReportDescription}
         onClose={handleCloseReportModal}
         onSubmit={handleSubmitCommentReport}
+      />
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
       />
     </SafeAreaView>
   )

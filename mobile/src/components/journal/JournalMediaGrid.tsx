@@ -1,6 +1,7 @@
 import { Image, Pressable, Text, View } from 'react-native'
 import { useEffect, useState } from 'react'
 import { Feather } from '@expo/vector-icons'
+import { ImagePreviewModal } from '../common/ImagePreviewModal'
 import { colors } from '../../theme/colors'
 import type { JournalMedia } from '../../types/journal'
 import { getJournalMediaPublicUrl } from '../../services/journalMedia.service'
@@ -33,6 +34,7 @@ export function JournalMediaGrid({
   onRemove,
 }: JournalMediaGridProps) {
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set())
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   useEffect(() => {
     setFailedImageIds(new Set())
@@ -83,8 +85,9 @@ export function JournalMediaGrid({
         }
 
         return (
-          <View
+          <Pressable
             key={item.id}
+            onPress={() => setPreviewImageUrl(imageUrl)}
             style={{
               width: '31%',
               aspectRatio: 1,
@@ -111,7 +114,10 @@ export function JournalMediaGrid({
 
             {onRemove ? (
               <Pressable
-                onPress={() => onRemove(item)}
+                onPress={(event) => {
+                  event.stopPropagation()
+                  onRemove(item)
+                }}
                 disabled={isDeleting}
                 style={{
                   position: 'absolute',
@@ -129,9 +135,14 @@ export function JournalMediaGrid({
                 <Feather name={isDeleting ? 'loader' : 'x'} size={13} color={colors.text} />
               </Pressable>
             ) : null}
-          </View>
+          </Pressable>
         )
       })}
+      <ImagePreviewModal
+        visible={Boolean(previewImageUrl)}
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </View>
   )
 }

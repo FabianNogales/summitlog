@@ -10,8 +10,8 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useCallback, useRef, useState } from 'react'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
@@ -30,10 +30,10 @@ import {
 } from '../../src/utils/keyboard'
 import { useAuth } from '../../src/hooks/useAuth'
 
-const difficultyOptions: Array<{
+const difficultyOptions: {
   label: string
   value: JournalDifficulty
-}> = [
+}[] = [
   { label: 'Sin definir', value: '' },
   { label: 'Fácil', value: 'easy' },
   { label: 'Media', value: 'medium' },
@@ -42,9 +42,16 @@ const difficultyOptions: Array<{
 
 export default function JournalEditorScreen() {
   const router = useRouter()
-  const { tripId } = useLocalSearchParams<{ tripId: string }>()
+  const { tripId: rawTripId } = useLocalSearchParams<{ tripId?: string | string[] }>()
   const scrollRef = useRef<ScrollView | null>(null)
   const { user, loading: authLoading } = useAuth()
+  const tripId = useMemo(() => {
+    if (Array.isArray(rawTripId)) {
+      return rawTripId[0]?.trim() || ''
+    }
+
+    return typeof rawTripId === 'string' ? rawTripId.trim() : ''
+  }, [rawTripId])
 
   const {
     trip,
@@ -96,10 +103,39 @@ export default function JournalEditorScreen() {
       }
     }, [authLoading, router, user])
   )
+  const fallbackBackRoute = useMemo<Href>(() => {
+    if (tripId) {
+      return {
+        pathname: '/trip/[id]',
+        params: { id: tripId },
+      }
+    }
+
+    return '/(tabs)/profile/history'
+  }, [tripId])
+
+  const navigateBackSafely = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back()
+      return
+    }
+
+    router.replace(fallbackBackRoute)
+  }, [fallbackBackRoute, router])
+
+  const showSavingInProgressAlert = useCallback(() => {
+    Alert.alert(
+      'Guardando bitácora',
+      'Espera a que termine el guardado antes de salir.',
+      [{ text: 'OK' }],
+      { cancelable: false }
+    )
+  }, [])
 
   const handleBack = useCallback(() => {
     if (saving || uploading) {
-      return
+      showSavingInProgressAlert()
+      return true
     }
 
     if (!loading && trip && !journal) {
@@ -107,7 +143,7 @@ export default function JournalEditorScreen() {
         'Bitácora obligatoria',
         'Para finalizar el recorrido debes guardar una bitácora con título y contenido.'
       )
-      return
+      return true
     }
 
     if (hasUnsavedChanges) {
@@ -116,40 +152,39 @@ export default function JournalEditorScreen() {
         'Tienes cambios sin guardar en tu bitácora. Si sales ahora, se perderán.',
         [
           { text: 'Cancelar', style: 'cancel' },
-          { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() },
-        ]
+          { text: 'Salir sin guardar', style: 'destructive', onPress: navigateBackSafely },
+        ],
+        { cancelable: false }
       )
-      return
+      return true
     }
 
-    router.back()
-  }, [saving, uploading, loading, trip, journal, hasUnsavedChanges, router])
+    navigateBackSafely()
+    return true
+  }, [
+    saving,
+    uploading,
+    showSavingInProgressAlert,
+    loading,
+    trip,
+    journal,
+    hasUnsavedChanges,
+    navigateBackSafely,
+  ])
 
   useFocusEffect(
     useCallback(() => {
-      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (saving || uploading) {
-          return true
-        }
-
-        if (!loading && trip && !journal) {
-          handleBack()
-          return true
-        }
-
-        if (hasUnsavedChanges) {
-          handleBack()
-          return true
-        }
-
-        return false
-      })
+      const subscription = BackHandler.addEventListener('hardwareBackPress', handleBack)
 
       return () => subscription.remove()
-    }, [saving, uploading, loading, trip, journal, hasUnsavedChanges, handleBack])
+    }, [handleBack])
   )
 
   async function handleSaveJournal() {
+    if (saving) {
+      return
+    }
+
     try {
       setFormError(null)
       const savedJournal = await saveJournal()
@@ -158,7 +193,9 @@ export default function JournalEditorScreen() {
         'Bitácora guardada',
         savedJournal
           ? 'La bitácora se guardó localmente. Puedes agregar fotos si deseas.'
-          : 'No se pudo guardar.'
+          : 'No se pudo guardar.',
+        [{ text: 'OK', onPress: navigateBackSafely }],
+        { cancelable: false }
       )
     } catch (err: any) {
       const message = err?.message ?? 'No se pudo guardar la bitácora.'
@@ -273,6 +310,7 @@ export default function JournalEditorScreen() {
           >
             <Pressable
               onPress={handleBack}
+              accessibilityState={{ disabled: saving || uploading }}
               style={{
                 width: 36,
                 height: 36,
@@ -281,6 +319,7 @@ export default function JournalEditorScreen() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 12,
+                opacity: saving || uploading ? 0.65 : 1,
               }}
             >
               <Feather name="arrow-left" size={18} color={colors.text} />
