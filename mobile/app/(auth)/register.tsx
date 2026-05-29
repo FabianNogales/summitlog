@@ -219,7 +219,7 @@ export default function RegisterScreen() {
           <View>
             <AuthInput
               label="Nombre de usuario"
-              placeholder="fabian_nogales"
+              placeholder="tu_usuario"
               value={username}
               onChangeText={(value) => {
                 setUsername(value)
@@ -231,7 +231,7 @@ export default function RegisterScreen() {
 
             <AuthInput
               label="Nombre completo"
-              placeholder="Fabian Nogales"
+              placeholder="Nombre completo"
               value={fullName}
               onChangeText={(value) => {
                 setFullName(value)

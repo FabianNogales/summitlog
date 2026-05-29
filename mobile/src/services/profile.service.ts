@@ -21,6 +21,9 @@ interface UpdateProfileParams {
 }
 
 const PROFILE_TIMEOUT_MS = 8000;
+export const MAX_PROFILE_USERNAME_LENGTH = 30;
+export const MAX_PROFILE_FULL_NAME_LENGTH = 80;
+export const MAX_PROFILE_BIO_LENGTH = 250;
 export const AVATAR_BUCKET = "avatars";
 export const MAX_AVATAR_IMAGE_SIZE_MB = 10;
 const MAX_AVATAR_IMAGE_SIZE_BYTES = MAX_AVATAR_IMAGE_SIZE_MB * 1024 * 1024;
@@ -308,16 +311,31 @@ export async function getProfileById(userId: string) {
 
 export async function updateProfile(params: UpdateProfileParams) {
   const normalizedUsername = params.username?.trim();
+  const updatePayload: Partial<Pick<Profile, "username" | "full_name" | "avatar_url" | "bio">> & {
+    updated_at: string;
+  } = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (params.username !== undefined) {
+    updatePayload.username = normalizedUsername;
+  }
+
+  if (params.full_name !== undefined) {
+    updatePayload.full_name = params.full_name;
+  }
+
+  if (params.avatar_url !== undefined) {
+    updatePayload.avatar_url = params.avatar_url;
+  }
+
+  if (params.bio !== undefined) {
+    updatePayload.bio = params.bio;
+  }
 
   const { data, error } = await supabase
     .from("profiles")
-    .update({
-      username: normalizedUsername,
-      full_name: params.full_name ?? null,
-      avatar_url: params.avatar_url ?? null,
-      bio: params.bio ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", params.id)
     .select()
     .single();

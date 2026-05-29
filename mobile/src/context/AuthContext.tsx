@@ -25,7 +25,7 @@ interface RegisterParams {
 }
 
 interface UpdateMyProfileParams {
-  username: string
+  username?: string
   full_name?: string | null
   bio?: string | null
   avatar_url?: string | null
@@ -193,9 +193,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const updatedProfile = await updateProfile({
       id: user.id,
       username: params.username,
-      full_name: params.full_name ?? null,
-      bio: params.bio ?? null,
-      avatar_url: params.avatar_url ?? null,
+      full_name: params.full_name,
+      bio: params.bio,
+      avatar_url: params.avatar_url,
     })
 
     setProfile(updatedProfile)

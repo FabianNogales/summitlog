@@ -1,7 +1,7 @@
 import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 
 import { useAuth } from "../../../src/hooks/useAuth";
@@ -21,6 +21,7 @@ export default function ProfileScreen() {
   const { trips, stats, loading, refreshing, error, pendingSyncCount, refreshHistory } =
     useTripHistory({ limit: 3 });
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarUploadingRef = useRef(false);
   const canModerate = profile?.role === "admin" || profile?.role === "moderator";
 
   async function handleSignOut() {
@@ -32,6 +33,8 @@ export default function ProfileScreen() {
   }
 
   async function handleChangeAvatar() {
+    if (avatarUploadingRef.current) return;
+
     console.log("[Avatar] user exists", Boolean(user));
 
     if (!user) {
@@ -43,6 +46,8 @@ export default function ProfileScreen() {
       Alert.alert("Perfil no disponible", "No se pudo cargar tu perfil.");
       return;
     }
+
+    avatarUploadingRef.current = true;
 
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -103,6 +108,7 @@ export default function ProfileScreen() {
       console.log("[Avatar] flow error", error?.message ?? "unknown");
       Alert.alert("Error al actualizar avatar", error.message ?? "No se pudo actualizar el avatar.");
     } finally {
+      avatarUploadingRef.current = false;
       setAvatarUploading(false);
     }
   }

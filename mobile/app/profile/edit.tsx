@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
   BackHandler,
@@ -23,19 +23,27 @@ import {
   FORM_SCROLL_BOTTOM_PADDING,
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
-
-const MAX_FULL_NAME_LENGTH = 80
-const MAX_USERNAME_LENGTH = 30
-const MAX_BIO_LENGTH = 250
+import {
+  MAX_PROFILE_BIO_LENGTH,
+  MAX_PROFILE_FULL_NAME_LENGTH,
+  MAX_PROFILE_USERNAME_LENGTH,
+} from '../../src/services/profile.service'
 
 function normalizeSpaces(value: string) {
   return value.trim().replace(/\s+/g, ' ')
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
+const USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/
+
 export default function EditProfileScreen() {
   const router = useRouter()
-  const { user, profile, updateMyProfile } = useAuth()
+  const { user, profile, loading, updateMyProfile } = useAuth()
   const scrollRef = useRef<ScrollView | null>(null)
+  const isSubmittingRef = useRef(false)
 
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
@@ -48,6 +56,12 @@ export default function EditProfileScreen() {
   const [fullNameError, setFullNameError] = useState<string | null>(null)
   const [bioError, setBioError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/(auth)/login')
+    }
+  }, [loading, router, user])
 
   useEffect(() => {
     if (profile) {
@@ -67,7 +81,7 @@ export default function EditProfileScreen() {
   const hasUnsavedChanges =
     username !== initialUsername || fullName !== initialFullName || bio !== initialBio
 
-  function handleGoBack() {
+  const handleGoBack = useCallback(() => {
     if (!hasUnsavedChanges || isSubmitting) {
       router.back()
       return
@@ -81,9 +95,9 @@ export default function EditProfileScreen() {
         { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() },
       ]
     )
-  }
+  }, [hasUnsavedChanges, isSubmitting, router])
 
-  useFocusEffect(() => {
+  useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isSubmitting) return true
 
@@ -96,10 +110,18 @@ export default function EditProfileScreen() {
     })
 
     return () => subscription.remove()
-  })
+  }, [handleGoBack, hasUnsavedChanges, isSubmitting]))
 
   async function handleSave() {
-    const normalizedUsername = normalizeSpaces(username).replace(/\s+/g, '')
+    if (isSubmittingRef.current) return
+
+    if (!user) {
+      setFormError('Debes iniciar sesion para editar tu perfil.')
+      router.replace('/(auth)/login')
+      return
+    }
+
+    const normalizedUsername = username.trim()
     const normalizedFullName = normalizeSpaces(fullName)
     const normalizedBio = normalizeSpaces(bio)
 
@@ -113,44 +135,76 @@ export default function EditProfileScreen() {
       return
     }
 
+    if (/\s/.test(normalizedUsername)) {
+      setUsernameError('El username no puede contener espacios.')
+      return
+    }
+
+    if (!USERNAME_PATTERN.test(normalizedUsername)) {
+      setUsernameError('Usa solo letras, numeros, punto, guion bajo o guion medio.')
+      return
+    }
+
     if (normalizedUsername.length < 3) {
       setUsernameError('El username debe tener al menos 3 caracteres.')
       return
     }
 
-    if (normalizedUsername.length > MAX_USERNAME_LENGTH) {
-      setUsernameError(`El username no puede superar ${MAX_USERNAME_LENGTH} caracteres.`)
+    if (normalizedUsername.length > MAX_PROFILE_USERNAME_LENGTH) {
+      setUsernameError(`El username no puede superar ${MAX_PROFILE_USERNAME_LENGTH} caracteres.`)
       return
     }
 
-    if (normalizedFullName.length > MAX_FULL_NAME_LENGTH) {
-      setFullNameError(`El nombre no puede superar ${MAX_FULL_NAME_LENGTH} caracteres.`)
+    if (!normalizedFullName) {
+      setFullNameError('El nombre completo es obligatorio.')
       return
     }
 
-    if (normalizedBio.length > MAX_BIO_LENGTH) {
-      setBioError(`La bio no puede superar ${MAX_BIO_LENGTH} caracteres.`)
+    if (normalizedFullName.length > MAX_PROFILE_FULL_NAME_LENGTH) {
+      setFullNameError(`El nombre no puede superar ${MAX_PROFILE_FULL_NAME_LENGTH} caracteres.`)
+      return
+    }
+
+    if (normalizedBio.length > MAX_PROFILE_BIO_LENGTH) {
+      setBioError(`La bio no puede superar ${MAX_PROFILE_BIO_LENGTH} caracteres.`)
       return
     }
 
     try {
+      isSubmittingRef.current = true
       setIsSubmitting(true)
 
       await updateMyProfile({
         username: normalizedUsername,
-        full_name: normalizedFullName || null,
+        full_name: normalizedFullName,
         bio: normalizedBio || null,
       })
 
+      setUsername(normalizedUsername)
+      setFullName(normalizedFullName)
+      setBio(normalizedBio)
       setInitialUsername(normalizedUsername)
       setInitialFullName(normalizedFullName)
       setInitialBio(normalizedBio)
       router.back()
-    } catch (error: any) {
-      setFormError(error.message ?? 'No se pudo actualizar el perfil')
+    } catch (error: unknown) {
+      setFormError(getErrorMessage(error, 'No se pudo actualizar el perfil'))
     } finally {
+      isSubmittingRef.current = false
       setIsSubmitting(false)
     }
+  }
+
+  if (loading || !user) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+            Validando sesion...
+          </Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
@@ -214,7 +268,7 @@ export default function EditProfileScreen() {
           >
             <AuthInput
               label="Nombre de usuario"
-              placeholder="fabian_nogales"
+              placeholder="tu_usuario"
               value={username}
               onChangeText={(value) => {
                 setUsername(value)
@@ -228,7 +282,7 @@ export default function EditProfileScreen() {
 
             <AuthInput
               label="Nombre completo"
-              placeholder="Fabian Nogales"
+              placeholder="Nombre completo"
               value={fullName}
               onChangeText={(value) => {
                 setFullName(value)
@@ -314,7 +368,7 @@ export default function EditProfileScreen() {
                   marginTop: 6,
                 }}
               >
-                {bioError ?? `${bio.length}/${MAX_BIO_LENGTH}`}
+                {bioError ?? `${bio.length}/${MAX_PROFILE_BIO_LENGTH}`}
               </Text>
             </View>
 
@@ -335,7 +389,7 @@ export default function EditProfileScreen() {
               title="Guardar cambios"
               onPress={handleSave}
               loading={isSubmitting}
-              disabled={!hasUnsavedChanges}
+              disabled={!hasUnsavedChanges || isSubmitting}
             />
           </View>
         </ScrollView>
