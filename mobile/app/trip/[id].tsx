@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -17,23 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
 import { getRecordedTripDetailById } from '../../src/services/history.service'
-import {
-  getRouteBySourceRecordedTripId,
-  publishRecordedTripAsRoute,
-} from '../../src/services/routePublish.service'
+import { getOfflineRecordedTripById } from '../../src/services/offlineTrip.service'
 import type { RecordedTrip } from '../../src/types/trip'
+import type { OfflineRecordedTrip } from '../../src/types/offlineTrip'
 import { AuthButton } from '../../src/components/auth/AuthButton'
-import {
-  FORM_SCROLL_BOTTOM_PADDING,
-  scrollToFocusedInput,
-} from '../../src/utils/keyboard'
-
-const DIFFICULTY_OPTIONS = [
-  { label: 'Sin definir', value: '' },
-  { label: 'Facil', value: 'easy' },
-  { label: 'Media', value: 'medium' },
-  { label: 'Dificil', value: 'hard' },
-]
 
 function formatDistance(distanceMeters: number) {
   return `${(distanceMeters / 1000).toFixed(2)} km`
@@ -50,23 +33,41 @@ function formatDuration(durationSeconds: number) {
   return `${minutes} min`
 }
 
+function mapOfflineTripToRecordedTrip(trip: OfflineRecordedTrip): RecordedTrip {
+  return {
+    id: trip.local_id,
+    user_id: trip.user_id,
+    status: trip.status,
+    is_private: true,
+    title: 'Recorrido pendiente de sincronizar',
+    summary: null,
+    started_at: trip.started_at,
+    ended_at: trip.ended_at,
+    distance_m: trip.distance_m,
+    duration_s: trip.duration_s,
+    elevation_gain_m: null,
+    avg_speed_mps: null,
+    max_speed_mps: null,
+    start_lat: trip.start_lat,
+    start_lng: trip.start_lng,
+    end_lat: trip.end_lat,
+    end_lng: trip.end_lng,
+    created_at: trip.created_at,
+    updated_at: trip.updated_at,
+    local_id: trip.local_id,
+    remote_id: trip.remote_id,
+    sync_status: trip.sync_status,
+    is_offline: true,
+  } as RecordedTrip
+}
+
 export default function TripDetailScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
-  const scrollRef = useRef<ScrollView | null>(null)
 
   const [trip, setTrip] = useState<RecordedTrip | null>(null)
   const [loading, setLoading] = useState(true)
-  const [publishingRoute, setPublishingRoute] = useState(false)
-  const [publishedRouteId, setPublishedRouteId] = useState<string | null>(null)
-  const [associatedRouteId, setAssociatedRouteId] = useState<string | null>(null)
-  const [routeTitle, setRouteTitle] = useState('')
-  const [routeDescription, setRouteDescription] = useState('')
-  const [routeDifficulty, setRouteDifficulty] = useState('')
-  const [routeCategory, setRouteCategory] = useState('')
-  const [routeCommentsEnabled, setRouteCommentsEnabled] = useState(true)
-  const [publishError, setPublishError] = useState<string | null>(null)
 
   const loadTrip = useCallback(async () => {
     if (!user || !id) {
@@ -76,28 +77,16 @@ export default function TripDetailScreen() {
 
     try {
       setLoading(true)
+
+      const localTrip = await getOfflineRecordedTripById(id)
+
+      if (localTrip) {
+        setTrip(mapOfflineTripToRecordedTrip(localTrip))
+        return
+      }
+
       const loadedTrip = await getRecordedTripDetailById(id, user.id)
       setTrip(loadedTrip)
-      setRouteTitle(loadedTrip.title?.trim() || 'Ruta publicada desde recorrido')
-      setRouteDescription(loadedTrip.summary?.trim() || '')
-      setRouteDifficulty('')
-      setRouteCategory('')
-      setRouteCommentsEnabled(true)
-      setPublishError(null)
-
-      const existingRoute = await getRouteBySourceRecordedTripId(loadedTrip.id)
-      setAssociatedRouteId(existingRoute?.id ?? null)
-      setPublishedRouteId(
-        existingRoute?.publication_status === 'published' ? existingRoute.id : null
-      )
-
-      if (existingRoute) {
-        setRouteTitle(existingRoute.title || loadedTrip.title?.trim() || '')
-        setRouteDescription(existingRoute.description?.trim() || loadedTrip.summary?.trim() || '')
-        setRouteDifficulty(existingRoute.difficulty?.trim() || '')
-        setRouteCategory(existingRoute.category?.trim() || '')
-        setRouteCommentsEnabled(existingRoute.comments_enabled)
-      }
     } catch (error: any) {
       Alert.alert(
         'Error',
@@ -112,88 +101,24 @@ export default function TripDetailScreen() {
     loadTrip()
   }, [loadTrip])
 
-  const canPublishRoute = trip?.status === 'completed' && !publishedRouteId
+  function handleEditJournal() {
+    if (!trip) return
 
-  async function handlePublishRoute() {
-    if (!trip || !canPublishRoute || publishingRoute) {
-      return
-    }
-
-    if (!routeTitle.trim()) {
-      setPublishError('El titulo es obligatorio para publicar la ruta.')
-      return
-    }
-
-    setPublishError(null)
-
-    try {
-      setPublishingRoute(true)
-      const result = await publishRecordedTripAsRoute({
-        recordedTripId: trip.id,
-        title: routeTitle,
-        description: routeDescription || null,
-        difficulty: routeDifficulty || null,
-        category: routeCategory || null,
-        commentsEnabled: routeCommentsEnabled,
-      })
-      setPublishedRouteId(result.routeId)
-      setAssociatedRouteId(result.routeId)
-      await loadTrip()
-
-      if (result.alreadyPublished) {
-        Alert.alert('Ruta ya publicada', 'Este recorrido ya estaba convertido en una ruta publica.', [
-          { text: 'Cerrar', style: 'cancel' },
-          {
-            text: 'Ver ruta',
-            onPress: () =>
-              router.push({
-                pathname: '/route/[id]',
-                params: { id: result.routeId },
-              }),
-          },
-        ])
-      } else {
-        Alert.alert('Ruta publicada', 'El recorrido se convirtio en ruta publica correctamente.', [
-          { text: 'Cerrar', style: 'cancel' },
-          {
-            text: 'Ver ruta',
-            onPress: () =>
-              router.push({
-                pathname: '/route/[id]',
-                params: { id: result.routeId },
-              }),
-          },
-        ])
-      }
-    } catch (error: any) {
-      const message =
-        error.message ?? 'No se pudo convertir el recorrido en ruta.'
-      setPublishError(message)
-      Alert.alert(
-        'Error al publicar ruta',
-        message
-      )
-    } finally {
-      setPublishingRoute(false)
-    }
+    router.push({
+      pathname: '/journal/[tripId]',
+      params: { tripId: trip.local_id ?? trip.id },
+    })
   }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          padding: 20,
+          paddingBottom: 40,
+        }}
       >
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={{
-            flexGrow: 1,
-            padding: 20,
-            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
         <View
           style={{
             flexDirection: 'row',
@@ -231,7 +156,7 @@ export default function TripDetailScreen() {
           <Text style={{ color: colors.textSecondary }}>Cargando...</Text>
         ) : !trip ? (
           <Text style={{ color: colors.textSecondary }}>
-            No se encontro el recorrido.
+            No se encontró el recorrido.
           </Text>
         ) : (
           <View
@@ -254,14 +179,32 @@ export default function TripDetailScreen() {
               {trip.title?.trim() || 'Recorrido completado'}
             </Text>
 
-            <Text style={{ color: colors.textSecondary }}>Estado: {trip.status}</Text>
+            {trip.is_offline ? (
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  backgroundColor: colors.cardSecondary,
+                  borderRadius: 999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Pendiente de sincronizar
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={{ color: colors.textSecondary }}>
+              Estado: {trip.status}
+            </Text>
 
             <Text style={{ color: colors.textSecondary }}>
               Distancia: {formatDistance(Number(trip.distance_m ?? 0))}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Duracion: {formatDuration(Number(trip.duration_s ?? 0))}
+              Duración: {formatDuration(Number(trip.duration_s ?? 0))}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
@@ -276,247 +219,23 @@ export default function TripDetailScreen() {
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Ubicacion inicial: {trip.start_lat ?? '-'}, {trip.start_lng ?? '-'}
+              Ubicación inicial: {trip.start_lat ?? '-'}, {trip.start_lng ?? '-'}
             </Text>
 
             <Text style={{ color: colors.textSecondary }}>
-              Ubicacion final: {trip.end_lat ?? '-'}, {trip.end_lng ?? '-'}
+              Ubicación final: {trip.end_lat ?? '-'}, {trip.end_lng ?? '-'}
             </Text>
 
-            <View style={{ marginTop: 18, gap: 12 }}>
-              {trip.status !== 'completed' ? (
-                <View
-                  style={{
-                    backgroundColor: colors.cardSecondary,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 14,
-                    padding: 12,
-                  }}
-                >
-                  <Text style={{ color: colors.textSecondary }}>
-                    Solo puedes publicar recorridos con estado completed.
-                  </Text>
-                </View>
-              ) : null}
-
-              {publishedRouteId ? (
-                <View
-                  style={{
-                    backgroundColor: colors.cardSecondary,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 14,
-                    padding: 12,
-                    gap: 10,
-                  }}
-                >
-                  <Text style={{ color: colors.success, fontWeight: '700' }}>
-                    Ruta publicada
-                  </Text>
-                  <AuthButton
-                    title="Ver ruta publica"
-                    onPress={() =>
-                      router.push({
-                        pathname: '/route/[id]',
-                        params: { id: publishedRouteId },
-                      })
-                    }
-                  />
-                </View>
-              ) : null}
-
-              {associatedRouteId && !publishedRouteId ? (
-                <View
-                  style={{
-                    backgroundColor: colors.cardSecondary,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 14,
-                    padding: 12,
-                    gap: 10,
-                  }}
-                >
-                  <Text style={{ color: colors.textSecondary }}>
-                    Existe una ruta asociada a este recorrido que aun no esta publicada.
-                  </Text>
-                </View>
-              ) : null}
-
-              {canPublishRoute ? (
-                <View
-                  style={{
-                    backgroundColor: colors.cardSecondary,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 14,
-                    padding: 14,
-                    gap: 12,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: colors.text,
-                      fontWeight: '700',
-                      fontSize: 16,
-                    }}
-                  >
-                    Publicar como ruta
-                  </Text>
-
-                  <View>
-                    <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>
-                      Titulo
-                    </Text>
-                    <TextInput
-                      value={routeTitle}
-                      onChangeText={setRouteTitle}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Titulo de la ruta"
-                      placeholderTextColor={colors.placeholder}
-                      style={{
-                        backgroundColor: colors.card,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 10,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        color: colors.text,
-                      }}
-                    />
-                  </View>
-
-                  <View>
-                    <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>
-                      Descripcion
-                    </Text>
-                    <TextInput
-                      value={routeDescription}
-                      onChangeText={setRouteDescription}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Descripcion de la ruta"
-                      placeholderTextColor={colors.placeholder}
-                      multiline
-                      textAlignVertical="top"
-                      style={{
-                        backgroundColor: colors.card,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 10,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        minHeight: 96,
-                        color: colors.text,
-                      }}
-                    />
-                  </View>
-
-                  <View>
-                    <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                      Dificultad
-                    </Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                      {DIFFICULTY_OPTIONS.map((option) => {
-                        const active = routeDifficulty === option.value
-
-                        return (
-                          <Pressable
-                            key={option.value || 'none'}
-                            onPress={() => setRouteDifficulty(option.value)}
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: 9,
-                              borderRadius: 20,
-                              borderWidth: 1,
-                              marginRight: 8,
-                              marginBottom: 8,
-                              borderColor: active ? colors.primary : colors.border,
-                              backgroundColor: active ? colors.primary : colors.card,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: active ? colors.text : colors.textSecondary,
-                                fontWeight: '600',
-                              }}
-                            >
-                              {option.label}
-                            </Text>
-                          </Pressable>
-                        )
-                      })}
-                    </View>
-                  </View>
-
-                  <View>
-                    <Text style={{ color: colors.textSecondary, marginBottom: 6 }}>
-                      Categoria
-                    </Text>
-                    <TextInput
-                      value={routeCategory}
-                      onChangeText={setRouteCategory}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Ej: trekking, trail, senderismo"
-                      placeholderTextColor={colors.placeholder}
-                      style={{
-                        backgroundColor: colors.card,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 10,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        color: colors.text,
-                      }}
-                    />
-                  </View>
-
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Text style={{ color: colors.textSecondary }}>
-                      Habilitar comentarios
-                    </Text>
-                    <Switch
-                      value={routeCommentsEnabled}
-                      onValueChange={setRouteCommentsEnabled}
-                      trackColor={{
-                        false: colors.border,
-                        true: colors.primary,
-                      }}
-                      thumbColor={colors.card}
-                    />
-                  </View>
-
-                  {publishError ? (
-                    <Text style={{ color: colors.danger }}>{publishError}</Text>
-                  ) : null}
-
-                  <AuthButton
-                    title="Publicar como ruta"
-                    onPress={handlePublishRoute}
-                    loading={publishingRoute}
-                  />
-                </View>
-              ) : null}
-
+            <View style={{ marginTop: 18 }}>
               <AuthButton
-                title="Bitacora del recorrido"
-                onPress={() =>
-                  router.push({
-                    pathname: '/journal/[tripId]',
-                    params: { tripId: trip.id },
-                  })
-                }
+                title="Editar bitácora"
+                onPress={handleEditJournal}
+                disabled={trip.status !== 'completed'}
               />
             </View>
           </View>
         )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   )
 }

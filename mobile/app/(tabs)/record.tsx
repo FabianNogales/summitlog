@@ -1,5 +1,6 @@
 import React from 'react'
 import { Alert, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { colors } from '../../src/theme/colors'
 import { useOfflineTripRecorder } from '../../src/hooks/useOfflineTripRecorder'
 import { useOfflineSync } from '../../src/hooks/useOfflineSync'
@@ -8,6 +9,8 @@ import { TrackingMap } from '../../src/components/map/TrackingMap'
 import { RecordBottomPanel } from '../../src/components/map/RecordBottomPanel'
 
 export default function RecordScreen() {
+  const router = useRouter()
+
   const {
     totalDistanceM,
     totalElevationGainM,
@@ -40,7 +43,7 @@ export default function RecordScreen() {
     : syncStatus === 'error'
       ? lastSyncError ?? 'Hubo un problema al sincronizar.'
       : pendingCount > 0
-        ? `Tienes ${pendingCount} recorrido(s) pendiente(s).`
+        ? `Tienes ${pendingCount} elemento(s) pendiente(s).`
         : lastSyncResult
           ? 'Todo sincronizado.'
           : 'Sin pendientes por sincronizar.'
@@ -63,12 +66,17 @@ export default function RecordScreen() {
 
   async function handleStopTrip() {
     try {
-      await stopTracking()
+      const tripLocalId = await stopTracking()
 
-      Alert.alert(
-        'Recorrido guardado',
-        'Tu recorrido se guardó localmente en el dispositivo. Podrás editarlo más tarde desde tu perfil.'
-      )
+      if (!tripLocalId) {
+        Alert.alert(
+          'Recorrido finalizado',
+          'El recorrido se guardó, pero no se pudo abrir el editor de bitácora.'
+        )
+        return
+      }
+
+      router.replace(`/journal/${tripLocalId}`)
     } catch (error: any) {
       Alert.alert(
         'Error al finalizar recorrido',
@@ -85,6 +93,7 @@ export default function RecordScreen() {
 
       const summary = [
         `Sincronizados: ${result.synced}`,
+        `Ya sincronizados: ${result.alreadySynced}`,
         `Fallidos: ${result.failed}`,
       ].join('\n')
 
@@ -99,10 +108,10 @@ export default function RecordScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <TrackingMap 
-        coordinates={pathPoints} 
-        isTracking={isTracking} 
-        />
+      <TrackingMap
+        coordinates={pathPoints}
+        isTracking={isTracking}
+      />
 
       <RecordBottomPanel
         isTracking={isTracking}

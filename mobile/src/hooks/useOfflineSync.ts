@@ -6,6 +6,8 @@ import {
   syncPendingTripsForUser,
   type TripSyncResult,
 } from '../services/tripSync.service'
+import { syncPendingJournalsAndMediaForUser } from '../services/journal.service'
+import { getOfflineDb } from '../services/offlineDb.service'
 
 type SyncUiStatus = 'idle' | 'syncing' | 'synced' | 'empty' | 'error'
 
@@ -17,6 +19,7 @@ export function useOfflineSync() {
   const [syncStatus, setSyncStatus] = useState<SyncUiStatus>('idle')
   const [lastSyncError, setLastSyncError] = useState<string | null>(null)
   const [lastSyncResult, setLastSyncResult] = useState<TripSyncResult | null>(null)
+
   const syncPromiseRef = useRef<Promise<TripSyncResult> | null>(null)
   const syncingRef = useRef(false)
   const pendingCountRef = useRef(0)
@@ -37,21 +40,46 @@ export function useOfflineSync() {
       return 0
     }
 
-    const pendingTrips = await getPendingOfflineTripsByUser(user.id)
-    const nextPendingCount = pendingTrips.length
-    setPendingCount((prev) => (prev === nextPendingCount ? prev : nextPendingCount))
-    pendingCountRef.current = nextPendingCount
+    try {
+      const pendingTrips = await getPendingOfflineTripsByUser(user.id)
+      const db = await getOfflineDb()
 
-    if (!syncingRef.current) {
-      if (nextPendingCount === 0) {
-        setSyncStatus((prev) =>
-          prev === 'error' || prev === 'empty' ? prev : 'empty'
-        )
-      } else {
-        setSyncStatus((prev) => (prev === 'empty' ? 'idle' : prev))
+      const pendingJournals = await db.getAllAsync<{ local_id: string }>(
+        `
+          SELECT DISTINCT j.local_id
+          FROM offline_journals j
+          INNER JOIN offline_recorded_trips t ON j.local_trip_id = t.local_id
+          LEFT JOIN offline_journal_media m ON m.local_journal_id = j.local_id
+          WHERE j.user_id = ?
+          AND t.status = 'completed'
+          AND (
+            j.sync_status IN ('pending', 'failed', 'syncing')
+            OR m.sync_status IN ('pending', 'failed', 'syncing')
+          )
+        `,
+        [user.id]
+      )
+
+      const nextPendingCount = pendingTrips.length + pendingJournals.length
+
+      setPendingCount((prev) => (prev === nextPendingCount ? prev : nextPendingCount))
+      pendingCountRef.current = nextPendingCount
+
+      if (!syncingRef.current) {
+        if (nextPendingCount === 0) {
+          setSyncStatus((prev) =>
+            prev === 'error' || prev === 'empty' ? prev : 'empty'
+          )
+        } else {
+          setSyncStatus((prev) => (prev === 'empty' ? 'idle' : prev))
+        }
       }
+
+      return nextPendingCount
+    } catch (error) {
+      console.error('Error calculando elementos pendientes:', error)
+      return 0
     }
-    return nextPendingCount
   }, [user])
 
   useEffect(() => {
@@ -60,7 +88,7 @@ export function useOfflineSync() {
 
   const syncNow = useCallback(async (): Promise<TripSyncResult> => {
     if (!user) {
-      throw new Error('Debes iniciar sesion.')
+      throw new Error('Debes iniciar sesión para sincronizar.')
     }
 
     if (syncPromiseRef.current) {
@@ -70,23 +98,33 @@ export function useOfflineSync() {
     const syncPromise = (async () => {
       setSyncing(true)
       syncingRef.current = true
-      setSyncStatus((prev) => (prev === 'syncing' ? prev : 'syncing'))
-      setLastSyncError((prev) => (prev === null ? prev : null))
+      setSyncStatus('syncing')
+      setLastSyncError(null)
 
-      const result = await syncPendingTripsForUser(user.id)
-      setLastSyncResult(result)
+      const tripResult = await syncPendingTripsForUser(user.id)
+      const journalResult = await syncPendingJournalsAndMediaForUser(user.id)
+
+      const combinedResult: TripSyncResult = {
+        total: tripResult.total + journalResult.total,
+        synced: tripResult.synced + journalResult.synced,
+        alreadySynced: tripResult.alreadySynced + journalResult.alreadySynced,
+        failed: tripResult.failed + journalResult.failed,
+      }
+
+      setLastSyncResult(combinedResult)
+
       const nextPendingCount = await refreshPendingCount()
 
-      if (result.total === 0 || nextPendingCount === 0) {
+      if (combinedResult.total === 0 || nextPendingCount === 0) {
         setSyncStatus('empty')
-      } else if (result.failed > 0) {
+      } else if (combinedResult.failed > 0) {
         setSyncStatus('error')
-        setLastSyncError('Algunos recorridos no se pudieron sincronizar.')
+        setLastSyncError('Algunos elementos locales no se pudieron sincronizar.')
       } else {
         setSyncStatus('synced')
       }
 
-      return result
+      return combinedResult
     })()
 
     syncPromiseRef.current = syncPromise
@@ -96,7 +134,7 @@ export function useOfflineSync() {
     } catch (error: any) {
       setSyncStatus('error')
       setLastSyncError(
-        error?.message ?? 'No se pudieron sincronizar los recorridos pendientes.'
+        error?.message ?? 'No se pudieron sincronizar los datos locales pendientes.'
       )
       throw error
     } finally {
@@ -108,6 +146,7 @@ export function useOfflineSync() {
 
   useEffect(() => {
     if (!user) return
+
     lastOnlineRef.current = null
 
     const unsubscribe = subscribeToConnectivity((isOnline) => {
@@ -120,13 +159,14 @@ export function useOfflineSync() {
 
       const becameOnline = wasOnline === false
       const firstOnlineEvent = wasOnline === null
+
       if (becameOnline || firstOnlineEvent) {
-        if (syncingRef.current || pendingCountRef.current === 0) {
+        if (syncingRef.current) {
           return
         }
 
         syncNow().catch((error) => {
-          console.error('Error en sincronizacion automatica:', error)
+          console.error('Error en sincronización automática:', error)
         })
       }
     })

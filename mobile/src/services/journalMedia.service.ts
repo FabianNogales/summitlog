@@ -68,6 +68,7 @@ export async function uploadJournalImage(params: UploadJournalImageParams) {
 
   const path = `${params.userId}/${params.journalId}/${Date.now()}-${params.sortOrder}.${extension}`
   const contentType = resolveContentType(params.mimeType, extension)
+
   let base64Content: string
   let arrayBuffer: ArrayBuffer
 
@@ -129,7 +130,7 @@ export async function deleteJournalMedia(
     .eq('journal_id', params.journalId)
 
   if (deleteRowError) {
-    throw new Error(deleteRowError.message ?? 'No se pudo eliminar la foto de la bitacora.')
+    throw new Error(deleteRowError.message ?? 'No se pudo eliminar la foto de la bitácora.')
   }
 
   if (!normalizedPath) {
@@ -152,11 +153,17 @@ export async function deleteJournalMedia(
 
 export function getJournalMediaPublicUrl(filePath?: string | null) {
   const normalizedPath = filePath?.trim() ?? ''
+
   if (!normalizedPath) {
     return ''
   }
 
-  if (normalizedPath.startsWith('http://') || normalizedPath.startsWith('https://')) {
+  if (
+    normalizedPath.startsWith('file://') ||
+    normalizedPath.startsWith('content://') ||
+    normalizedPath.startsWith('http://') ||
+    normalizedPath.startsWith('https://')
+  ) {
     return normalizedPath
   }
 

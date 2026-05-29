@@ -20,6 +20,10 @@ export interface RecordedTrip {
   end_lng: number | null
   created_at: string
   updated_at: string
+  local_id?: string
+  remote_id?: string | null
+  sync_status?: string
+  is_offline?: boolean
 }
 
 export interface RecordedTripPoint {

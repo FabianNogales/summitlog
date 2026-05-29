@@ -6,6 +6,7 @@ import {
   type TripHistoryStats,
 } from '../services/history.service'
 import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
+import type { OfflineRecordedTrip } from '../types/offlineTrip'
 import type { RecordedTrip } from '../types/trip'
 
 const initialStats: TripHistoryStats = {
@@ -17,6 +18,34 @@ const initialStats: TripHistoryStats = {
 interface UseTripHistoryOptions {
   limit?: number
   includeStats?: boolean
+}
+
+function mapOfflineTripToRecordedTrip(trip: OfflineRecordedTrip): RecordedTrip {
+  return {
+    id: trip.local_id,
+    user_id: trip.user_id,
+    status: trip.status,
+    is_private: true,
+    title: 'Recorrido pendiente de sincronizar',
+    summary: null,
+    started_at: trip.started_at,
+    ended_at: trip.ended_at,
+    distance_m: trip.distance_m,
+    duration_s: trip.duration_s,
+    elevation_gain_m: null,
+    avg_speed_mps: null,
+    max_speed_mps: null,
+    start_lat: trip.start_lat,
+    start_lng: trip.start_lng,
+    end_lat: trip.end_lat,
+    end_lng: trip.end_lng,
+    created_at: trip.created_at,
+    updated_at: trip.updated_at,
+    local_id: trip.local_id,
+    remote_id: trip.remote_id,
+    sync_status: trip.sync_status,
+    is_offline: true,
+  } as RecordedTrip
 }
 
 export function useTripHistory(options: UseTripHistoryOptions = {}) {
@@ -32,12 +61,15 @@ export function useTripHistory(options: UseTripHistoryOptions = {}) {
 
   function dedupeTripsById(items: RecordedTrip[]) {
     const seen = new Set<string>()
+
     return items.filter((trip) => {
-      if (seen.has(trip.id)) {
+      const key = trip.remote_id ?? trip.id
+
+      if (seen.has(key)) {
         return false
       }
 
-      seen.add(trip.id)
+      seen.add(key)
       return true
     })
   }
@@ -59,6 +91,7 @@ export function useTripHistory(options: UseTripHistoryOptions = {}) {
       } else {
         setLoading(true)
       }
+
       setError(null)
 
       const [loadedTrips, loadedStats, pendingTrips] = await Promise.all([
@@ -67,9 +100,20 @@ export function useTripHistory(options: UseTripHistoryOptions = {}) {
         getPendingOfflineTripsByUser(user.id),
       ])
 
-      const dedupedTrips = dedupeTripsById(loadedTrips)
-      setTrips(dedupedTrips)
-      setStats(loadedStats)
+      const localTrips = pendingTrips.map(mapOfflineTripToRecordedTrip)
+
+      const mergedTrips = dedupeTripsById([
+        ...localTrips,
+        ...loadedTrips,
+      ]).sort((a, b) => {
+        return new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+      })
+
+      setTrips(mergedTrips)
+      setStats({
+        ...loadedStats,
+        completedTrips: loadedStats.completedTrips + localTrips.length,
+      })
       setPendingSyncCount(pendingTrips.length)
     } catch (historyError: any) {
       setError(historyError?.message ?? 'No se pudo cargar el historial de recorridos.')

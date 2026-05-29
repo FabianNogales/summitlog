@@ -5,11 +5,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -22,10 +23,21 @@ import { AuthButton } from '../../src/components/auth/AuthButton'
 import { formatTripDistance, formatTripDuration } from '../../src/utils/tripFormat'
 import { useJournalMedia } from '../../src/hooks/useJournalMedia'
 import { JournalMediaGrid } from '../../src/components/journal/JournalMediaGrid'
+import type { JournalDifficulty } from '../../src/types/journal'
 import {
   FORM_SCROLL_BOTTOM_PADDING,
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
+
+const difficultyOptions: Array<{
+  label: string
+  value: JournalDifficulty
+}> = [
+  { label: 'Sin definir', value: '' },
+  { label: 'Fácil', value: 'easy' },
+  { label: 'Media', value: 'medium' },
+  { label: 'Difícil', value: 'hard' },
+]
 
 export default function JournalEditorScreen() {
   const router = useRouter()
@@ -38,6 +50,9 @@ export default function JournalEditorScreen() {
     title,
     content,
     visibility,
+    difficulty,
+    category,
+    commentsEnabled,
     loading,
     saving,
     error,
@@ -45,9 +60,18 @@ export default function JournalEditorScreen() {
     setTitle,
     setContent,
     setVisibility,
+    setDifficulty,
+    setCategory,
+    setCommentsEnabled,
     saveJournal,
     refreshEditor,
   } = useTripJournalEditor(tripId)
+
+  const journalMediaId = journal
+    ? 'local_id' in journal
+      ? journal.local_id
+      : journal.id
+    : undefined
 
   const {
     media,
@@ -59,42 +83,61 @@ export default function JournalEditorScreen() {
     removeMedia,
     refreshMedia,
     maxPhotos,
-  } = useJournalMedia(journal?.id)
+  } = useJournalMedia(journalMediaId)
 
   const [formError, setFormError] = useState<string | null>(null)
 
-  function handleBack() {
-    if (!hasUnsavedChanges || saving || uploading) {
-      router.back()
+  const handleBack = useCallback(() => {
+    if (saving || uploading) {
       return
     }
 
-    Alert.alert(
-      'Descartar cambios',
-      'Tienes cambios sin guardar en tu bitacora. Si sales ahora, se perderan.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() },
-      ]
-    )
-  }
+    if (!loading && trip && !journal) {
+      Alert.alert(
+        'Bitácora obligatoria',
+        'Para finalizar el recorrido debes guardar una bitácora con título y contenido.'
+      )
+      return
+    }
 
-  useFocusEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (saving || uploading) {
-        return true
-      }
+    if (hasUnsavedChanges) {
+      Alert.alert(
+        'Descartar cambios',
+        'Tienes cambios sin guardar en tu bitácora. Si sales ahora, se perderán.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() },
+        ]
+      )
+      return
+    }
 
-      if (hasUnsavedChanges) {
-        handleBack()
-        return true
-      }
+    router.back()
+  }, [saving, uploading, loading, trip, journal, hasUnsavedChanges, router])
 
-      return false
-    })
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (saving || uploading) {
+          return true
+        }
 
-    return () => subscription.remove()
-  })
+        if (!loading && trip && !journal) {
+          handleBack()
+          return true
+        }
+
+        if (hasUnsavedChanges) {
+          handleBack()
+          return true
+        }
+
+        return false
+      })
+
+      return () => subscription.remove()
+    }, [saving, uploading, loading, trip, journal, hasUnsavedChanges, handleBack])
+  )
 
   async function handleSaveJournal() {
     try {
@@ -102,11 +145,13 @@ export default function JournalEditorScreen() {
       const savedJournal = await saveJournal()
 
       Alert.alert(
-        'Bitacora guardada',
-        savedJournal ? 'La bitacora se guardo correctamente.' : 'No se pudo guardar.'
+        'Bitácora guardada',
+        savedJournal
+          ? 'La bitácora se guardó localmente. Puedes agregar fotos si deseas.'
+          : 'No se pudo guardar.'
       )
     } catch (err: any) {
-      const message = err?.message ?? 'No se pudo guardar la bitacora'
+      const message = err?.message ?? 'No se pudo guardar la bitácora.'
       setFormError(message)
     }
   }
@@ -126,17 +171,20 @@ export default function JournalEditorScreen() {
           .join('\n')
 
         Alert.alert(
-          'Carga parcial de fotos',
-          `Se subieron ${result.uploadedCount} foto(s) y fallaron ${result.failedCount}.${
+          'Guardado parcial de fotos',
+          `Se guardaron ${result.uploadedCount} foto(s) y fallaron ${result.failedCount}.${
             details ? `\n\n${details}` : ''
           }`
         )
         return
       }
 
-      Alert.alert('Fotos cargadas', `Se subieron ${result.uploadedCount} foto(s) correctamente.`)
+      Alert.alert(
+        'Fotos guardadas',
+        `Se guardaron ${result.uploadedCount} foto(s) localmente.`
+      )
     } catch (err: any) {
-      Alert.alert('Error al subir fotos', err.message ?? 'No se pudieron subir las imagenes')
+      Alert.alert('Error al guardar fotos', err.message ?? 'No se pudieron guardar las imágenes.')
     }
   }
 
@@ -144,30 +192,43 @@ export default function JournalEditorScreen() {
     const selectedMedia = media.find((item) => item.id === mediaId)
     if (!selectedMedia) return
 
-    Alert.alert('Eliminar foto', 'Esta accion quitara la foto de la bitacora.', [
+    Alert.alert('Eliminar foto', 'Esta acción quitará la foto de la bitácora.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
         style: 'destructive',
         onPress: async () => {
           try {
-            const result = await removeMedia(selectedMedia)
-
-            if (result.orphanedFilePath) {
-              Alert.alert(
-                'Foto eliminada con advertencia',
-                'La foto se elimino de la bitacora, pero el archivo remoto no pudo borrarse. Quedo un archivo huerfano en Storage.'
-              )
-            }
+            await removeMedia(selectedMedia)
           } catch (removeError: any) {
             Alert.alert(
               'Error al eliminar foto',
-              removeError?.message ?? 'No se pudo eliminar la foto de la bitacora.'
+              removeError?.message ?? 'No se pudo eliminar la foto de la bitácora.'
             )
           }
         },
       },
     ])
+  }
+
+  function handleFinishJournal() {
+    if (!journal) {
+      Alert.alert(
+        'Guarda la bitácora',
+        'Primero debes guardar la bitácora antes de finalizar.'
+      )
+      return
+    }
+
+    if (hasUnsavedChanges) {
+      Alert.alert(
+        'Cambios sin guardar',
+        'Guarda los cambios antes de finalizar la bitácora.'
+      )
+      return
+    }
+
+    router.replace('/(tabs)/profile/history')
   }
 
   return (
@@ -215,7 +276,7 @@ export default function JournalEditorScreen() {
                 fontWeight: '700',
               }}
             >
-              {journal ? 'Editar bitacora' : 'Crear bitacora'}
+              {journal ? 'Editar bitácora' : 'Crear bitácora'}
             </Text>
           </View>
 
@@ -240,7 +301,7 @@ export default function JournalEditorScreen() {
               </Pressable>
             </View>
           ) : !trip ? (
-            <Text style={{ color: colors.textSecondary }}>No se encontro el recorrido.</Text>
+            <Text style={{ color: colors.textSecondary }}>No se encontró el recorrido.</Text>
           ) : (
             <>
               <View
@@ -261,7 +322,7 @@ export default function JournalEditorScreen() {
                     marginBottom: 6,
                   }}
                 >
-                  {trip.title?.trim() || 'Recorrido completado'}
+                  Recorrido completado
                 </Text>
 
                 <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>
@@ -273,7 +334,7 @@ export default function JournalEditorScreen() {
                 </Text>
 
                 <Text style={{ color: colors.textSecondary }}>
-                  Duracion: {formatTripDuration(Number(trip.duration_s ?? 0))}
+                  Duración: {formatTripDuration(Number(trip.duration_s ?? 0))}
                 </Text>
               </View>
 
@@ -296,7 +357,7 @@ export default function JournalEditorScreen() {
                       marginBottom: 8,
                     }}
                   >
-                    Titulo
+                    Título
                   </Text>
 
                   <TextInput
@@ -358,6 +419,111 @@ export default function JournalEditorScreen() {
                   />
                 </View>
 
+                <View style={{ marginBottom: 18 }}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 14,
+                      fontWeight: '600',
+                      marginBottom: 10,
+                    }}
+                  >
+                    Dificultad
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                    {difficultyOptions.map((option) => {
+                      const isSelected = difficulty === option.value
+
+                      return (
+                        <Pressable
+                          key={option.value || 'undefined'}
+                          onPress={() => setDifficulty(option.value)}
+                          style={{
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: isSelected ? '#22c55e' : colors.border,
+                            backgroundColor: isSelected ? '#22c55e' : colors.cardSecondary,
+                            paddingHorizontal: 16,
+                            paddingVertical: 10,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: isSelected ? '#ffffff' : colors.textSecondary,
+                              fontWeight: '700',
+                            }}
+                          >
+                            {option.label}
+                          </Text>
+                        </Pressable>
+                      )
+                    })}
+                  </View>
+                </View>
+
+                <View style={{ marginBottom: 18 }}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 14,
+                      fontWeight: '600',
+                      marginBottom: 8,
+                    }}
+                  >
+                    Categoría
+                  </Text>
+
+                  <TextInput
+                    value={category}
+                    onChangeText={(value) => {
+                      setCategory(value)
+                      if (formError) setFormError(null)
+                    }}
+                    onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
+                    placeholder="Ej: trekking, trail, senderismo"
+                    placeholderTextColor={colors.placeholder}
+                    style={{
+                      backgroundColor: colors.cardSecondary,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 14,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      color: colors.text,
+                      fontSize: 15,
+                    }}
+                  />
+                </View>
+
+                <View
+                  style={{
+                    marginBottom: 18,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 14,
+                      fontWeight: '600',
+                      flex: 1,
+                    }}
+                  >
+                    Habilitar comentarios
+                  </Text>
+
+                  <Switch
+                    value={commentsEnabled}
+                    onValueChange={setCommentsEnabled}
+                    trackColor={{ false: colors.cardSecondary, true: '#22c55e' }}
+                    thumbColor="#ffffff"
+                  />
+                </View>
+
                 <JournalVisibilitySelector value={visibility} onChange={setVisibility} />
 
                 {formError ? (
@@ -373,10 +539,10 @@ export default function JournalEditorScreen() {
                 ) : null}
 
                 <AuthButton
-                  title={journal ? 'Guardar cambios' : 'Guardar bitacora'}
+                  title={journal ? 'Guardar cambios' : 'Guardar bitácora'}
                   onPress={handleSaveJournal}
                   loading={saving}
-                  disabled={uploading || !hasUnsavedChanges}
+                  disabled={uploading || saving || !hasUnsavedChanges}
                 />
               </View>
 
@@ -387,6 +553,7 @@ export default function JournalEditorScreen() {
                   borderWidth: 1,
                   borderColor: colors.border,
                   padding: 18,
+                  marginBottom: 18,
                 }}
               >
                 <Text
@@ -397,16 +564,16 @@ export default function JournalEditorScreen() {
                     marginBottom: 8,
                   }}
                 >
-                  Fotos de la bitacora
+                  Fotos de la bitácora
                 </Text>
 
                 <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
-                  {`Maximo ${maxPhotos} fotos por bitacora (${media.length}/${maxPhotos}).`}
+                  {`Máximo ${maxPhotos} fotos por bitácora (${media.length}/${maxPhotos}).`}
                 </Text>
 
                 {!journal ? (
                   <Text style={{ color: colors.textSecondary }}>
-                    Guarda primero la bitacora para poder adjuntar fotos.
+                    Guarda primero la bitácora para poder adjuntar fotos.
                   </Text>
                 ) : (
                   <>
@@ -455,6 +622,12 @@ export default function JournalEditorScreen() {
                   </>
                 )}
               </View>
+
+              <AuthButton
+                title="Finalizar bitácora"
+                onPress={handleFinishJournal}
+                disabled={!journal || hasUnsavedChanges || saving || uploading}
+              />
             </>
           )}
         </ScrollView>

@@ -57,7 +57,7 @@ function buildTripSnapshot(
   let elevationGainM = 0
 
   let lastAltitude =
-    (points[0] as any).altitudeM ?? (points[0] as any).altitude ?? null
+    (points[0] as any).altitudeM ?? (points[0] as any).altitude_m ?? null
 
   for (let index = 1; index < points.length; index += 1) {
     const previous = points[index - 1]
@@ -69,7 +69,7 @@ function buildTripSnapshot(
     )
 
     const currentAlt =
-      (current as any).altitudeM ?? (current as any).altitude ?? null
+      (current as any).altitudeM ?? (current as any).altitude_m ?? null
 
     if (lastAltitude !== null && currentAlt !== null && currentAlt > lastAltitude) {
       elevationGainM += currentAlt - lastAltitude
@@ -140,7 +140,7 @@ export function useOfflineTripRecorder() {
     if (points.length > 0) {
       lastAltitudeRef.current =
         (points[points.length - 1] as any).altitudeM ??
-        (points[points.length - 1] as any).altitude ??
+        (points[points.length - 1] as any).altitude_m ??
         null
     }
 
@@ -218,86 +218,75 @@ export function useOfflineTripRecorder() {
       const currentLocalTripId = localTripIdRef.current
       if (!currentLocalTripId) return
 
-      console.log('[OfflineRecorder] persist point start')
+      const inserted = await addOfflineRecordedTripPointWithAutoOrder({
+        localTripId: currentLocalTripId,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        altitudeM: location.coords.altitude ?? null,
+        accuracyM: location.coords.accuracy ?? null,
+        speedMps: location.coords.speed ?? null,
+        headingDeg: location.coords.heading ?? null,
+        capturedAt: location.timestamp
+          ? new Date(location.timestamp).toISOString()
+          : new Date().toISOString(),
+      })
 
-      try {
-        const inserted = await addOfflineRecordedTripPointWithAutoOrder({
-          localTripId: currentLocalTripId,
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          altitudeM: location.coords.altitude ?? null,
-          accuracyM: location.coords.accuracy ?? null,
-          speedMps: location.coords.speed ?? null,
-          headingDeg: location.coords.heading ?? null,
-          capturedAt: location.timestamp
-            ? new Date(location.timestamp).toISOString()
-            : new Date().toISOString(),
-        })
+      const newPointOrder = inserted?.point_order ?? 0
 
-        const newPointOrder = inserted?.point_order ?? 0
+      setPointCount(newPointOrder + 1)
 
-        console.log('[OfflineRecorder] point order:', newPointOrder)
-
-        setPointCount(newPointOrder + 1)
-
-        const currentCoords = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        }
-
-        const previousCoords = lastCoordsRef.current
-        const currentAltitude = location.coords.altitude ?? null
-        const previousAltitude = lastAltitudeRef.current
-
-        if (previousCoords) {
-          totalDistanceRef.current += calculateDistanceInMeters(
-            previousCoords,
-            currentCoords
-          )
-
-          setTotalDistanceM(totalDistanceRef.current)
-
-          const computedCalories = Math.floor((totalDistanceRef.current / 1000) * 65)
-          setTotalCalories(computedCalories)
-        }
-
-        if (previousAltitude !== null && currentAltitude !== null) {
-          if (currentAltitude > previousAltitude) {
-            const gain = currentAltitude - previousAltitude
-            totalElevationGainRef.current += gain
-            setTotalElevationGainM(totalElevationGainRef.current)
-          }
-        }
-
-        lastCoordsRef.current = currentCoords
-        setLastLatitude(currentCoords.latitude)
-        setLastLongitude(currentCoords.longitude)
-
-        lastAltitudeRef.current = currentAltitude
-
-        setPathPoints((prev) => {
-          const lastPoint = prev[prev.length - 1]
-          const nextPoint: [number, number] = [
-            currentCoords.longitude,
-            currentCoords.latitude,
-          ]
-
-          if (
-            lastPoint &&
-            lastPoint[0] === nextPoint[0] &&
-            lastPoint[1] === nextPoint[1]
-          ) {
-            return prev
-          }
-
-          return [...prev, nextPoint]
-        })
-
-        console.log('[OfflineRecorder] persist point success')
-      } catch (error) {
-        console.log('[OfflineRecorder] persist point error')
-        throw error
+      const currentCoords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
       }
+
+      const previousCoords = lastCoordsRef.current
+      const currentAltitude = location.coords.altitude ?? null
+      const previousAltitude = lastAltitudeRef.current
+
+      if (previousCoords) {
+        totalDistanceRef.current += calculateDistanceInMeters(
+          previousCoords,
+          currentCoords
+        )
+
+        setTotalDistanceM(totalDistanceRef.current)
+
+        const computedCalories = Math.floor((totalDistanceRef.current / 1000) * 65)
+        setTotalCalories(computedCalories)
+      }
+
+      if (previousAltitude !== null && currentAltitude !== null) {
+        if (currentAltitude > previousAltitude) {
+          const gain = currentAltitude - previousAltitude
+          totalElevationGainRef.current += gain
+          setTotalElevationGainM(totalElevationGainRef.current)
+        }
+      }
+
+      lastCoordsRef.current = currentCoords
+      setLastLatitude(currentCoords.latitude)
+      setLastLongitude(currentCoords.longitude)
+
+      lastAltitudeRef.current = currentAltitude
+
+      setPathPoints((prev) => {
+        const lastPoint = prev[prev.length - 1]
+        const nextPoint: [number, number] = [
+          currentCoords.longitude,
+          currentCoords.latitude,
+        ]
+
+        if (
+          lastPoint &&
+          lastPoint[0] === nextPoint[0] &&
+          lastPoint[1] === nextPoint[1]
+        ) {
+          return prev
+        }
+
+        return [...prev, nextPoint]
+      })
     }
 
     const queuedTask = persistQueueRef.current.then(persistTask)
@@ -320,18 +309,18 @@ export function useOfflineTripRecorder() {
         }
 
         persistPoint(location).catch((error: any) => {
-          console.error('Error guardando punto offline (foreground):', error)
+          console.error('Error guardando punto offline:', error)
         })
       },
       (reason) => {
-        console.error('Error de ubicacion:', reason)
+        console.error('Error de ubicación:', reason)
       }
     )
   }, [persistPoint, updateLiveTrackingState])
 
   async function startTracking() {
     if (!user) {
-      throw new Error('Debes iniciar sesion para registrar un recorrido.')
+      throw new Error('Debes iniciar sesión para registrar un recorrido.')
     }
 
     if (status === 'starting' || status === 'tracking' || status === 'finishing') {
@@ -345,7 +334,7 @@ export function useOfflineTripRecorder() {
 
     if (!foregroundPermission.granted) {
       setStatus('idle')
-      throw new Error('No es posible iniciar el seguimiento sin permiso de ubicacion.')
+      throw new Error('No es posible iniciar el seguimiento sin permiso de ubicación.')
     }
 
     const backgroundPermission = await requestBackgroundLocationPermission()
@@ -355,12 +344,11 @@ export function useOfflineTripRecorder() {
 
     if (!hasBackgroundPermission) {
       setBackgroundStatusMessage(
-        'El recorrido se registrara solo mientras la app este abierta.'
+        'El recorrido se registrará solo mientras la app esté abierta.'
       )
     }
 
     const currentLocation = await getCurrentLocation()
-    const startedAt = new Date().toISOString()
 
     const localTrip = await createOfflineRecordedTrip({
       userId: user.id,
@@ -374,7 +362,7 @@ export function useOfflineTripRecorder() {
     }
 
     localTripIdRef.current = localTrip.local_id
-    startedAtRef.current = startedAt
+    startedAtRef.current = localTrip.started_at
 
     setActiveLocalTripId(localTrip.local_id)
 
@@ -407,7 +395,7 @@ export function useOfflineTripRecorder() {
         )
 
         setBackgroundStatusMessage(
-          'No se pudo activar el tracking en segundo plano. Se registrara solo con la app abierta.'
+          'No se pudo activar el tracking en segundo plano. Se registrará solo con la app abierta.'
         )
       }
     }
@@ -420,13 +408,13 @@ export function useOfflineTripRecorder() {
     setStatus('tracking')
   }
 
-  async function stopTracking() {
+  async function stopTracking(): Promise<string | null> {
     if (!localTripIdRef.current) {
       throw new Error('No hay un recorrido activo.')
     }
 
     if (status !== 'tracking') {
-      return
+      return null
     }
 
     setStatus('finishing')
@@ -493,6 +481,8 @@ export function useOfflineTripRecorder() {
     setPathPoints([])
     setStatus('idle')
     setBackgroundStatusMessage(null)
+
+    return localTripId
   }
 
   useEffect(() => {
@@ -529,7 +519,7 @@ export function useOfflineTripRecorder() {
 
         if (!backgroundActive) {
           setBackgroundStatusMessage(
-            'El recorrido activo se registrara solo mientras la app este abierta.'
+            'El recorrido activo se registrará solo mientras la app esté abierta.'
           )
         }
 

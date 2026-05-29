@@ -11,6 +11,22 @@ interface JournalMediaGridProps {
   onRemove?: (item: JournalMedia) => void
 }
 
+function resolveImageUrl(item: JournalMedia) {
+  const localPath = item.local_path?.trim()
+  const remoteUrl = item.remote_url?.trim()
+  const filePath = item.file_path?.trim()
+
+  if (localPath) {
+    return localPath
+  }
+
+  if (remoteUrl) {
+    return remoteUrl
+  }
+
+  return getJournalMediaPublicUrl(filePath)
+}
+
 export function JournalMediaGrid({
   media,
   deletingMediaIds = [],
@@ -32,7 +48,7 @@ export function JournalMediaGrid({
         }}
       >
         <Text style={{ color: colors.textSecondary }}>
-          Aun no has agregado fotos a esta bitacora.
+          Aún no has agregado fotos a esta bitácora.
         </Text>
       </View>
     )
@@ -41,7 +57,7 @@ export function JournalMediaGrid({
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       {media.map((item) => {
-        const imageUrl = getJournalMediaPublicUrl(item.file_path)
+        const imageUrl = resolveImageUrl(item)
         const hasRenderError = failedImageIds.has(item.id)
         const isDeleting = deletingMediaIds.includes(item.id)
 

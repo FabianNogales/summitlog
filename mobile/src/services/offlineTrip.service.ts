@@ -46,11 +46,8 @@ interface CompleteOfflineTripParams {
   endLng: number
 }
 
-export async function createOfflineRecordedTrip(
-  params: CreateOfflineTripParams
-) {
+export async function createOfflineRecordedTrip(params: CreateOfflineTripParams) {
   const db = await getOfflineDb()
-
   const now = new Date().toISOString()
   const localId = createLocalId('trip')
 
@@ -96,11 +93,8 @@ export async function createOfflineRecordedTrip(
   return getOfflineRecordedTripById(localId)
 }
 
-export async function addOfflineRecordedTripPoint(
-  params: AddOfflineTripPointParams
-) {
+export async function addOfflineRecordedTripPoint(params: AddOfflineTripPointParams) {
   const db = await getOfflineDb()
-
   const localId = createLocalId('point')
 
   await db.runAsync(
@@ -143,6 +137,7 @@ export async function addOfflineRecordedTripPointWithAutoOrder(
   params: AddOfflineTripPointAutoOrderParams
 ) {
   const db = await getOfflineDb()
+
   const orderRow = await db.getFirstAsync<{ max_order: number | null }>(
     `
       SELECT MAX(point_order) as max_order
@@ -167,9 +162,7 @@ export async function addOfflineRecordedTripPointWithAutoOrder(
   })
 }
 
-export async function completeOfflineRecordedTrip(
-  params: CompleteOfflineTripParams
-) {
+export async function completeOfflineRecordedTrip(params: CompleteOfflineTripParams) {
   const db = await getOfflineDb()
 
   await db.runAsync(
@@ -217,6 +210,32 @@ export async function getOfflineRecordedTripById(localTripId: string) {
   return row ?? null
 }
 
+export async function getOfflineRecordedTripByRemoteId(remoteTripId: string) {
+  const db = await getOfflineDb()
+
+  const row = await db.getFirstAsync<OfflineRecordedTrip>(
+    `
+      SELECT *
+      FROM offline_recorded_trips
+      WHERE remote_id = ?
+      LIMIT 1
+    `,
+    [remoteTripId]
+  )
+
+  return row ?? null
+}
+
+export async function getOfflineRecordedTripByLocalOrRemoteId(tripId: string) {
+  const localTrip = await getOfflineRecordedTripById(tripId)
+
+  if (localTrip) {
+    return localTrip
+  }
+
+  return getOfflineRecordedTripByRemoteId(tripId)
+}
+
 export async function getOfflineRecordedTripPointById(localPointId: string) {
   const db = await getOfflineDb()
 
@@ -256,7 +275,7 @@ export async function getPendingOfflineTripPointsByTripId(localTripId: string) {
       SELECT *
       FROM offline_recorded_trip_points
       WHERE local_trip_id = ?
-      AND sync_status IN ('pending', 'failed')
+      AND sync_status IN ('pending', 'failed', 'syncing')
       ORDER BY point_order ASC
     `,
     [localTripId]
@@ -273,7 +292,8 @@ export async function getPendingOfflineTripsByUser(userId: string) {
       SELECT *
       FROM offline_recorded_trips
       WHERE user_id = ?
-      AND sync_status IN ('pending', 'failed')
+      AND status = 'completed'
+      AND sync_status IN ('pending', 'failed', 'syncing')
       ORDER BY started_at DESC
     `,
     [userId]
@@ -282,10 +302,7 @@ export async function getPendingOfflineTripsByUser(userId: string) {
   return rows
 }
 
-export async function setOfflineTripRemoteId(
-  localTripId: string,
-  remoteId: string
-) {
+export async function setOfflineTripRemoteId(localTripId: string, remoteId: string) {
   const db = await getOfflineDb()
 
   const result = await db.runAsync(
@@ -312,7 +329,8 @@ export async function markOfflineTripSyncing(localTripId: string) {
         sync_status = ?,
         updated_at = ?
       WHERE local_id = ?
-      AND sync_status IN ('pending', 'failed')
+      AND status = 'completed'
+      AND sync_status IN ('pending', 'failed', 'syncing')
     `,
     ['syncing', new Date().toISOString(), localTripId]
   )
@@ -320,10 +338,7 @@ export async function markOfflineTripSyncing(localTripId: string) {
   return result.changes > 0
 }
 
-export async function markOfflineTripSynced(
-  localTripId: string,
-  remoteId: string
-) {
+export async function markOfflineTripSynced(localTripId: string, remoteId: string) {
   const db = await getOfflineDb()
 
   await db.runAsync(
