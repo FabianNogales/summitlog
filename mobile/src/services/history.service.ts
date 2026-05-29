@@ -23,6 +23,100 @@ interface GetCompletedTripsByUserOptions {
   limit?: number
 }
 
+interface TripHistoryJournalRow {
+  recorded_trip_id: string
+  title: string | null
+  content: string | null
+  visibility: string
+}
+
+interface TripHistoryRouteRow {
+  source_recorded_trip_id: string
+  title: string
+  description: string | null
+  category: string | null
+  difficulty: string | null
+  publication_status: string
+}
+
+type DecoratedTrip = RecordedTrip & {
+  display_title?: string
+  display_description?: string | null
+  journal_visibility?: string | null
+  route_category?: string | null
+  route_difficulty?: string | null
+  route_publication_status?: string | null
+}
+
+function normalizeText(value?: string | null) {
+  const normalized = value?.trim() ?? ''
+  return normalized || null
+}
+
+async function decorateTripsWithJournalAndRouteData(trips: RecordedTrip[]) {
+  if (trips.length === 0) {
+    return []
+  }
+
+  const tripIds = trips.map((trip) => trip.id)
+
+  const [journalsResult, routesResult] = await Promise.all([
+    supabase
+      .from('journals')
+      .select('recorded_trip_id,title,content,visibility')
+      .in('recorded_trip_id', tripIds),
+    supabase
+      .from('routes')
+      .select('source_recorded_trip_id,title,description,category,difficulty,publication_status')
+      .in('source_recorded_trip_id', tripIds),
+  ])
+
+  if (journalsResult.error) {
+    throw journalsResult.error
+  }
+
+  if (routesResult.error) {
+    throw routesResult.error
+  }
+
+  const journalsByTripId = new Map<string, TripHistoryJournalRow>()
+  const routesByTripId = new Map<string, TripHistoryRouteRow>()
+
+  for (const journal of (journalsResult.data ?? []) as TripHistoryJournalRow[]) {
+    journalsByTripId.set(journal.recorded_trip_id, journal)
+  }
+
+  for (const route of (routesResult.data ?? []) as TripHistoryRouteRow[]) {
+    routesByTripId.set(route.source_recorded_trip_id, route)
+  }
+
+  return trips.map((trip) => {
+    const journal = journalsByTripId.get(trip.id)
+    const route = routesByTripId.get(trip.id)
+
+    const displayTitle =
+      normalizeText(journal?.title) ??
+      normalizeText(route?.title) ??
+      normalizeText(trip.title) ??
+      'Recorrido completado'
+
+    const displayDescription =
+      normalizeText(journal?.content) ??
+      normalizeText(route?.description) ??
+      normalizeText(trip.summary)
+
+    return {
+      ...trip,
+      display_title: displayTitle,
+      display_description: displayDescription,
+      journal_visibility: journal?.visibility ?? null,
+      route_category: route?.category ?? null,
+      route_difficulty: route?.difficulty ?? null,
+      route_publication_status: route?.publication_status ?? null,
+    } as DecoratedTrip
+  })
+}
+
 export async function getCompletedTripsByUser(
   userId: string,
   options: GetCompletedTripsByUserOptions = {}
@@ -48,7 +142,7 @@ export async function getCompletedTripsByUser(
     throw error
   }
 
-  return (data ?? []) as RecordedTrip[]
+  return decorateTripsWithJournalAndRouteData((data ?? []) as RecordedTrip[])
 }
 
 export async function getTripHistoryStats(userId: string): Promise<TripHistoryStats> {
@@ -94,11 +188,11 @@ export async function getUserStats(userId: string): Promise<UserStats> {
   const completedTrips = completedTripsList.length
   const totalDistanceMeters = completedTripsList.reduce(
     (acc, trip) => acc + Number(trip.distance_m ?? 0),
-    0,
+    0
   )
   const totalDurationS = completedTripsList.reduce(
     (acc, trip) => acc + Number(trip.duration_s ?? 0),
-    0,
+    0
   )
 
   const lastActivityAt = trips.reduce((latest, trip) => {

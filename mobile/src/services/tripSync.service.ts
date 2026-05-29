@@ -28,6 +28,7 @@ export async function syncPendingTripsForUser(
   userId: string
 ): Promise<TripSyncResult> {
   const activeSync = inFlightSyncByUser.get(userId)
+
   if (activeSync) {
     return activeSync
   }
@@ -37,6 +38,7 @@ export async function syncPendingTripsForUser(
   })
 
   inFlightSyncByUser.set(userId, syncPromise)
+
   return syncPromise
 }
 
@@ -46,7 +48,7 @@ async function runSyncPendingTripsForUser(
   const online = await getIsOnline()
 
   if (!online) {
-    throw new Error('No hay conexiÃ³n a internet para sincronizar.')
+    throw new Error('No hay conexión a internet para sincronizar.')
   }
 
   const pendingTrips = await getPendingOfflineTripsByUser(userId)
@@ -58,16 +60,19 @@ async function runSyncPendingTripsForUser(
   for (const trip of pendingTrips) {
     try {
       const claimed = await markOfflineTripSyncing(trip.local_id)
+
       if (!claimed) {
         continue
       }
 
       const currentTrip = await getOfflineRecordedTripById(trip.local_id)
+
       if (!currentTrip) {
         continue
       }
 
       let remoteTripId = currentTrip.remote_id
+      let createdRemoteTrip = false
 
       if (!remoteTripId) {
         const remoteTrip = await createRecordedTripFromOffline({
@@ -77,6 +82,7 @@ async function runSyncPendingTripsForUser(
           endedAt: currentTrip.ended_at,
           distanceM: currentTrip.distance_m,
           durationS: currentTrip.duration_s,
+          elevationGainM: currentTrip.elevation_gain_m ?? 0,
           startLat: currentTrip.start_lat,
           startLng: currentTrip.start_lng,
           endLat: currentTrip.end_lat,
@@ -84,6 +90,8 @@ async function runSyncPendingTripsForUser(
         })
 
         remoteTripId = remoteTrip.id
+        createdRemoteTrip = true
+
         const remoteIdSaved = await setOfflineTripRemoteId(
           currentTrip.local_id,
           remoteTripId
@@ -91,33 +99,41 @@ async function runSyncPendingTripsForUser(
 
         if (!remoteIdSaved) {
           throw new Error(
-            'No se pudo guardar el remote_id localmente despues de crear el recorrido remoto.'
+            'No se pudo guardar el remote_id localmente después de crear el recorrido remoto.'
           )
         }
 
         const persistedTrip = await getOfflineRecordedTripById(currentTrip.local_id)
+
         if (!persistedTrip?.remote_id || persistedTrip.remote_id !== remoteTripId) {
-          throw new Error('remote_id local inconsistente despues de crear recorrido remoto.')
+          throw new Error('remote_id local inconsistente después de crear recorrido remoto.')
         }
       }
 
       const localPoints = await getPendingOfflineTripPointsByTripId(
         currentTrip.local_id
       )
+
       if (localPoints.length === 0) {
         await markOfflineTripSynced(currentTrip.local_id, remoteTripId)
-        alreadySynced += 1
+
+        if (createdRemoteTrip) {
+          synced += 1
+        } else {
+          alreadySynced += 1
+        }
+
         continue
       }
 
-      // Guardamos solo un punto por point_order para evitar duplicados remotos
-      // si en local quedaron filas repetidas por reintentos/carreras.
       const uniqueLocalPointsByOrder = new Map<number, (typeof localPoints)[number]>()
+
       for (const point of localPoints) {
         if (!uniqueLocalPointsByOrder.has(point.point_order)) {
           uniqueLocalPointsByOrder.set(point.point_order, point)
         }
       }
+
       const uniqueLocalPoints = Array.from(uniqueLocalPointsByOrder.values())
 
       const existingRemoteOrders = new Set(
@@ -144,40 +160,24 @@ async function runSyncPendingTripsForUser(
         )
       }
 
-      const remoteOrdersAfterSync = new Set(
-        await getRecordedTripPointOrdersByTripId(remoteTripId)
-      )
-
-      const localOrders = Array.from(
-        new Set(uniqueLocalPoints.map((point) => point.point_order))
-      )
-
-      const syncedOrders = localOrders.filter((order) =>
-        remoteOrdersAfterSync.has(order)
-      )
-
       await markOfflineTripPointsSyncedByPointOrders(
         currentTrip.local_id,
         remoteTripId,
-        syncedOrders
+        uniqueLocalPoints.map((point) => point.point_order)
       )
-
-      if (syncedOrders.length !== localOrders.length) {
-        throw new Error(
-          'El recorrido remoto sigue incompleto. Faltan puntos por sincronizar.'
-        )
-      }
 
       await markOfflineTripSynced(currentTrip.local_id, remoteTripId)
 
-      if (pointsToInsert.length === 0) {
-        alreadySynced += 1
-      } else {
+      if (createdRemoteTrip) {
         synced += 1
+      } else {
+        alreadySynced += 1
       }
     } catch (error) {
-      console.error('Error sincronizando trip offline:', trip.local_id, error)
+      console.error('Error sincronizando recorrido offline:', trip.local_id, error)
+
       await markOfflineTripFailed(trip.local_id)
+
       failed += 1
     }
   }

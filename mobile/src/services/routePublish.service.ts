@@ -226,6 +226,13 @@ async function runPublishRecordedTripAsRoute(
         difficulty: normalizedDifficulty,
         category: normalizedCategory,
         comments_enabled: input.commentsEnabled ?? true,
+        distance_m: trip.distance_m,
+        duration_s: trip.duration_s,
+        elevation_gain_m: trip.elevation_gain_m ?? 0,
+        start_lat: trip.start_lat,
+        start_lng: trip.start_lng,
+        end_lat: trip.end_lat,
+        end_lng: trip.end_lng,
         updated_at: now,
       })
       .eq('id', existingRoute.id)
@@ -258,7 +265,7 @@ async function runPublishRecordedTripAsRoute(
       cover_image_url: null,
       distance_m: trip.distance_m,
       duration_s: trip.duration_s,
-      elevation_gain_m: trip.elevation_gain_m,
+      elevation_gain_m: trip.elevation_gain_m ?? 0,
       start_lat: trip.start_lat,
       start_lng: trip.start_lng,
       end_lat: trip.end_lat,
@@ -317,6 +324,13 @@ async function runPublishRecordedTripAsRoute(
       difficulty: normalizedDifficulty,
       category: normalizedCategory,
       comments_enabled: input.commentsEnabled ?? true,
+      distance_m: trip.distance_m,
+      duration_s: trip.duration_s,
+      elevation_gain_m: trip.elevation_gain_m ?? 0,
+      start_lat: trip.start_lat,
+      start_lng: trip.start_lng,
+      end_lat: trip.end_lat,
+      end_lng: trip.end_lng,
       updated_at: now,
     })
     .eq('id', route.id)

@@ -1,22 +1,22 @@
-import { supabase } from "../lib/supabase";
-import type { RecordedTrip, RecordedTripPoint } from "../types/trip";
+import { supabase } from '../lib/supabase'
+import type { RecordedTrip, RecordedTripPoint } from '../types/trip'
 
 interface CreateRecordedTripParams {
-  userId: string;
-  startLat: number;
-  startLng: number;
+  userId: string
+  startLat: number
+  startLng: number
 }
 
 interface CreateRecordedTripPointParams {
-  recordedTripId: string;
-  pointOrder: number;
-  latitude: number;
-  longitude: number;
-  altitudeM?: number | null;
-  accuracyM?: number | null;
-  speedMps?: number | null;
-  headingDeg?: number | null;
-  capturedAt?: string;
+  recordedTripId: string
+  pointOrder: number
+  latitude: number
+  longitude: number
+  altitudeM?: number | null
+  accuracyM?: number | null
+  speedMps?: number | null
+  headingDeg?: number | null
+  capturedAt?: string
 }
 
 interface FinishRecordedTripParams {
@@ -24,6 +24,7 @@ interface FinishRecordedTripParams {
   endedAt: string
   durationS: number
   distanceM: number
+  elevationGainM?: number
   endLat: number
   endLng: number
 }
@@ -35,6 +36,7 @@ interface CreateRecordedTripFromOfflineParams {
   endedAt?: string | null
   distanceM: number
   durationS: number
+  elevationGainM: number
   startLat: number | null
   startLng: number | null
   endLat: number | null
@@ -54,30 +56,30 @@ interface CreateRecordedTripPointBulkInput {
 
 export async function createRecordedTrip(params: CreateRecordedTripParams) {
   const { data, error } = await supabase
-    .from("recorded_trips")
+    .from('recorded_trips')
     .insert({
       user_id: params.userId,
-      status: "recording",
+      status: 'recording',
       is_private: true,
       started_at: new Date().toISOString(),
       start_lat: params.startLat,
       start_lng: params.startLng,
     })
     .select()
-    .single();
+    .single()
 
   if (error) {
-    throw error;
+    throw error
   }
 
-  return data as RecordedTrip;
+  return data as RecordedTrip
 }
 
 export async function createRecordedTripPoint(
-  params: CreateRecordedTripPointParams,
+  params: CreateRecordedTripPointParams
 ) {
   const { data, error } = await supabase
-    .from("recorded_trip_points")
+    .from('recorded_trip_points')
     .insert({
       recorded_trip_id: params.recordedTripId,
       point_order: params.pointOrder,
@@ -90,13 +92,13 @@ export async function createRecordedTripPoint(
       captured_at: params.capturedAt ?? new Date().toISOString(),
     })
     .select()
-    .single();
+    .single()
 
   if (error) {
-    throw error;
+    throw error
   }
 
-  return data as RecordedTripPoint;
+  return data as RecordedTripPoint
 }
 
 export async function finishRecordedTrip(params: FinishRecordedTripParams) {
@@ -107,6 +109,7 @@ export async function finishRecordedTrip(params: FinishRecordedTripParams) {
       ended_at: params.endedAt,
       duration_s: params.durationS,
       distance_m: params.distanceM,
+      elevation_gain_m: params.elevationGainM ?? 0,
       end_lat: params.endLat,
       end_lng: params.endLng,
       updated_at: new Date().toISOString(),
@@ -135,6 +138,7 @@ export async function createRecordedTripFromOffline(
       ended_at: params.endedAt ?? null,
       distance_m: params.distanceM,
       duration_s: params.durationS,
+      elevation_gain_m: params.elevationGainM,
       start_lat: params.startLat,
       start_lng: params.startLng,
       end_lat: params.endLat,

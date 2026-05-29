@@ -37,6 +37,7 @@ async function createOrMigrateSchema(db: SQLite.SQLiteDatabase) {
       ended_at TEXT,
       distance_m REAL NOT NULL DEFAULT 0,
       duration_s INTEGER NOT NULL DEFAULT 0,
+      elevation_gain_m REAL NOT NULL DEFAULT 0,
       start_lat REAL,
       start_lng REAL,
       end_lat REAL,
@@ -117,6 +118,13 @@ async function createOrMigrateSchema(db: SQLite.SQLiteDatabase) {
     CREATE INDEX IF NOT EXISTS idx_offline_media_sync_status
       ON offline_journal_media(sync_status);
   `)
+
+  await addColumnIfMissing(
+    db,
+    'offline_recorded_trips',
+    'elevation_gain_m',
+    'REAL NOT NULL DEFAULT 0'
+  )
 
   await addColumnIfMissing(db, 'offline_journals', 'remote_id', 'TEXT')
   await addColumnIfMissing(db, 'offline_journals', 'visibility', "TEXT NOT NULL DEFAULT 'private'")

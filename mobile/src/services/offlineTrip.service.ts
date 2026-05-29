@@ -42,6 +42,7 @@ interface CompleteOfflineTripParams {
   endedAt: string
   durationS: number
   distanceM: number
+  elevationGainM: number
   endLat: number
   endLng: number
 }
@@ -63,13 +64,14 @@ export async function createOfflineRecordedTrip(params: CreateOfflineTripParams)
         ended_at,
         distance_m,
         duration_s,
+        elevation_gain_m,
         start_lat,
         start_lng,
         end_lat,
         end_lng,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       localId,
@@ -79,6 +81,7 @@ export async function createOfflineRecordedTrip(params: CreateOfflineTripParams)
       'pending',
       now,
       null,
+      0,
       0,
       0,
       params.startLat,
@@ -174,6 +177,7 @@ export async function completeOfflineRecordedTrip(params: CompleteOfflineTripPar
         ended_at = ?,
         duration_s = ?,
         distance_m = ?,
+        elevation_gain_m = ?,
         end_lat = ?,
         end_lng = ?,
         updated_at = ?
@@ -185,6 +189,7 @@ export async function completeOfflineRecordedTrip(params: CompleteOfflineTripPar
       params.endedAt,
       params.durationS,
       params.distanceM,
+      params.elevationGainM,
       params.endLat,
       params.endLng,
       new Date().toISOString(),

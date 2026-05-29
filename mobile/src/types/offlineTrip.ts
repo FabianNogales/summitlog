@@ -11,6 +11,7 @@ export interface OfflineRecordedTrip {
   ended_at: string | null
   distance_m: number
   duration_s: number
+  elevation_gain_m: number
   start_lat: number | null
   start_lng: number | null
   end_lat: number | null
