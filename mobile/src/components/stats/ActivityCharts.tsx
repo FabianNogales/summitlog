@@ -125,9 +125,9 @@ export function ActivityCharts({ trips, loading = false, error = null }: Activit
     chartData.distanceByDate.length > 0 || chartData.tripsByDate.length > 0
 
   return (
-    <>
+    <View style={{ marginTop: 18 }}>
       <ProfileSection title="Progreso">
-        <View style={{ padding: 16 }}>
+        <View style={{ padding: 18 }}>
           <Text
             style={{
               color: colors.text,
@@ -157,7 +157,7 @@ export function ActivityCharts({ trips, loading = false, error = null }: Activit
       </ProfileSection>
 
       <ProfileSection title="Actividad">
-        <View style={{ padding: 16 }}>
+        <View style={{ padding: 18 }}>
           <Text
             style={{
               color: colors.text,
@@ -185,6 +185,6 @@ export function ActivityCharts({ trips, loading = false, error = null }: Activit
           )}
         </View>
       </ProfileSection>
-    </>
+    </View>
   )
 }
