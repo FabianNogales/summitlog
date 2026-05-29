@@ -50,3 +50,10 @@ android/app/build/
 android/.cxx/
 **/.cxx/
 **/build/
+
+mobile/android/
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+
+android/

@@ -1,9 +1,27 @@
 import { ActivityIndicator, View } from "react-native";
+import type { ReactNode } from "react";
 import { Redirect, Tabs } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Activity, Home, Map, User } from "lucide-react-native";
 import { useAuth } from "../../src/hooks/useAuth";
 import { colors } from "../../src/theme/colors";
+
+const TAB_ICON_SIZE = 24;
+
+function TabIconContainer({ children }: { children: ReactNode }) {
+  return (
+    <View
+      style={{
+        width: TAB_ICON_SIZE,
+        height: TAB_ICON_SIZE,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
@@ -39,18 +57,19 @@ export default function TabsLayout() {
           height: 66,
           paddingTop: 6,
           paddingBottom: 6,
-          paddingHorizontal: 0,
+          // Eliminamos paddingHorizontal para que cada pestaña ocupe el espacio exacto
         },
         tabBarItemStyle: {
-          flex: 1,
-          minWidth: 0,
+          flex: 1,               // Todas las pestañas ocupan el mismo ancho
           alignItems: "center",
           justifyContent: "center",
-          paddingVertical: 2,
-          margin: 0,
+          // Eliminamos maxWidth, paddingHorizontal y marginHorizontal
         },
         tabBarIconStyle: {
+          width: TAB_ICON_SIZE,
+          height: TAB_ICON_SIZE,
           alignSelf: "center",
+          justifyContent: "center",
           marginBottom: 0,
         },
         tabBarActiveTintColor: colors.primary,
@@ -58,9 +77,10 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontSize: 11,
           lineHeight: 13,
-          textAlign: "center",
-          marginTop: 1,
-          width: "100%",
+          textAlign: "center",   // Asegura centrado horizontal
+          flexShrink: 1,         // Permite que el texto se encoja si es necesario
+          includeFontPadding: false, // Reduce padding interno del texto
+          width: "100%",         // Ocupa todo el ancho disponible
         },
       }}
     >
@@ -68,22 +88,32 @@ export default function TabsLayout() {
         name="routes"
         options={{
           title: "Explorar",
-          tabBarIcon: ({ color, size }) => <Map color={color} size={size} />,
+          tabBarIcon: ({ color }) => (
+            <TabIconContainer>
+              <Map color={color} size={TAB_ICON_SIZE} />
+            </TabIconContainer>
+          ),
         }}
       />
       <Tabs.Screen
         name="home"
         options={{
           title: "Comunidad",
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          tabBarIcon: ({ color }) => (
+            <TabIconContainer>
+              <Home color={color} size={TAB_ICON_SIZE} />
+            </TabIconContainer>
+          ),
         }}
       />
       <Tabs.Screen
         name="record"
         options={{
           title: "Registrar",
-          tabBarIcon: ({ color, size }) => (
-            <Activity color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <TabIconContainer>
+              <Activity color={color} size={TAB_ICON_SIZE} />
+            </TabIconContainer>
           ),
         }}
       />
@@ -92,7 +122,11 @@ export default function TabsLayout() {
         options={{
           title: "Perfil",
           tabBarLabel: "Perfil",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
+          tabBarIcon: ({ color }) => (
+            <TabIconContainer>
+              <User color={color} size={TAB_ICON_SIZE} />
+            </TabIconContainer>
+          ),
         }}
       />
       <Tabs.Screen
