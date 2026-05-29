@@ -46,6 +46,10 @@ import {
 import { PostCard } from '../../src/components/community/PostCard'
 import { CommentsSection } from '../../src/components/community/CommentsSection'
 
+import { GroupOutingsView } from '../../src/components/community/GroupOutingsView'
+import { CreateOutingComposer } from '../../src/components/community/CreateOutingComposer'
+import { groupOutingService } from '../../src/services/groupOuting.service'
+
 interface ReportTargetDraft {
   targetType: ContentReportTargetType
   targetId: string
@@ -57,6 +61,13 @@ export default function HomeScreen() {
   const { profile, user, profileLoadError } = useAuth()
   const outerScrollRef = useRef<ScrollView | null>(null)
   const composerScrollRef = useRef<ScrollView | null>(null)
+  
+  const [currentTab, setCurrentTab] = useState<'feed' | 'outings'>('feed')
+  const [outingsRefreshTrigger, setOutingsRefreshTrigger] = useState(false)
+  const [outingComposerVisible, setOutingComposerVisible] = useState(false)
+  const [outingSubmitting, setOutingSubmitting] = useState(false)
+  const [outingSubmitError, setOutingSubmitError] = useState<string | null>(null)
+
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -386,6 +397,47 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleCreateOuting(formData: {
+    title: string
+    description: string
+    destination: string
+    meetingPoint: string
+    dateTime: Date
+    maxParticipants: number
+    imageUri: string | null // 🌟 Capturamos la foto proveniente del Composer corregido
+  }) {
+    if (!user) {
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para proponer una salida.')
+      return
+    }
+  
+    try {
+      setOutingSubmitting(true)
+      setOutingSubmitError(null)
+  
+      // Enviamos al servicio: 1. El DTO de texto y 2. La ruta local de la foto
+      await groupOutingService.createGroupOuting(
+        {
+          title: formData.title,
+          destination: formData.destination,
+          description: formData.description,
+          meeting_point: formData.meetingPoint,
+          date_time: formData.dateTime.toISOString(),
+          max_participants: formData.maxParticipants,
+        },
+        formData.imageUri // 🌟 Se inyecta como segundo parámetro al servicio de Supabase
+      )
+  
+      setOutingComposerVisible(false)
+      setOutingsRefreshTrigger(prev => !prev) // Esto recarga tu lista automáticamente
+      Alert.alert('¡Éxito!', 'La salida grupal ha sido publicada correctamente.')
+    } catch (error: any) {
+      setOutingSubmitError(error?.message ?? 'No se pudo registrar la salida grupal.')
+    } finally {
+      setOutingSubmitting(false)
+    }
+  }
+  
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
@@ -393,138 +445,205 @@ export default function HomeScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        <ScrollView
-          ref={outerScrollRef}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 14,
-            paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
-          }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshingFeed}
-              onRefresh={handleRefreshFeed}
-              tintColor={colors.primary}
-            />
-          }
-        >
+        <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
           <CommunityHeader
             username={profile?.username}
             profileLoadError={profileLoadError}
-            onPressCreate={() => setComposerVisible(true)}
+            onPressCreate={() => {
+              if (currentTab === 'feed') {
+                setComposerVisible(true)
+              } else {
+                setOutingComposerVisible(true)
+              }
+            }}
             createDisabled={submitting}
           />
 
-          {feedLoading ? (
-            <View
+          {/* El Switch de navegación interna */}
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: colors.bgSecondary,
+              borderRadius: 14,
+              padding: 4,
+              marginTop: 12,
+              borderWidth: 1,
+              borderColor: colors.borderSoft,
+            }}
+          >
+            <Pressable
+              onPress={() => setCurrentTab('feed')}
               style={{
-                backgroundColor: colors.cardSecondary,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 14,
-                padding: 16,
-                marginTop: 4,
+                flex: 1,
+                backgroundColor: currentTab === 'feed' ? colors.primary : 'transparent',
+                paddingVertical: 10,
+                borderRadius: 10,
+                alignItems: 'center',
               }}
             >
-              <Text style={{ color: colors.textSecondary }}>Cargando publicaciones...</Text>
-            </View>
-          ) : feedError ? (
-            <View
-              style={{
-                backgroundColor: colors.cardSecondary,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 14,
-                padding: 16,
-                marginTop: 4,
-              }}
-            >
-              <Text style={{ color: colors.danger }}>{feedError}</Text>
-            </View>
-          ) : !hasFeedData ? (
-            <View
-              style={{
-                backgroundColor: colors.cardSecondary,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 14,
-                padding: 16,
-                marginTop: 4,
-              }}
-            >
-              <Text style={{ color: colors.textSecondary }}>
-                Aun no hay publicaciones de la comunidad.
+              <Text
+                style={{
+                  color: currentTab === 'feed' ? colors.bgMain : colors.textSecondary,
+                  fontWeight: '700',
+                  fontSize: 15,
+                }}
+              >
+                Feed
               </Text>
-            </View>
-          ) : (
-            posts.map((post) => {
-              const isOwnPost = Boolean(user?.id && post.user_id === user.id)
-              const authorName = getAuthorDisplayName(post.author, {
-                fallbackUsername: isOwnPost ? profile?.username : null,
-              })
-              const isExpanded = expandedPostId === post.id
-              const comments = commentsByPostId[post.id] ?? []
-              const commentsLoading = commentsLoadingByPostId[post.id] ?? false
-              const commentsError = commentsErrorByPostId[post.id]
-              const commentInput = commentInputByPostId[post.id] ?? ''
-              const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
-              const postImage = (post.media ?? []).length > 0 ? post.media?.[0] : null
-              const postImageUrl = getPostMediaPublicUrl(postImage?.file_path)
+            </Pressable>
 
-              return (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  authorName={authorName}
-                  isOwnPost={isOwnPost}
-                  postImageUrl={postImageUrl}
-                  isExpanded={isExpanded}
-                  onToggleComments={() => handleToggleComments(post.id)}
-                  onReportPost={() =>
-                    handleOpenReportModal(
-                      'post',
-                      post.id,
-                      `publicacion de ${authorName}`,
-                      post.user_id
-                    )
-                  }
-                  commentsSection={
-                    <CommentsSection
-                      comments={comments}
-                      commentsLoading={commentsLoading}
-                      commentsError={commentsError}
-                      commentInput={commentInput}
-                      commentSubmitting={commentSubmitting}
-                      userLoggedIn={Boolean(user)}
-                      currentUserId={user?.id}
-                      fallbackUsername={profile?.username ?? null}
-                      maxCommentLength={MAX_POST_COMMENT_LENGTH}
-                      onUpdateCommentInput={(value) => updateCommentInput(post.id, value)}
-                      onCreateComment={() => handleCreateComment(post.id)}
-                      onCommentInputFocus={(event) =>
-                        scrollToFocusedInput(outerScrollRef, event)
-                      }
-                      onReportComment={(
-                        commentId,
-                        commentAuthorName,
-                        commentOwnerId
-                      ) =>
-                        handleOpenReportModal(
-                          'comment',
+            <Pressable
+              onPress={() => setCurrentTab('outings')}
+              style={{
+                flex: 1,
+                backgroundColor: currentTab === 'outings' ? colors.primary : 'transparent',
+                paddingVertical: 10,
+                borderRadius: 10,
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  color: currentTab === 'outings' ? colors.bgMain : colors.textSecondary,
+                  fontWeight: '700',
+                  fontSize: 15,
+                }}
+              >
+                Salidas Grupales
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+        {currentTab === 'feed' ? (
+          <ScrollView
+            ref={outerScrollRef}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshingFeed}
+                onRefresh={handleRefreshFeed}
+                tintColor={colors.primary}
+              />
+            }
+          >
+            {feedLoading ? (
+              <View
+                style={{
+                  backgroundColor: colors.cardSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  marginTop: 4,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary }}>Cargando publicaciones...</Text>
+              </View>
+            ) : feedError ? (
+              <View
+                style={{
+                  backgroundColor: colors.cardSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  marginTop: 4,
+                }}
+              >
+                <Text style={{ color: colors.danger }}>{feedError}</Text>
+              </View>
+            ) : !hasFeedData ? (
+              <View
+                style={{
+                  backgroundColor: colors.cardSecondary,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  marginTop: 4,
+                }}
+              >
+                <Text style={{ color: colors.textSecondary }}>
+                  Aun no hay publicaciones de la comunidad.
+                </Text>
+              </View>
+            ) : (
+              posts.map((post) => {
+                const isOwnPost = Boolean(user?.id && post.user_id === user.id)
+                const authorName = getAuthorDisplayName(post.author, {
+                  fallbackUsername: isOwnPost ? profile?.username : null,
+                })
+                const isExpanded = expandedPostId === post.id
+                const comments = commentsByPostId[post.id] ?? []
+                const commentsLoading = commentsLoadingByPostId[post.id] ?? false
+                const commentsError = commentsErrorByPostId[post.id]
+                const commentInput = commentInputByPostId[post.id] ?? ''
+                const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
+                const postImage = (post.media ?? []).length > 0 ? post.media?.[0] : null
+                const postImageUrl = getPostMediaPublicUrl(postImage?.file_path)
+
+                return (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    authorName={authorName}
+                    isOwnPost={isOwnPost}
+                    postImageUrl={postImageUrl}
+                    isExpanded={isExpanded}
+                    onToggleComments={() => handleToggleComments(post.id)}
+                    onReportPost={() =>
+                      handleOpenReportModal(
+                        'post',
+                        post.id,
+                        `publicacion de ${authorName}`,
+                        post.user_id
+                      )
+                    }
+                    commentsSection={
+                      <CommentsSection
+                        comments={comments}
+                        commentsLoading={commentsLoading}
+                        commentsError={commentsError}
+                        commentInput={commentInput}
+                        commentSubmitting={commentSubmitting}
+                        userLoggedIn={Boolean(user)}
+                        currentUserId={user?.id}
+                        fallbackUsername={profile?.username ?? null}
+                        maxCommentLength={MAX_POST_COMMENT_LENGTH}
+                        onUpdateCommentInput={(value) => updateCommentInput(post.id, value)}
+                        onCreateComment={() => handleCreateComment(post.id)}
+                        onCommentInputFocus={(event) =>
+                          scrollToFocusedInput(outerScrollRef, event)
+                        }
+                        onReportComment={(
                           commentId,
-                          `comentario de ${commentAuthorName}`,
+                          commentAuthorName,
                           commentOwnerId
-                        )
-                      }
-                    />
-                  }
-                />
-              )
-            })
-          )}
-        </ScrollView>
+                        ) =>
+                          handleOpenReportModal(
+                            'comment',
+                            commentId,
+                            `comentario de ${commentAuthorName}`,
+                            commentOwnerId
+                          )
+                        }
+                      />
+                    }
+                  />
+                )
+              })
+            )}
+          </ScrollView>
+        ) : (
+          <View style={{ flex: 1, paddingHorizontal: 16 }}>
+            <GroupOutingsView refreshTrigger={outingsRefreshTrigger} />
+          </View>
+        )}
       </KeyboardAvoidingView>
 
       <Modal
@@ -584,7 +703,6 @@ export default function HomeScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-
       <ContentReportModal
         visible={Boolean(reportTargetDraft)}
         targetLabel={reportTargetDraft?.targetLabel ?? 'contenido'}
@@ -597,6 +715,51 @@ export default function HomeScreen() {
         onClose={handleCloseReportModal}
         onSubmit={handleSubmitReport}
       />
+      <Modal
+        visible={outingComposerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOutingComposerVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.overlay,
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Pressable
+            onPress={() => !outingSubmitting && setOutingComposerVisible(false)}
+            style={{ flex: 1 }}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              style={{
+                backgroundColor: colors.background,
+                borderTopLeftRadius: 22,
+                borderTopRightRadius: 22,
+                maxHeight: '90%',
+              }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingTop: 16,
+                paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <CreateOutingComposer
+                submitting={outingSubmitting}
+                submitError={outingSubmitError}
+                onSubmit={handleCreateOuting}
+                onCancel={() => setOutingComposerVisible(false)}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
