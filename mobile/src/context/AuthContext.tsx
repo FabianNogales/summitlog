@@ -166,8 +166,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
     } catch {
       await signOutUser().catch(() => null)
+      setUser(null)
+      setProfile(null)
+      setProfileLoadError(
+        'La cuenta se creo, pero no se pudo completar el perfil.'
+      )
       throw new Error(
-        'La cuenta se creo, pero no se pudo completar el perfil. Intenta iniciar sesion nuevamente.'
+        'La cuenta se creo, pero no se pudo completar el perfil. Cerramos la sesion para evitar un estado incompleto. Intenta iniciar sesion nuevamente.'
       )
     }
 

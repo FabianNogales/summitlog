@@ -28,6 +28,8 @@ export default function LoginScreen() {
   const { authError } = useLocalSearchParams<{ authError?: string }>()
   const authErrorShownRef = useRef<string | null>(null)
   const scrollRef = useRef<ScrollView | null>(null)
+  const isSubmittingRef = useRef(false)
+  const isGoogleSubmittingRef = useRef(false)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -39,6 +41,10 @@ export default function LoginScreen() {
 
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  }
+
+  function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : 'No se pudo iniciar sesion'
   }
 
   useEffect(() => {
@@ -68,6 +74,8 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
+    if (isSubmittingRef.current) return
+
     setFormError(null)
     setEmailError(null)
     setPasswordError(null)
@@ -90,18 +98,23 @@ export default function LoginScreen() {
     }
 
     try {
+      isSubmittingRef.current = true
       setIsSubmitting(true)
       await signIn(normalizedEmail, password)
-    } catch (error: any) {
-      setFormError(error.message ?? 'No se pudo iniciar sesion')
+    } catch (error: unknown) {
+      setFormError(getErrorMessage(error))
     } finally {
+      isSubmittingRef.current = false
       setIsSubmitting(false)
     }
   }
 
   async function handleGoogleLogin() {
+    if (isGoogleSubmittingRef.current) return
+
     setFormError(null)
     try {
+      isGoogleSubmittingRef.current = true
       setIsGoogleSubmitting(true)
       console.log('[Login] Google sign-in started')
       const session = await signInWithGoogle()
@@ -110,15 +123,20 @@ export default function LoginScreen() {
       if (session) {
         router.replace('/(tabs)/home')
       }
-    } catch (error: any) {
-      if (error?.code === 'oauth_cancelled') {
+    } catch (error: unknown) {
+      const code = error && typeof error === 'object' && 'code' in error
+        ? (error as { code?: unknown }).code
+        : null
+
+      if (code === 'oauth_cancelled') {
         console.log('[Login] Google sign-in cancelled by user')
         return
       }
 
-      console.log('[Login] Google sign-in error:', error?.message ?? 'unknown')
-      setFormError(error?.message ?? 'No se pudo iniciar sesion con Google')
+      console.log('[Login] Google sign-in error:', getErrorMessage(error))
+      setFormError(getErrorMessage(error))
     } finally {
+      isGoogleSubmittingRef.current = false
       setIsGoogleSubmitting(false)
       console.log('[Login] google loading false')
     }
@@ -250,6 +268,7 @@ export default function LoginScreen() {
                 title="Iniciar sesion"
                 onPress={handleLogin}
                 loading={isSubmitting}
+                disabled={isSubmitting || isGoogleSubmitting}
                 rightIcon={<ArrowRight size={18} color={colors.text} />}
               />
 
@@ -278,6 +297,7 @@ export default function LoginScreen() {
                 title="Continuar con Google"
                 onPress={handleGoogleLogin}
                 loading={isGoogleSubmitting}
+                disabled={isSubmitting || isGoogleSubmitting}
                 variant="secondary"
                 leftIcon={<FontAwesome name="google" size={20} color={colors.text} />}
               />

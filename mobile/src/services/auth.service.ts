@@ -26,6 +26,11 @@ interface OAuthParams {
 
 const GOOGLE_EMAIL_CONFLICT_MESSAGE =
   'Este correo ya esta registrado. Inicia sesion con email y contrasena o vincula Google desde tu perfil.'
+const DUPLICATE_EMAIL_MESSAGE =
+  'Este correo ya esta registrado. Inicia sesion o usa otro correo.'
+const INVALID_CREDENTIALS_MESSAGE = 'Correo o contrasena incorrectos.'
+const NETWORK_ERROR_MESSAGE =
+  'No se pudo conectar. Revisa tu internet e intenta nuevamente.'
 
 function getErrorMessage(error: unknown) {
   if (typeof error === 'string') {
@@ -57,6 +62,67 @@ function isGoogleEmailConflictError(error: unknown) {
   )
 }
 
+function getErrorCode(error: unknown) {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    return typeof code === 'string' ? code.toLowerCase() : ''
+  }
+
+  return ''
+}
+
+function isNetworkError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase()
+
+  return (
+    message.includes('network') ||
+    message.includes('fetch') ||
+    message.includes('timeout') ||
+    message.includes('failed to fetch') ||
+    message.includes('request failed')
+  )
+}
+
+function isDuplicateEmailError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase()
+  const code = getErrorCode(error)
+
+  return (
+    code === 'user_already_exists' ||
+    message.includes('already registered') ||
+    message.includes('user already registered') ||
+    message.includes('already exists') ||
+    message.includes('email already')
+  )
+}
+
+function isInvalidCredentialsError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase()
+  const code = getErrorCode(error)
+
+  return (
+    code === 'invalid_credentials' ||
+    message.includes('invalid login credentials') ||
+    message.includes('invalid credentials')
+  )
+}
+
+export function toFriendlyEmailAuthError(error: unknown) {
+  if (isNetworkError(error)) {
+    return new Error(NETWORK_ERROR_MESSAGE)
+  }
+
+  if (isDuplicateEmailError(error)) {
+    return new Error(DUPLICATE_EMAIL_MESSAGE)
+  }
+
+  if (isInvalidCredentialsError(error)) {
+    return new Error(INVALID_CREDENTIALS_MESSAGE)
+  }
+
+  return new Error(getErrorMessage(error))
+}
+
 export function toFriendlyGoogleAuthError(error: unknown) {
   if (isGoogleEmailConflictError(error)) {
     console.log('[GoogleAuth] email conflict detected. emailExists=true')
@@ -84,7 +150,12 @@ export async function signUpWithEmail(email: string, password: string) {
   })
 
   if (error) {
-    throw error
+    throw toFriendlyEmailAuthError(error)
+  }
+
+  const identities = (data.user as { identities?: unknown[] } | null)?.identities
+  if (Array.isArray(identities) && identities.length === 0) {
+    throw new Error(DUPLICATE_EMAIL_MESSAGE)
   }
 
   return data
@@ -97,7 +168,7 @@ export async function signInWithEmail(email: string, password: string) {
   })
 
   if (error) {
-    throw toFriendlyGoogleAuthError(error)
+    throw toFriendlyEmailAuthError(error)
   }
 
   return data

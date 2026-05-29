@@ -28,6 +28,7 @@ import {
   FORM_SCROLL_BOTTOM_PADDING,
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
+import { useAuth } from '../../src/hooks/useAuth'
 
 const difficultyOptions: Array<{
   label: string
@@ -43,6 +44,7 @@ export default function JournalEditorScreen() {
   const router = useRouter()
   const { tripId } = useLocalSearchParams<{ tripId: string }>()
   const scrollRef = useRef<ScrollView | null>(null)
+  const { user, loading: authLoading } = useAuth()
 
   const {
     trip,
@@ -86,6 +88,14 @@ export default function JournalEditorScreen() {
   } = useJournalMedia(journalMediaId)
 
   const [formError, setFormError] = useState<string | null>(null)
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!authLoading && !user) {
+        router.replace('/(auth)/login')
+      }
+    }, [authLoading, router, user])
+  )
 
   const handleBack = useCallback(() => {
     if (saving || uploading) {
@@ -233,6 +243,13 @@ export default function JournalEditorScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {authLoading || !user ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+            Validando sesion...
+          </Text>
+        </View>
+      ) : (
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -632,6 +649,7 @@ export default function JournalEditorScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   )
 }

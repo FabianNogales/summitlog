@@ -15,17 +15,31 @@ import { EditJournalButton } from '../../src/components/profile/trip-detail/Edit
 
 export default function TripDetailScreen() {
   const router = useRouter()
+<<<<<<< Updated upstream
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
   const [isMapActive, setIsMapActive] = useState(false)
 
   const tripId = useMemo(() => {
     if (Array.isArray(rawId)) {
       return rawId[0]?.trim() || ''
+=======
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const { user, loading: authLoading } = useAuth()
+
+  const [trip, setTrip] = useState<RecordedTrip | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const loadTrip = useCallback(async () => {
+    if (authLoading || !user || !id) {
+      setLoading(false)
+      return
+>>>>>>> Stashed changes
     }
 
     return typeof rawId === 'string' ? rawId.trim() : ''
   }, [rawId])
 
+<<<<<<< Updated upstream
   const {
     detail,
     loading,
@@ -33,6 +47,35 @@ export default function TripDetailScreen() {
     refreshing,
     refreshDetail,
   } = useTripDetail(tripId || undefined)
+=======
+      const localTrip = await getOfflineRecordedTripById(id)
+
+      if (localTrip) {
+        setTrip(mapOfflineTripToRecordedTrip(localTrip))
+        return
+      }
+
+      const loadedTrip = await getRecordedTripDetailById(id, user.id)
+      setTrip(loadedTrip)
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error.message ?? 'No se pudo cargar el detalle del recorrido'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [authLoading, id, user])
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/(auth)/login')
+      return
+    }
+
+    loadTrip()
+  }, [authLoading, loadTrip, router, user])
+>>>>>>> Stashed changes
 
   function handleEditJournal() {
     if (!detail) return
@@ -48,6 +91,7 @@ export default function TripDetailScreen() {
   }
 
   return (
+<<<<<<< Updated upstream
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.background }}
       onStartShouldSetResponder={() => {
@@ -55,6 +99,16 @@ export default function TripDetailScreen() {
         return false
       }}
     >
+=======
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {authLoading || !user ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+            Validando sesion...
+          </Text>
+        </View>
+      ) : (
+>>>>>>> Stashed changes
       <ScrollView
         scrollEnabled={!isMapActive}
         contentContainerStyle={{
@@ -118,6 +172,7 @@ export default function TripDetailScreen() {
           </>
         )}
       </ScrollView>
+      )}
     </SafeAreaView>
   )
 }

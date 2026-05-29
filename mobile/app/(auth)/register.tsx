@@ -26,6 +26,8 @@ export default function RegisterScreen() {
   const router = useRouter()
   const { signUp, signInWithGoogle, user, loading, profileLoadError } = useAuth()
   const scrollRef = useRef<ScrollView | null>(null)
+  const isSubmittingRef = useRef(false)
+  const isGoogleSubmittingRef = useRef(false)
 
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
@@ -34,14 +36,22 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
   }
+
+  function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : 'No se pudo registrar el usuario'
+  }
+
+  const usernamePattern = /^[A-Za-z0-9._-]+$/
 
   if (loading) {
     return (
@@ -58,15 +68,30 @@ export default function RegisterScreen() {
   }
 
   async function handleRegister() {
+    if (isSubmittingRef.current) return
+
+    setUsernameError(null)
     setEmailError(null)
     setPasswordError(null)
     setConfirmPasswordError(null)
     setFormError(null)
+    setSuccessMessage(null)
 
     const normalizedEmail = email.trim()
+    const normalizedUsername = username.trim()
 
-    if (!username.trim()) {
-      setFormError('El username es obligatorio.')
+    if (!normalizedUsername) {
+      setUsernameError('El username es obligatorio.')
+      return
+    }
+
+    if (/\s/.test(normalizedUsername)) {
+      setUsernameError('El username no puede contener espacios.')
+      return
+    }
+
+    if (!usernamePattern.test(normalizedUsername)) {
+      setUsernameError('Usa solo letras, numeros, punto, guion bajo o guion medio.')
       return
     }
 
@@ -96,38 +121,54 @@ export default function RegisterScreen() {
     }
 
     try {
+      isSubmittingRef.current = true
       setIsSubmitting(true)
 
       await signUp({
         email: normalizedEmail,
         password,
-        username: username.trim(),
+        username: normalizedUsername,
         fullName: fullName.trim(),
       })
-    } catch (error: any) {
-      setFormError(error.message ?? 'No se pudo registrar el usuario')
+
+      setSuccessMessage('Cuenta creada correctamente. Preparando tu inicio...')
+      setTimeout(() => {
+        router.replace('/(tabs)/home')
+      }, 600)
+    } catch (error: unknown) {
+      setFormError(getErrorMessage(error))
     } finally {
+      isSubmittingRef.current = false
       setIsSubmitting(false)
     }
   }
 
   async function handleGoogleRegister() {
+    if (isGoogleSubmittingRef.current) return
+
     setFormError(null)
+    setSuccessMessage(null)
 
     try {
+      isGoogleSubmittingRef.current = true
       setIsGoogleSubmitting(true)
       const session = await signInWithGoogle()
 
       if (session) {
         router.replace('/(tabs)/home')
       }
-    } catch (error: any) {
-      if (error?.code === 'oauth_cancelled') {
+    } catch (error: unknown) {
+      const code = error && typeof error === 'object' && 'code' in error
+        ? (error as { code?: unknown }).code
+        : null
+
+      if (code === 'oauth_cancelled') {
         return
       }
 
-      setFormError(error?.message ?? 'No se pudo iniciar sesion con Google')
+      setFormError(getErrorMessage(error))
     } finally {
+      isGoogleSubmittingRef.current = false
       setIsGoogleSubmitting(false)
     }
   }
@@ -223,9 +264,12 @@ export default function RegisterScreen() {
               value={username}
               onChangeText={(value) => {
                 setUsername(value)
+                if (usernameError) setUsernameError(null)
                 if (formError) setFormError(null)
+                if (successMessage) setSuccessMessage(null)
               }}
               iconName="user"
+              errorText={usernameError}
               onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
             />
 
@@ -236,6 +280,7 @@ export default function RegisterScreen() {
               onChangeText={(value) => {
                 setFullName(value)
                 if (formError) setFormError(null)
+                if (successMessage) setSuccessMessage(null)
               }}
               iconName="edit-3"
               autoCapitalize="words"
@@ -250,6 +295,7 @@ export default function RegisterScreen() {
                 setEmail(value)
                 if (emailError) setEmailError(null)
                 if (formError) setFormError(null)
+                if (successMessage) setSuccessMessage(null)
               }}
               iconName="mail"
               keyboardType="email-address"
@@ -265,6 +311,7 @@ export default function RegisterScreen() {
                 setPassword(value)
                 if (passwordError) setPasswordError(null)
                 if (formError) setFormError(null)
+                if (successMessage) setSuccessMessage(null)
               }}
               iconName="lock"
               secureTextEntry
@@ -280,6 +327,7 @@ export default function RegisterScreen() {
                 setConfirmPassword(value)
                 if (confirmPasswordError) setConfirmPasswordError(null)
                 if (formError) setFormError(null)
+                if (successMessage) setSuccessMessage(null)
               }}
               iconName="lock"
               secureTextEntry
@@ -313,10 +361,24 @@ export default function RegisterScreen() {
               </Text>
             ) : null}
 
+            {successMessage ? (
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontSize: 13,
+                  marginTop: -4,
+                  marginBottom: 14,
+                }}
+              >
+                {successMessage}
+              </Text>
+            ) : null}
+
             <AuthButton
               title="Crear cuenta"
               onPress={handleRegister}
               loading={isSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               rightIcon={<ArrowRight size={18} color={colors.text} />}
             />
 
@@ -357,6 +419,7 @@ export default function RegisterScreen() {
               title="Continuar con Google"
               onPress={handleGoogleRegister}
               loading={isGoogleSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               variant="secondary"
               leftIcon={<FontAwesome name="google" size={20} color={colors.text} />}
             />

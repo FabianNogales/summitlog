@@ -36,7 +36,7 @@ function shortId(value: string) {
 
 export default function ModerationScreen() {
   const router = useRouter()
-  const { loading: authLoading, profile } = useAuth()
+  const { user, loading: authLoading, profile } = useAuth()
   const scrollRef = useRef<ScrollView | null>(null)
 
   const [reports, setReports] = useState<ModerationContentReport[]>([])
@@ -49,6 +49,12 @@ export default function ModerationScreen() {
   const [hideSubmittingById, setHideSubmittingById] = useState<Record<string, boolean>>({})
 
   const canModerate = profile?.role === 'admin' || profile?.role === 'moderator'
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/(auth)/login')
+    }
+  }, [authLoading, router, user])
 
   const hydrateStatusDrafts = useCallback((items: ModerationContentReport[]) => {
     setStatusDraftById((prev) => {
@@ -208,6 +214,13 @@ export default function ModerationScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {authLoading || !user ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+            Validando sesion...
+          </Text>
+        </View>
+      ) : (
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -434,6 +447,7 @@ export default function ModerationScreen() {
         )}
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   )
 }
