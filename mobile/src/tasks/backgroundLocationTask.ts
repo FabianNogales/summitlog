@@ -2,7 +2,11 @@ import * as TaskManager from 'expo-task-manager'
 import type * as Location from 'expo-location'
 
 import { getActiveTripForBackground } from '../services/backgroundTrackingState.service'
-import { addOfflineRecordedTripPointWithAutoOrder } from '../services/offlineTrip.service'
+import {
+  addOfflineRecordedTripPointWithAutoOrder,
+  getLatestOfflineTripPointByTripId,
+} from '../services/offlineTrip.service'
+import { shouldPersistGpsPoint } from '../utils/gpsQuality'
 
 export const BACKGROUND_LOCATION_TASK = 'summitlog-background-location-task'
 
@@ -30,8 +34,37 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
         return
       }
 
+      const latestPoint = await getLatestOfflineTripPointByTripId(activeLocalTripId)
+      let previousPoint: {
+        latitude: number
+        longitude: number
+        capturedAt: string | null
+      } | null = latestPoint
+        ? {
+            latitude: latestPoint.latitude,
+            longitude: latestPoint.longitude,
+            capturedAt: latestPoint.captured_at ?? null,
+          }
+        : null
+
       for (const location of locations) {
         try {
+          const capturedAtMs = location.timestamp ?? Date.now()
+          const candidatePoint = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            accuracyM: location.coords.accuracy ?? null,
+            capturedAt: capturedAtMs,
+          }
+
+          const validation = shouldPersistGpsPoint(candidatePoint, previousPoint)
+
+          if (!validation.shouldPersist) {
+            continue
+          }
+
+          const capturedAtIso = new Date(capturedAtMs).toISOString()
+
           await addOfflineRecordedTripPointWithAutoOrder({
             localTripId: activeLocalTripId,
             latitude: location.coords.latitude,
@@ -40,10 +73,14 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
             accuracyM: location.coords.accuracy ?? null,
             speedMps: location.coords.speed ?? null,
             headingDeg: location.coords.heading ?? null,
-            capturedAt: location.timestamp
-              ? new Date(location.timestamp).toISOString()
-              : new Date().toISOString(),
+            capturedAt: capturedAtIso,
           })
+
+          previousPoint = {
+            latitude: candidatePoint.latitude,
+            longitude: candidatePoint.longitude,
+            capturedAt: capturedAtIso,
+          }
         } catch (persistError: any) {
           console.error(
             '[BackgroundLocationTask] point persist error:',

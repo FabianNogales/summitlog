@@ -13,6 +13,7 @@ import {
   finishRecordedTrip,
 } from '../services/trip.service'
 import { calculateDistanceInMeters } from '../utils/distance'
+import { shouldPersistGpsPoint } from '../utils/gpsQuality'
 
 type RecorderStatus = 'idle' | 'starting' | 'tracking' | 'finishing'
 
@@ -29,6 +30,7 @@ export function useTripRecorder() {
   const pointOrderRef = useRef(0)
   const startedAtRef = useRef<string | null>(null)
   const lastCoordsRef = useRef<LastCoords | null>(null)
+  const lastCapturedAtMsRef = useRef<number | null>(null)
   const totalDistanceRef = useRef(0)
 
   const [status, setStatus] = useState<RecorderStatus>('idle')
@@ -41,6 +43,27 @@ export function useTripRecorder() {
   async function persistPoint(location: Location.LocationObject) {
     const currentTripId = tripIdRef.current
     if (!currentTripId) return
+
+    const capturedAtMs = location.timestamp ?? Date.now()
+    const candidatePoint = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      accuracyM: location.coords.accuracy ?? null,
+      capturedAt: capturedAtMs,
+    }
+    const previousPoint = lastCoordsRef.current
+      ? {
+          latitude: lastCoordsRef.current.latitude,
+          longitude: lastCoordsRef.current.longitude,
+          capturedAt: lastCapturedAtMsRef.current,
+        }
+      : null
+
+    const validation = shouldPersistGpsPoint(candidatePoint, previousPoint)
+
+    if (!validation.shouldPersist) {
+      return
+    }
 
     const currentCoords = {
       latitude: location.coords.latitude,
@@ -66,15 +89,14 @@ export function useTripRecorder() {
       accuracyM: location.coords.accuracy ?? null,
       speedMps: location.coords.speed ?? null,
       headingDeg: location.coords.heading ?? null,
-      capturedAt: location.timestamp
-        ? new Date(location.timestamp).toISOString()
-        : new Date().toISOString(),
+      capturedAt: new Date(capturedAtMs).toISOString(),
     })
 
     pointOrderRef.current = currentPointOrder + 1
     setPointCount(pointOrderRef.current)
 
     lastCoordsRef.current = currentCoords
+    lastCapturedAtMsRef.current = capturedAtMs
     setLastLatitude(currentCoords.latitude)
     setLastLongitude(currentCoords.longitude)
   }
@@ -119,6 +141,7 @@ export function useTripRecorder() {
     setTotalDistanceM(0)
 
     lastCoordsRef.current = null
+    lastCapturedAtMsRef.current = null
     setLastLatitude(null)
     setLastLongitude(null)
 
@@ -185,6 +208,7 @@ export function useTripRecorder() {
     startedAtRef.current = null
     pointOrderRef.current = 0
     lastCoordsRef.current = null
+    lastCapturedAtMsRef.current = null
 
     setActiveTripId(null)
     setStatus('idle')

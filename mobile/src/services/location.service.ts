@@ -41,7 +41,7 @@ export async function startBackgroundLocationTracking() {
   }
 
   await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-    accuracy: Location.Accuracy.Balanced,
+    accuracy: Location.Accuracy.High,
     distanceInterval: 5,
     timeInterval: 5000,
     pausesUpdatesAutomatically: false,

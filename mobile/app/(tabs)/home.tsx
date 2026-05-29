@@ -38,7 +38,10 @@ import {
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
 import { getAuthorDisplayName } from '../../src/utils/displayName'
-import { CommunityHeader } from '../../src/components/community/CommunityHeader'
+import {
+  CommunityHeader,
+  type CommunityView,
+} from '../../src/components/community/CommunityHeader'
 import {
   CreatePostComposer,
   type DraftPostImage,
@@ -61,8 +64,7 @@ export default function HomeScreen() {
   const { profile, user, profileLoadError } = useAuth()
   const outerScrollRef = useRef<ScrollView | null>(null)
   const composerScrollRef = useRef<ScrollView | null>(null)
-  
-  const [currentTab, setCurrentTab] = useState<'feed' | 'outings'>('feed')
+
   const [outingsRefreshTrigger, setOutingsRefreshTrigger] = useState(false)
   const [outingComposerVisible, setOutingComposerVisible] = useState(false)
   const [outingSubmitting, setOutingSubmitting] = useState(false)
@@ -72,6 +74,7 @@ export default function HomeScreen() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [composerVisible, setComposerVisible] = useState(false)
+  const [activeView, setActiveView] = useState<CommunityView>('feed')
   const [posts, setPosts] = useState<SocialPost[]>([])
   const [feedLoading, setFeedLoading] = useState(true)
   const [refreshingFeed, setRefreshingFeed] = useState(false)
@@ -268,19 +271,19 @@ export default function HomeScreen() {
             }
           : undefined,
       })
-      setContent('')
-      setSelectedPostImage(null)
-      setComposerVisible(false)
       await loadPosts()
 
       if (created.imageStatus === 'failed_after_post') {
-        Alert.alert(
-          'Publicacion creada con advertencia',
+        setSubmitError(
           created.imageError ??
-            'La publicacion se guardo, pero no se pudo asociar la imagen.'
+            'La publicacion se creo, pero no se pudo asociar la imagen.'
         )
         return
       }
+
+      setContent('')
+      setSelectedPostImage(null)
+      setComposerVisible(false)
 
       Alert.alert(
         'Publicacion creada',
@@ -404,18 +407,17 @@ export default function HomeScreen() {
     meetingPoint: string
     dateTime: Date
     maxParticipants: number
-    imageUri: string | null // 🌟 Capturamos la foto proveniente del Composer corregido
+    imageUri: string | null
   }) {
     if (!user) {
-      Alert.alert('Inicia sesión', 'Debes iniciar sesión para proponer una salida.')
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para proponer una salida.')
       return
     }
-  
+
     try {
       setOutingSubmitting(true)
       setOutingSubmitError(null)
-  
-      // Enviamos al servicio: 1. El DTO de texto y 2. La ruta local de la foto
+
       await groupOutingService.createGroupOuting(
         {
           title: formData.title,
@@ -425,19 +427,19 @@ export default function HomeScreen() {
           date_time: formData.dateTime.toISOString(),
           max_participants: formData.maxParticipants,
         },
-        formData.imageUri // 🌟 Se inyecta como segundo parámetro al servicio de Supabase
+        formData.imageUri
       )
-  
+
       setOutingComposerVisible(false)
-      setOutingsRefreshTrigger(prev => !prev) // Esto recarga tu lista automáticamente
-      Alert.alert('¡Éxito!', 'La salida grupal ha sido publicada correctamente.')
+      setOutingsRefreshTrigger((prev) => !prev)
+      Alert.alert('Exito', 'La salida grupal ha sido publicada correctamente.')
     } catch (error: any) {
       setOutingSubmitError(error?.message ?? 'No se pudo registrar la salida grupal.')
     } finally {
       setOutingSubmitting(false)
     }
   }
-  
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
@@ -450,71 +452,20 @@ export default function HomeScreen() {
             username={profile?.username}
             profileLoadError={profileLoadError}
             onPressCreate={() => {
-              if (currentTab === 'feed') {
+              if (activeView === 'feed') {
+                setSubmitError(null)
                 setComposerVisible(true)
               } else {
+                setOutingSubmitError(null)
                 setOutingComposerVisible(true)
               }
             }}
-            createDisabled={submitting}
+            createDisabled={activeView === 'feed' ? submitting : outingSubmitting}
+            activeView={activeView}
+            onChangeView={setActiveView}
           />
-
-          {/* El Switch de navegación interna */}
-          <View
-            style={{
-              flexDirection: 'row',
-              backgroundColor: colors.bgSecondary,
-              borderRadius: 14,
-              padding: 4,
-              marginTop: 12,
-              borderWidth: 1,
-              borderColor: colors.borderSoft,
-            }}
-          >
-            <Pressable
-              onPress={() => setCurrentTab('feed')}
-              style={{
-                flex: 1,
-                backgroundColor: currentTab === 'feed' ? colors.primary : 'transparent',
-                paddingVertical: 10,
-                borderRadius: 10,
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  color: currentTab === 'feed' ? colors.bgMain : colors.textSecondary,
-                  fontWeight: '700',
-                  fontSize: 15,
-                }}
-              >
-                Feed
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setCurrentTab('outings')}
-              style={{
-                flex: 1,
-                backgroundColor: currentTab === 'outings' ? colors.primary : 'transparent',
-                paddingVertical: 10,
-                borderRadius: 10,
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  color: currentTab === 'outings' ? colors.bgMain : colors.textSecondary,
-                  fontWeight: '700',
-                  fontSize: 15,
-                }}
-              >
-                Salidas Grupales
-              </Text>
-            </Pressable>
-          </View>
         </View>
-        {currentTab === 'feed' ? (
+        {activeView === 'feed' ? (
           <ScrollView
             ref={outerScrollRef}
             contentContainerStyle={{
@@ -659,10 +610,7 @@ export default function HomeScreen() {
             justifyContent: 'flex-end',
           }}
         >
-          <Pressable
-            onPress={() => setComposerVisible(false)}
-            style={{ flex: 1 }}
-          />
+          <Pressable onPress={() => setComposerVisible(false)} style={{ flex: 1 }} />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >

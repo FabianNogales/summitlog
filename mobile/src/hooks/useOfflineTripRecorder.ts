@@ -24,6 +24,7 @@ import {
   setActiveTripForBackground,
 } from '../services/backgroundTrackingState.service'
 import { calculateDistanceInMeters } from '../utils/distance'
+import { shouldPersistGpsPoint } from '../utils/gpsQuality'
 
 type RecorderStatus = 'idle' | 'starting' | 'tracking' | 'finishing'
 
@@ -103,6 +104,7 @@ export function useOfflineTripRecorder() {
   const persistQueueRef = useRef<Promise<void>>(Promise.resolve())
   const startedAtRef = useRef<string | null>(null)
   const lastCoordsRef = useRef<LastCoords | null>(null)
+  const lastCapturedAtMsRef = useRef<number | null>(null)
   const totalDistanceRef = useRef(0)
   const backgroundTrackingEnabledRef = useRef(false)
 
@@ -148,6 +150,12 @@ export function useOfflineTripRecorder() {
     setLastLatitude(snapshot.lastCoords?.latitude ?? null)
     setLastLongitude(snapshot.lastCoords?.longitude ?? null)
 
+    const lastCapturedAt = points[points.length - 1]?.captured_at ?? null
+    const lastCapturedAtMs = lastCapturedAt ? Date.parse(lastCapturedAt) : NaN
+    lastCapturedAtMsRef.current = Number.isFinite(lastCapturedAtMs)
+      ? lastCapturedAtMs
+      : null
+
     setPathPoints(points.map((p) => [p.longitude, p.latitude]))
 
     return snapshot
@@ -155,6 +163,27 @@ export function useOfflineTripRecorder() {
 
   const updateLiveTrackingState = useCallback(
     (location: Location.LocationObject) => {
+      const capturedAtMs = location.timestamp ?? Date.now()
+      const candidatePoint = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracyM: location.coords.accuracy ?? null,
+        capturedAt: capturedAtMs,
+      }
+      const previousPoint = lastCoordsRef.current
+        ? {
+            latitude: lastCoordsRef.current.latitude,
+            longitude: lastCoordsRef.current.longitude,
+            capturedAt: lastCapturedAtMsRef.current,
+          }
+        : null
+
+      const validation = shouldPersistGpsPoint(candidatePoint, previousPoint)
+
+      if (!validation.shouldPersist) {
+        return
+      }
+
       const currentCoords = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -190,6 +219,7 @@ export function useOfflineTripRecorder() {
 
       lastCoordsRef.current = currentCoords
       lastAltitudeRef.current = currentAltitude
+      lastCapturedAtMsRef.current = capturedAtMs
 
       const nextPoint: [number, number] = [
         currentCoords.longitude,
@@ -218,6 +248,29 @@ export function useOfflineTripRecorder() {
       const currentLocalTripId = localTripIdRef.current
       if (!currentLocalTripId) return
 
+      const capturedAtMs = location.timestamp ?? Date.now()
+      const candidatePoint = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracyM: location.coords.accuracy ?? null,
+        capturedAt: capturedAtMs,
+      }
+      const previousPoint = lastCoordsRef.current
+        ? {
+            latitude: lastCoordsRef.current.latitude,
+            longitude: lastCoordsRef.current.longitude,
+            capturedAt: lastCapturedAtMsRef.current,
+          }
+        : null
+
+      const validation = shouldPersistGpsPoint(candidatePoint, previousPoint)
+
+      if (!validation.shouldPersist) {
+        return
+      }
+
+      const capturedAtIso = new Date(capturedAtMs).toISOString()
+
       const inserted = await addOfflineRecordedTripPointWithAutoOrder({
         localTripId: currentLocalTripId,
         latitude: location.coords.latitude,
@@ -226,9 +279,7 @@ export function useOfflineTripRecorder() {
         accuracyM: location.coords.accuracy ?? null,
         speedMps: location.coords.speed ?? null,
         headingDeg: location.coords.heading ?? null,
-        capturedAt: location.timestamp
-          ? new Date(location.timestamp).toISOString()
-          : new Date().toISOString(),
+        capturedAt: capturedAtIso,
       })
 
       const newPointOrder = inserted?.point_order ?? 0
@@ -269,6 +320,7 @@ export function useOfflineTripRecorder() {
       setLastLongitude(currentCoords.longitude)
 
       lastAltitudeRef.current = currentAltitude
+      lastCapturedAtMsRef.current = capturedAtMs
 
       setPathPoints((prev) => {
         const lastPoint = prev[prev.length - 1]
@@ -378,6 +430,7 @@ export function useOfflineTripRecorder() {
     totalElevationGainRef.current = 0
     lastCoordsRef.current = null
     lastAltitudeRef.current = null
+    lastCapturedAtMsRef.current = null
 
     await setActiveTripForBackground(localTrip.local_id)
     await persistPoint(currentLocation)
@@ -473,6 +526,7 @@ export function useOfflineTripRecorder() {
     startedAtRef.current = null
     lastCoordsRef.current = null
     lastAltitudeRef.current = null
+    lastCapturedAtMsRef.current = null
     totalDistanceRef.current = 0
     totalElevationGainRef.current = 0
     persistQueueRef.current = Promise.resolve()

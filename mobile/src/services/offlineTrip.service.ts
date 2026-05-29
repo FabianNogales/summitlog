@@ -267,6 +267,23 @@ export async function getOfflineTripPointsByTripId(localTripId: string) {
   return rows
 }
 
+export async function getLatestOfflineTripPointByTripId(localTripId: string) {
+  const db = await getOfflineDb()
+
+  const row = await db.getFirstAsync<OfflineRecordedTripPoint>(
+    `
+      SELECT *
+      FROM offline_recorded_trip_points
+      WHERE local_trip_id = ?
+      ORDER BY point_order DESC
+      LIMIT 1
+    `,
+    [localTripId]
+  )
+
+  return row ?? null
+}
+
 export async function getPendingOfflineTripPointsByTripId(localTripId: string) {
   const db = await getOfflineDb()
 
