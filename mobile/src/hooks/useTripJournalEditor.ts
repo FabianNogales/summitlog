@@ -18,6 +18,9 @@ import type { Journal, JournalDifficulty, JournalVisibility } from '../types/jou
 import type { OfflineRecordedTrip } from '../types/offlineTrip'
 import type { RecordedTrip } from '../types/trip'
 
+const FALLBACK_JOURNAL_TITLE = 'Ruta sin título'
+const FALLBACK_JOURNAL_CONTENT = 'Sin descripción'
+
 type EditorTrip = OfflineRecordedTrip | RecordedTrip
 type EditorJournal = OfflineJournal | Journal
 type EditorMode = 'local' | 'remote'
@@ -44,6 +47,30 @@ function isOfflineJournal(journal: EditorJournal | null): journal is OfflineJour
   return Boolean(journal && 'local_id' in journal)
 }
 
+function getJournalDifficulty(journal: EditorJournal | null) {
+  if (!journal || !('difficulty' in journal)) {
+    return '' as JournalDifficulty
+  }
+
+  return ((journal as any).difficulty ?? '') as JournalDifficulty
+}
+
+function getJournalCategory(journal: EditorJournal | null) {
+  if (!journal || !('category' in journal)) {
+    return ''
+  }
+
+  return ((journal as any).category ?? '') as string
+}
+
+function getJournalCommentsEnabled(journal: EditorJournal | null) {
+  if (!journal || !('comments_enabled' in journal)) {
+    return true
+  }
+
+  return normalizeCommentsEnabled((journal as any).comments_enabled)
+}
+
 export function useTripJournalEditor(tripId?: string) {
   const { user } = useAuth()
 
@@ -64,12 +91,32 @@ export function useTripJournalEditor(tripId?: string) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function applyJournalToForm(loadedJournal: EditorJournal | null) {
+    if (!loadedJournal) {
+      setTitle('')
+      setContent('')
+      setVisibility('private')
+      setDifficulty('')
+      setCategory('')
+      setCommentsEnabled(true)
+      return
+    }
+
+    setTitle(loadedJournal.title ?? '')
+    setContent(loadedJournal.content ?? '')
+    setVisibility(loadedJournal.visibility)
+    setDifficulty(getJournalDifficulty(loadedJournal))
+    setCategory(getJournalCategory(loadedJournal))
+    setCommentsEnabled(getJournalCommentsEnabled(loadedJournal))
+  }
+
   const loadEditorData = useCallback(async () => {
     if (!tripId) {
       setTrip(null)
       setJournal(null)
       setLocalTripId(null)
       setRemoteTripId(null)
+      applyJournalToForm(null)
       setLoading(false)
       return
     }
@@ -100,22 +147,7 @@ export function useTripJournalEditor(tripId?: string) {
         setJournal(loadedJournal)
         setLocalTripId(localTrip.local_id)
         setRemoteTripId(localTrip.remote_id)
-
-        if (loadedJournal) {
-          setTitle(loadedJournal.title ?? '')
-          setContent(loadedJournal.content ?? '')
-          setVisibility(loadedJournal.visibility)
-          setDifficulty((loadedJournal.difficulty ?? '') as JournalDifficulty)
-          setCategory(loadedJournal.category ?? '')
-          setCommentsEnabled(normalizeCommentsEnabled(loadedJournal.comments_enabled))
-        } else {
-          setTitle('')
-          setContent('')
-          setVisibility('private')
-          setDifficulty('')
-          setCategory('')
-          setCommentsEnabled(true)
-        }
+        applyJournalToForm(loadedJournal)
 
         return
       }
@@ -130,12 +162,7 @@ export function useTripJournalEditor(tripId?: string) {
       setRemoteTripId(remoteTrip.id)
 
       if (remoteJournal) {
-        setTitle(remoteJournal.title ?? '')
-        setContent(remoteJournal.content ?? '')
-        setVisibility(remoteJournal.visibility)
-        setDifficulty((remoteJournal.difficulty ?? '') as JournalDifficulty)
-        setCategory(remoteJournal.category ?? '')
-        setCommentsEnabled(normalizeCommentsEnabled(remoteJournal.comments_enabled))
+        applyJournalToForm(remoteJournal)
       } else {
         setTitle(remoteTrip.title ?? '')
         setContent(remoteTrip.summary ?? '')
@@ -171,18 +198,18 @@ export function useTripJournalEditor(tripId?: string) {
   )
 
   const normalizedJournalDifficulty = useMemo(
-    () => normalizeDifficulty((journal?.difficulty ?? '') as JournalDifficulty),
-    [journal?.difficulty]
+    () => normalizeDifficulty(getJournalDifficulty(journal)),
+    [journal]
   )
 
   const normalizedJournalCategory = useMemo(
-    () => normalizeCategory(journal?.category ?? ''),
-    [journal?.category]
+    () => normalizeCategory(getJournalCategory(journal)),
+    [journal]
   )
 
   const journalCommentsEnabled = useMemo(
-    () => normalizeCommentsEnabled(journal?.comments_enabled),
-    [journal?.comments_enabled]
+    () => getJournalCommentsEnabled(journal),
+    [journal]
   )
 
   const hasUnsavedChanges = useMemo(() => {
@@ -222,7 +249,7 @@ export function useTripJournalEditor(tripId?: string) {
 
   async function saveJournal() {
     if (saving) {
-      throw new Error('La bitacora ya se esta guardando.')
+      throw new Error('La bitácora ya se está guardando.')
     }
 
     if (!user) {
@@ -237,17 +264,12 @@ export function useTripJournalEditor(tripId?: string) {
       throw new Error('Solo puedes crear una bitácora de un recorrido completado.')
     }
 
-    if (!normalizedTitle) {
-      throw new Error('El título es obligatorio.')
-    }
-
-    if (!normalizedContent) {
-      throw new Error('El contenido es obligatorio.')
-    }
-
     if (journal && !hasUnsavedChanges) {
       throw new Error('No hay cambios para guardar.')
     }
+
+    const finalTitle = normalizedTitle || FALLBACK_JOURNAL_TITLE
+    const finalContent = normalizedContent || FALLBACK_JOURNAL_CONTENT
 
     try {
       setSaving(true)
@@ -260,8 +282,8 @@ export function useTripJournalEditor(tripId?: string) {
         if (isOfflineJournal(journal)) {
           const updatedJournal = await updateOfflineJournal({
             journalId: journal.local_id,
-            title: normalizedTitle,
-            content: normalizedContent,
+            title: finalTitle,
+            content: finalContent,
             visibility,
             difficulty: normalizedDifficulty as JournalDifficulty,
             category: normalizedCategory,
@@ -269,14 +291,15 @@ export function useTripJournalEditor(tripId?: string) {
           })
 
           setJournal(updatedJournal)
+          applyJournalToForm(updatedJournal)
           return updatedJournal
         }
 
         const createdJournal = await createOfflineJournal({
           userId: user.id,
           recordedTripId: localTripId,
-          title: normalizedTitle,
-          content: normalizedContent,
+          title: finalTitle,
+          content: finalContent,
           visibility,
           difficulty: normalizedDifficulty as JournalDifficulty,
           category: normalizedCategory,
@@ -284,6 +307,7 @@ export function useTripJournalEditor(tripId?: string) {
         })
 
         setJournal(createdJournal)
+        applyJournalToForm(createdJournal)
         return createdJournal
       }
 
@@ -294,8 +318,8 @@ export function useTripJournalEditor(tripId?: string) {
       if (journal && !isOfflineJournal(journal)) {
         const updatedJournal = await updateJournal({
           journalId: journal.id,
-          title: normalizedTitle,
-          content: normalizedContent,
+          title: finalTitle,
+          content: finalContent,
           visibility,
           difficulty: normalizedDifficulty as JournalDifficulty,
           category: normalizedCategory,
@@ -303,14 +327,15 @@ export function useTripJournalEditor(tripId?: string) {
         })
 
         setJournal(updatedJournal)
+        applyJournalToForm(updatedJournal)
         return updatedJournal
       }
 
       const createdJournal = await createJournal({
         userId: user.id,
         recordedTripId: remoteTripId,
-        title: normalizedTitle,
-        content: normalizedContent,
+        title: finalTitle,
+        content: finalContent,
         visibility,
         difficulty: normalizedDifficulty as JournalDifficulty,
         category: normalizedCategory,
@@ -318,6 +343,7 @@ export function useTripJournalEditor(tripId?: string) {
       })
 
       setJournal(createdJournal)
+      applyJournalToForm(createdJournal)
       return createdJournal
     } finally {
       setSaving(false)

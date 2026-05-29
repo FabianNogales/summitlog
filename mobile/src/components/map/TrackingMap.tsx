@@ -41,6 +41,7 @@ export function TrackingMap({
   function handleZoom(delta: number) {
     const nextZoom = Math.min(18, Math.max(3, zoomLevel + delta))
     setZoomLevel(nextZoom)
+
     cameraRef.current?.setCamera({
       zoomLevel: nextZoom,
       animationDuration: 180,
@@ -54,6 +55,7 @@ export function TrackingMap({
       setCentering(true)
 
       const permission = await requestForegroundLocationPermission()
+
       if (!permission.granted) {
         Alert.alert(
           'Permiso requerido',
@@ -63,6 +65,7 @@ export function TrackingMap({
       }
 
       const servicesEnabled = await hasLocationServicesEnabled()
+
       if (!servicesEnabled) {
         Alert.alert(
           'GPS desactivado',
@@ -73,20 +76,28 @@ export function TrackingMap({
 
       const location = await getCurrentLocation()
       const nextZoom = Math.max(zoomLevel, 16)
+
       setZoomLevel(nextZoom)
       setFollowUser(false)
+
       cameraRef.current?.setCamera({
         centerCoordinate: [location.coords.longitude, location.coords.latitude],
         zoomLevel: nextZoom,
         animationDuration: 260,
       })
-      setTimeout(() => setFollowUser(true), 180)
+
+      setTimeout(() => {
+        setFollowUser(true)
+      }, 180)
     } catch (error) {
       Alert.alert('No se pudo centrar', getLocationFailureMessage(error))
     } finally {
       setCentering(false)
     }
   }
+
+  const hasRouteLine = coordinates.length > 1
+  const startPoint = coordinates.length > 0 ? coordinates[0] : null
 
   const routeLine = {
     type: 'Feature',
@@ -97,7 +108,6 @@ export function TrackingMap({
     },
   } as const
 
-  const startPoint = coordinates.length > 0 ? coordinates[0] : null
   const startPointFeature = startPoint
     ? ({
         type: 'Feature',
@@ -146,26 +156,12 @@ export function TrackingMap({
         />
 
         <Mapbox.UserLocation
-          showsUserHeadingIndicator={false}
           visible
+          showsUserHeadingIndicator
           androidRenderMode="gps"
         />
 
-        {startPointFeature ? (
-          <Mapbox.ShapeSource id="startPointSource" shape={startPointFeature}>
-            <Mapbox.CircleLayer
-              id="startPointCircle"
-              style={{
-                circleColor: colors.primary || '#FF6B00',
-                circleRadius: 7,
-                circleStrokeColor: '#FFFFFF',
-                circleStrokeWidth: 2.5,
-              }}
-            />
-          </Mapbox.ShapeSource>
-        ) : null}
-
-        {coordinates.length > 1 ? (
+        {hasRouteLine ? (
           <Mapbox.ShapeSource
             id="routeSource"
             key={`route-source-${coordinates.length}`}
@@ -178,6 +174,20 @@ export function TrackingMap({
                 lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',
+              }}
+            />
+          </Mapbox.ShapeSource>
+        ) : null}
+
+        {startPointFeature ? (
+          <Mapbox.ShapeSource id="startPointSource" shape={startPointFeature}>
+            <Mapbox.CircleLayer
+              id="startPointCircle"
+              style={{
+                circleColor: colors.warning,
+                circleRadius: 7,
+                circleStrokeColor: colors.text,
+                circleStrokeWidth: 2.5,
               }}
             />
           </Mapbox.ShapeSource>
