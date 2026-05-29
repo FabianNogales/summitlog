@@ -73,8 +73,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "00a56eff-c584-47f2-a951-211611f16c4f"
+        "projectId": "d6d027e7-e1aa-491d-85a0-c2e92d94901e"
       }
-    }
+    },
+    "owner": "fabian_nogales"
   }
 }

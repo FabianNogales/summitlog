@@ -68,7 +68,7 @@ export default function AuthCallbackScreen() {
           if (refreshToken) qs.set('refresh_token', refreshToken)
 
           const completion = await completeOAuthFromUrl(
-            `mobile://auth/callback?${qs.toString()}`
+            `summitlog://auth/callback?${qs.toString()}`
           )
 
           if (completion.error) {

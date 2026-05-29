@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser'
 
 import { supabase } from '../lib/supabase'
 
-const GOOGLE_REDIRECT_TO = 'mobile://auth/callback'
+const GOOGLE_REDIRECT_TO = 'summitlog://auth/callback'
 
 interface CompleteOAuthOptions {
   allowNoCredentials?: boolean
