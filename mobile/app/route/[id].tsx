@@ -26,6 +26,11 @@ import {
   formatRouteDistance,
   formatRouteDuration,
 } from '../../src/utils/routeFormat'
+import {
+  resolveRouteDisplayDescription,
+  resolveRouteDisplayImageUrl,
+  resolveRouteDisplayTitle,
+} from '../../src/utils/routeDisplay'
 import { useRouteDetail } from '../../src/hooks/useRouteDetail'
 import {
   createRouteReport,
@@ -93,26 +98,23 @@ function formatSeverityLabel(status: RouteReportSeverity) {
 }
 
 function getRouteDisplayTitle(params: { display_title?: string; title?: string | null }) {
-  const preferredTitle = params.display_title?.trim()
-  if (preferredTitle) return preferredTitle
-
-  const routeTitle = params.title?.trim()
-  if (routeTitle) return routeTitle
-
-  return 'Ruta sin título'
+  return resolveRouteDisplayTitle({
+    displayTitle: params.display_title,
+    routeTitle: params.title,
+  })
 }
 
 function getRouteDisplayImageUrl(params: {
   display_image_url?: string | null
   cover_image_url?: string | null
 }) {
-  const preferredImage = params.display_image_url?.trim()
-  if (preferredImage) return preferredImage
+  return (
+    resolveRouteDisplayImageUrl({
+      displayImageUrl: params.display_image_url,
+      coverImageUrl: params.cover_image_url,
+    }) ?? ''
+  )
 
-  const coverImage = params.cover_image_url?.trim()
-  if (coverImage) return coverImage
-
-  return ''
 }
 export default function RouteDetailScreen() {
   const router = useRouter()
@@ -550,7 +552,7 @@ export default function RouteDetailScreen() {
                   marginBottom: 18,
                 }}
               >
-                {route.description?.trim() || 'Esta ruta no tiene descripción todavía.'}
+                {resolveRouteDisplayDescription({ routeDescription: route.description }) || 'Esta ruta no tiene descripción todavía.'}
               </Text>
 
               <RouteDetailMap 

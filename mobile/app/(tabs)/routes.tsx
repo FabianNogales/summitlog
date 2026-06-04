@@ -21,6 +21,15 @@ import { usePublishedRoutes } from '../../src/hooks/usePublishedRoutes'
 import { useRouteFilters } from '../../src/hooks/useRouteFilters'
 import { colors } from '../../src/theme/colors'
 import type { RouteItem } from '../../src/types/route'
+import {
+  formatRouteDifficultyLabel,
+  formatRouteListDistance,
+  formatRouteListDuration,
+} from '../../src/utils/routeFormat'
+import {
+  resolveRouteDisplayImageUrl,
+  resolveRouteDisplayTitle,
+} from '../../src/utils/routeDisplay'
 
 const QUICK_DISTANCE_VALUES = ['', '5', '10', '20']
 const QUICK_DURATION_VALUES = ['', '60', '120', '240']
@@ -33,47 +42,21 @@ function nextQuickValue(current: string, values: string[]) {
   return values[nextIndex]
 }
 
-function formatDistance(distanceM: number) {
-  const km = distanceM / 1000
-  return `${km.toFixed(1)} km`
-}
-
-function formatDuration(durationS: number) {
-  const min = Math.round(durationS / 60)
-  if (min < 60) return `${min} min`
-
-  const hours = Math.floor(min / 60)
-  const restMin = min % 60
-  if (restMin === 0) return `${hours} h`
-  return `${hours} h ${restMin} min`
-}
-
-function getDifficultyLabel(value: string | null | undefined) {
-  const normalized = value?.trim().toLowerCase()
-  if (normalized === 'easy') return 'Facil'
-  if (normalized === 'medium') return 'Media'
-  if (normalized === 'hard') return 'Dificil'
-  return 'Ruta'
-}
-
 function getRouteDisplayTitle(route: RouteItem) {
-  const preferredTitle = route.display_title?.trim()
-  if (preferredTitle) return preferredTitle
-
-  const routeTitle = route.title?.trim()
-  if (routeTitle) return routeTitle
-
-  return 'Ruta sin título'
+  return resolveRouteDisplayTitle({
+    displayTitle: route.display_title,
+    routeTitle: route.title,
+  })
 }
 
 function getRouteDisplayImageUrl(route: RouteItem) {
-  const preferredImage = route.display_image_url?.trim()
-  if (preferredImage) return preferredImage
+  return (
+    resolveRouteDisplayImageUrl({
+      displayImageUrl: route.display_image_url,
+      coverImageUrl: route.cover_image_url,
+    }) ?? ''
+  )
 
-  const coverImage = route.cover_image_url?.trim()
-  if (coverImage) return coverImage
-
-  return ''
 }
 
 export default function RoutesScreen() {
@@ -509,13 +492,13 @@ export default function RoutesScreen() {
                           marginRight: 10,
                         }}
                       >
-                        {getDifficultyLabel(route.difficulty)}
+                        {formatRouteDifficultyLabel(route.difficulty)}
                       </Text>
                       <Text style={{ color: colors.textSecondary, fontSize: 12, marginRight: 10 }}>
-                        {formatDistance(Number(route.distance_m ?? 0))}
+                        {formatRouteListDistance(Number(route.distance_m ?? 0))}
                       </Text>
                       <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                        {formatDuration(Number(route.duration_s ?? 0))}
+                        {formatRouteListDuration(Number(route.duration_s ?? 0))}
                       </Text>
                     </View>
                   </View>

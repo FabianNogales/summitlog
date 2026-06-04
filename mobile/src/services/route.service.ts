@@ -1,7 +1,10 @@
 import { supabase } from '../lib/supabase'
 import { getJournalMediaPublicUrl } from './journalMedia.service'
 import type { RouteItem, RoutePoint, RouteReport } from '../types/route'
-import { formatRecordedTripTitleFromDate } from '../utils/date'
+import {
+  resolveRouteDisplayImageUrl,
+  resolveRouteDisplayTitle,
+} from '../utils/routeDisplay'
 import { normalizeText } from '../utils/text'
 
 interface RouteJournalRow {
@@ -23,47 +26,6 @@ interface RouteTripTitleRow {
   started_at: string | null
 }
 
-function getRouteDisplayTitle(params: {
-  route: RouteItem
-  journalTitle?: string | null
-  tripTitle?: string | null
-  tripStartedAt?: string | null
-}) {
-  const resolvedTitle =
-    normalizeText(params.journalTitle) ??
-    normalizeText(params.tripTitle) ??
-    normalizeText(params.route.title)
-
-  if (resolvedTitle) {
-    return resolvedTitle
-  }
-
-  return (
-    formatRecordedTripTitleFromDate(params.tripStartedAt, { locale: 'es-BO' }) ??
-    formatRecordedTripTitleFromDate(params.route.published_at, { locale: 'es-BO' }) ??
-    formatRecordedTripTitleFromDate(params.route.created_at, { locale: 'es-BO' }) ??
-    'Ruta sin título'
-  )
-}
-
-function getRouteDisplayImageUrl(params: {
-  route: RouteItem
-  journalMediaPath?: string | null
-}) {
-  const routeCoverUrl = normalizeText(params.route.cover_image_url)
-  if (routeCoverUrl) {
-    return routeCoverUrl
-  }
-
-  const journalMediaPath = normalizeText(params.journalMediaPath)
-  if (!journalMediaPath) {
-    return null
-  }
-
-  const journalMediaUrl = normalizeText(getJournalMediaPublicUrl(journalMediaPath))
-  return journalMediaUrl
-}
-
 async function decorateRoutes(routes: RouteItem[]) {
   if (routes.length === 0) {
     return routes
@@ -80,8 +42,14 @@ async function decorateRoutes(routes: RouteItem[]) {
   if (routeTripIds.length === 0) {
     return routes.map((route) => ({
       ...route,
-      display_title: getRouteDisplayTitle({ route }),
-      display_image_url: getRouteDisplayImageUrl({ route }),
+      display_title: resolveRouteDisplayTitle({
+        routeTitle: route.title,
+        routePublishedAt: route.published_at,
+        routeCreatedAt: route.created_at,
+      }),
+      display_image_url: resolveRouteDisplayImageUrl({
+        coverImageUrl: route.cover_image_url,
+      }),
     }))
   }
 
@@ -145,17 +113,27 @@ async function decorateRoutes(routes: RouteItem[]) {
     return routes.map((route) => {
       const journal = journalByTripId.get(route.source_recorded_trip_id)
       const tripData = tripDataById.get(route.source_recorded_trip_id)
-      const displayTitle = getRouteDisplayTitle({
-        route,
+      const journalMediaPath = journal
+        ? journalMediaPathByJournalId.get(journal.id)
+        : null
+      const routeCoverUrl = normalizeText(route.cover_image_url)
+      const normalizedJournalMediaPath = normalizeText(journalMediaPath)
+      const journalMediaImageUrl = routeCoverUrl
+        ? null
+        : normalizedJournalMediaPath
+          ? getJournalMediaPublicUrl(normalizedJournalMediaPath)
+          : null
+      const displayTitle = resolveRouteDisplayTitle({
         journalTitle: journal?.title,
         tripTitle: tripData?.title,
         tripStartedAt: tripData?.started_at,
+        routeTitle: route.title,
+        routePublishedAt: route.published_at,
+        routeCreatedAt: route.created_at,
       })
-      const displayImageUrl = getRouteDisplayImageUrl({
-        route,
-        journalMediaPath: journal
-          ? journalMediaPathByJournalId.get(journal.id)
-          : null,
+      const displayImageUrl = resolveRouteDisplayImageUrl({
+        coverImageUrl: routeCoverUrl,
+        journalMediaImageUrl,
       })
 
       return {
@@ -172,8 +150,14 @@ async function decorateRoutes(routes: RouteItem[]) {
 
     return routes.map((route) => ({
       ...route,
-      display_title: getRouteDisplayTitle({ route }),
-      display_image_url: getRouteDisplayImageUrl({ route }),
+      display_title: resolveRouteDisplayTitle({
+        routeTitle: route.title,
+        routePublishedAt: route.published_at,
+        routeCreatedAt: route.created_at,
+      }),
+      display_image_url: resolveRouteDisplayImageUrl({
+        coverImageUrl: route.cover_image_url,
+      }),
     }))
   }
 }

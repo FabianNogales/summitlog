@@ -14,6 +14,7 @@ import {
 } from '../../services/location.service'
 import { colors } from '../../theme/colors'
 import type { RouteItem } from '../../types/route'
+import { resolveRouteDisplayTitle } from '../../utils/routeDisplay'
 
 interface RoutesMapProps {
   routes: RouteItem[]
@@ -23,13 +24,10 @@ interface RoutesMapProps {
 }
 
 function getRouteDisplayTitle(route: RouteItem) {
-  const preferredTitle = route.display_title?.trim()
-  if (preferredTitle) return preferredTitle
-
-  const routeTitle = route.title?.trim()
-  if (routeTitle) return routeTitle
-
-  return 'Ruta sin título'
+  return resolveRouteDisplayTitle({
+    displayTitle: route.display_title,
+    routeTitle: route.title,
+  })
 }
 
 export function RoutesMap({
