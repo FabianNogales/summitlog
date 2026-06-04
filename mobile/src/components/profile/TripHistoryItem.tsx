@@ -2,12 +2,12 @@ import { Pressable, Text, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { colors } from '../../theme/colors'
 import type { RecordedTrip } from '../../types/trip'
-import { formatRecordedTripFallbackTitle } from '../../utils/date'
 import {
   formatTripDate,
   formatTripDistance,
   formatTripDuration,
 } from '../../utils/tripFormat'
+import { resolveTripDisplayTitle } from '../../utils/tripDisplay'
 
 interface TripHistoryItemProps {
   trip: RecordedTrip
@@ -16,9 +16,11 @@ interface TripHistoryItemProps {
 
 export function TripHistoryItem({ trip, onPress }: TripHistoryItemProps) {
   const title =
-    trip.display_title?.trim() ||
-    trip.title?.trim() ||
-    formatRecordedTripFallbackTitle(trip.started_at)
+    resolveTripDisplayTitle({
+      displayTitle: trip.display_title,
+      tripTitle: trip.title,
+      startedAt: trip.started_at,
+    })
 
   return (
     <Pressable

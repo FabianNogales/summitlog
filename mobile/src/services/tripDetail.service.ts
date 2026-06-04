@@ -14,7 +14,10 @@ import type { Journal } from '../types/journal'
 import type { OfflineRecordedTrip, OfflineRecordedTripPoint } from '../types/offlineTrip'
 import type { RouteItem } from '../types/route'
 import type { RecordedTrip, RecordedTripPoint } from '../types/trip'
-import { formatRecordedTripFallbackTitle } from '../utils/date'
+import {
+  resolveTripDisplayDescription,
+  resolveTripDisplayTitle,
+} from '../utils/tripDisplay'
 import { normalizeText } from '../utils/text'
 
 export type TripDetailMode = 'local' | 'remote'
@@ -173,12 +176,18 @@ function buildDetailData(params: {
   const routeDescription = normalizeText(params.route?.description)
   const tripSummary = normalizeText('summary' in params.trip ? params.trip.summary : null)
 
-  const title =
-    journalTitle ??
-    tripTitle ??
-    routeTitle ??
-    formatRecordedTripFallbackTitle(params.trip.started_at, { locale: 'es-BO' })
-  const description = journalContent ?? routeDescription ?? tripSummary
+  const title = resolveTripDisplayTitle({
+    journalTitle,
+    tripTitle,
+    routeTitle,
+    startedAt: params.trip.started_at,
+    fallbackDateLocale: 'es-BO',
+  })
+  const description = resolveTripDisplayDescription({
+    journalContent,
+    routeDescription,
+    tripSummary,
+  })
 
   return {
     mode: params.mode,

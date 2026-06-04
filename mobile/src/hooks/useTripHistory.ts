@@ -9,7 +9,10 @@ import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
 import { getOfflineJournalByTripId } from '../services/journal.service'
 import type { OfflineRecordedTrip } from '../types/offlineTrip'
 import type { RecordedTrip } from '../types/trip'
-import { normalizeText } from '../utils/text'
+import {
+  resolveTripDisplayDescription,
+  resolveTripDisplayTitle,
+} from '../utils/tripDisplay'
 
 const initialStats = {
   completedTrips: 0,
@@ -61,9 +64,13 @@ async function mapOfflineTripToRecordedTrip(
     remote_id: trip.remote_id,
     sync_status: trip.sync_status,
     is_offline: true,
-    display_title:
-      normalizeText(journal?.title) ?? 'Recorrido pendiente de sincronizar',
-    display_description: normalizeText(journal?.content),
+    display_title: resolveTripDisplayTitle({
+      journalTitle: journal?.title,
+      fallbackTitle: 'Recorrido pendiente de sincronizar',
+    }),
+    display_description: resolveTripDisplayDescription({
+      journalContent: journal?.content,
+    }),
     journal_visibility: journal?.visibility ?? null,
     route_category: journal?.category ?? null,
     route_difficulty: journal?.difficulty ?? null,

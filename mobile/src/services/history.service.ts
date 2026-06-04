@@ -1,7 +1,9 @@
 import { supabase } from '../lib/supabase'
 import type { RecordedTrip } from '../types/trip'
-import { formatRecordedTripFallbackTitle } from '../utils/date'
-import { normalizeText } from '../utils/text'
+import {
+  resolveTripDisplayDescription,
+  resolveTripDisplayTitle,
+} from '../utils/tripDisplay'
 
 export interface TripHistoryStats {
   completedTrips: number
@@ -91,23 +93,24 @@ async function decorateTripsWithJournalAndRouteData(trips: RecordedTrip[]) {
     const journal = journalsByTripId.get(trip.id)
     const route = routesByTripId.get(trip.id)
 
-    const displayTitle =
-      normalizeText(journal?.title) ??
-      normalizeText(trip.title) ??
-      normalizeText(route?.title) ??
-      formatRecordedTripFallbackTitle(trip.started_at, {
-        locale: 'es-BO',
-        dateOptions: {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        },
-      })
+    const displayTitle = resolveTripDisplayTitle({
+      journalTitle: journal?.title,
+      tripTitle: trip.title,
+      routeTitle: route?.title,
+      startedAt: trip.started_at,
+      fallbackDateLocale: 'es-BO',
+      fallbackDateOptions: {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      },
+    })
 
-    const displayDescription =
-      normalizeText(journal?.content) ??
-      normalizeText(route?.description) ??
-      normalizeText(trip.summary)
+    const displayDescription = resolveTripDisplayDescription({
+      journalContent: journal?.content,
+      routeDescription: route?.description,
+      tripSummary: trip.summary,
+    })
 
     return {
       ...trip,
