@@ -1,40 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
-  TextInput,
-  View,
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuth } from '../../src/hooks/useAuth'
 import { ImagePreviewModal } from '../../src/components/common/ImagePreviewModal'
 import { colors } from '../../src/theme/colors'
-import { RouteInfoRow } from '../../src/components/routes/RouteInfoRow'
-import { RouteDetailMap } from '../../src/components/routes/RouteDetailMap'
-import { RouteReportItem } from '../../src/components/routes/RouteReportItem'
-import { AuthButton } from '../../src/components/auth/AuthButton'
-import {
-  formatRouteDistance,
-  formatRouteDuration,
-} from '../../src/utils/routeFormat'
-import {
-  resolveRouteDisplayDescription,
-  resolveRouteDisplayImageUrl,
-  resolveRouteDisplayTitle,
-} from '../../src/utils/routeDisplay'
+import RouteReportsSectionView, {
+  type DraftRouteReportPhoto,
+} from '../../src/components/routes/RouteReportsSection'
+import RouteCommentsSectionView from '../../src/components/routes/RouteCommentsSection'
+import RouteDetailHeaderView from '../../src/components/routes/RouteDetailHeader'
+import RouteDetailOverviewSectionView from '../../src/components/routes/RouteDetailOverviewSection'
 import { useRouteDetail } from '../../src/hooks/useRouteDetail'
 import {
   createRouteReport,
-  MAX_ROUTE_REPORT_IMAGE_SIZE_MB,
   MAX_ROUTE_REPORT_DESCRIPTION_LENGTH,
   MIN_ROUTE_REPORT_DESCRIPTION_LENGTH,
   resolveRouteReport,
@@ -56,66 +43,6 @@ import {
   FORM_SCROLL_BOTTOM_PADDING,
   scrollToFocusedInput,
 } from '../../src/utils/keyboard'
-import { getAuthorDisplayName } from '../../src/utils/displayName'
-
-interface DraftRouteReportPhoto {
-  uri: string
-  fileName: string | null
-  mimeType: string | null
-  fileSize: number | null
-}
-
-function formatReportTypeLabel(reportType: RouteReportType) {
-  switch (reportType) {
-    case 'mud':
-      return 'Barro'
-    case 'landslide':
-      return 'Derrumbe'
-    case 'closed':
-      return 'Ruta cerrada'
-    case 'danger':
-      return 'Peligro'
-    case 'broken_bridge':
-      return 'Puente roto'
-    case 'bad_signage':
-      return 'Mala senalizacion'
-    default:
-      return 'Otro'
-  }
-}
-
-function formatSeverityLabel(status: RouteReportSeverity) {
-  switch (status) {
-    case 'low':
-      return 'Baja'
-    case 'medium':
-      return 'Media'
-    case 'high':
-      return 'Alta'
-    default:
-      return status
-  }
-}
-
-function getRouteDisplayTitle(params: { display_title?: string; title?: string | null }) {
-  return resolveRouteDisplayTitle({
-    displayTitle: params.display_title,
-    routeTitle: params.title,
-  })
-}
-
-function getRouteDisplayImageUrl(params: {
-  display_image_url?: string | null
-  cover_image_url?: string | null
-}) {
-  return (
-    resolveRouteDisplayImageUrl({
-      displayImageUrl: params.display_image_url,
-      coverImageUrl: params.cover_image_url,
-    }) ?? ''
-  )
-
-}
 export default function RouteDetailScreen() {
   const router = useRouter()
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
@@ -448,12 +375,12 @@ export default function RouteDetailScreen() {
   }
 
   return (
-    <SafeAreaView 
+    <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.background }}
       onStartShouldSetResponder={() => {
         if (isMapActive) setIsMapActive(false)
-        return false }
-      }
+        return false
+      }}
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -470,38 +397,7 @@ export default function RouteDetailScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 24,
-            }}
-          >
-            <Pressable
-              onPress={() => router.back()}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: colors.card,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}
-            >
-              <Feather name="arrow-left" size={18} color={colors.text} />
-            </Pressable>
-
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 20,
-                fontWeight: '700',
-              }}
-            >
-              Detalle de ruta
-            </Text>
-          </View>
+          <RouteDetailHeaderView onBack={() => router.back()} />
 
           {loading ? (
             <Text style={{ color: colors.textSecondary }}>Cargando ruta...</Text>
@@ -513,673 +409,74 @@ export default function RouteDetailScreen() {
             </Text>
           ) : (
             <>
-              {getRouteDisplayImageUrl(route) ? (
-                <Pressable
-                  onPress={() => setPreviewImageUrl(getRouteDisplayImageUrl(route))}
-                  style={{
-                    marginBottom: 16,
-                    borderRadius: 18,
-                    overflow: 'hidden',
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    backgroundColor: colors.card,
-                  }}
-                >
-                  <Image
-                    source={{ uri: getRouteDisplayImageUrl(route) }}
-                    style={{ width: '100%', height: 180 }}
-                    resizeMode="cover"
-                  />
-                </Pressable>
-              ) : null}
-
-              <Text
-                style={{
-                  color: colors.text,
-                  fontSize: 24,
-                  fontWeight: '700',
-                  marginBottom: 8,
-                }}
-              >
-                {getRouteDisplayTitle(route)}
-              </Text>
-
-              <Text
-                style={{
-                  color: colors.textSecondary,
-                  fontSize: 14,
-                  lineHeight: 22,
-                  marginBottom: 18,
-                }}
-              >
-                {resolveRouteDisplayDescription({ routeDescription: route.description }) || 'Esta ruta no tiene descripción todavía.'}
-              </Text>
-
-              <RouteDetailMap 
-                route={route} 
-                points={points} 
-                setIsMapActive={setIsMapActive} 
+              <RouteDetailOverviewSectionView
+                route={route}
+                points={points}
+                pointsLoading={pointsLoading}
+                pointsError={pointsError}
+                onPreviewImage={setPreviewImageUrl}
+                setIsMapActive={setIsMapActive}
               />
 
-              {pointsLoading ? (
-                <Text style={{ color: colors.textSecondary, marginBottom: 18 }}>
-                  Cargando trazado de la ruta...
-                </Text>
-              ) : pointsError ? (
-                <View
-                  style={{
-                    backgroundColor: colors.card,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    padding: 12,
-                    marginBottom: 18,
-                  }}
-                >
-                  <Text style={{ color: colors.danger }}>{pointsError}</Text>
-                </View>
-              ) : null}
-
-              <View
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: 18,
-                  marginBottom: 18,
+              <RouteReportsSectionView
+                reports={reports}
+                reportsLoading={reportsLoading}
+                reportsError={reportsError}
+                currentUserId={user?.id}
+                userCanReport={Boolean(user)}
+                isReportFormOpen={isReportFormOpen}
+                reportType={reportType}
+                reportStatus={reportStatus}
+                description={description}
+                trimmedDescriptionLength={trimmedDescription.length}
+                descriptionTooShort={descriptionTooShort}
+                descriptionTooLong={descriptionTooLong}
+                selectedReportPhoto={selectedReportPhoto}
+                submitError={submitError}
+                submittingReport={submittingReport}
+                reportTypeOptions={reportTypeOptions}
+                reportSeverityOptions={reportSeverityOptions}
+                onRefreshReports={() => refreshRouteDetail()}
+                onResolveReport={handleResolveReport}
+                onOpenReportForm={() => {
+                  resetReportForm()
+                  setIsReportFormOpen(true)
+                  setSubmitError(null)
                 }}
-              >
-                <RouteInfoRow
-                  label="Distancia"
-                  value={formatRouteDistance(Number(route.distance_m ?? 0))}
-                />
-
-                <RouteInfoRow
-                  label="Duración estimada"
-                  value={formatRouteDuration(Number(route.duration_s ?? 0))}
-                />
-
-                <RouteInfoRow
-                  label="Dificultad"
-                  value={route.difficulty ?? 'No definida'}
-                />
-
-                <RouteInfoRow
-                  label="Categoría"
-                  value={route.category ?? 'No definida'}
-                />
-
-                <RouteInfoRow
-                  label="Elevación"
-                  value={
-                    route.elevation_gain_m != null
-                      ? `${Number(route.elevation_gain_m).toFixed(0)} m`
-                      : 'No disponible'
-                  }
-                />
-
-                <RouteInfoRow
-                  label="Comentarios"
-                  value={route.comments_enabled ? 'Habilitados' : 'Deshabilitados'}
-                />
-              </View>
-
-              <View style={{ marginBottom: 18 }}>
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontSize: 18,
-                    fontWeight: '700',
-                    marginBottom: 12,
-                  }}
-                >
-                  Reportes recientes
-                </Text>
-
-                {reportsLoading ? (
-                  <Text style={{ color: colors.textSecondary }}>
-                    Cargando reportes...
-                  </Text>
-                ) : reportsError ? (
-                  <View
-                    style={{
-                      backgroundColor: colors.card,
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      padding: 16,
-                    }}
-                  >
-                    <Text style={{ color: colors.danger, marginBottom: 10 }}>
-                      {reportsError}
-                    </Text>
-                    <Pressable
-                      onPress={() => refreshRouteDetail()}
-                      style={{
-                        alignSelf: 'flex-start',
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        backgroundColor: colors.cardSecondary,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                      }}
-                    >
-                      <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-                        Reintentar
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : reports.length === 0 ? (
-                  <View
-                    style={{
-                      backgroundColor: colors.card,
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      padding: 16,
-                    }}
-                  >
-                    <Text style={{ color: colors.textSecondary }}>
-                      Esta ruta todavía no tiene reportes visibles.
-                    </Text>
-                  </View>
-                ) : (
-                  reports.map((report) => (
-                    <RouteReportItem 
-                      key={report.id} 
-                      report={report} 
-                      currentUserId={user?.id} 
-                      onResolve={handleResolveReport} 
-                    />
-                  ))
-                )}
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: 18,
-                  marginBottom: 18,
+                onChangeReportType={setReportType}
+                onChangeReportStatus={setReportStatus}
+                onChangeDescription={setDescription}
+                onDescriptionFocus={(event) => scrollToFocusedInput(scrollRef, event)}
+                onPreviewImage={setPreviewImageUrl}
+                onRemoveReportPhoto={() => setSelectedReportPhoto(null)}
+                onPickReportPhoto={handlePickReportPhoto}
+                onSubmitReport={handleSubmitReport}
+                onCancelReport={() => {
+                  resetReportForm()
+                  setIsReportFormOpen(false)
+                  setSubmitError(null)
                 }}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontSize: 18,
-                    fontWeight: '700',
-                    marginBottom: 10,
-                  }}
-                >
-                  Reportar condicion
-                </Text>
+              />
 
-                {!user ? (
-                  <Text style={{ color: colors.textSecondary }}>
-                    Debes iniciar sesion para enviar reportes de condicion.
-                  </Text>
-                ) : (
-                  <>
-                    {!isReportFormOpen ? (
-                      <AuthButton
-                        title="Reportar condicion"
-                        onPress={() => {
-                          resetReportForm()
-                          setIsReportFormOpen(true)
-                          setSubmitError(null)
-                        }}
-                      />
-                    ) : (
-                      <View style={{ gap: 12 }}>
-                        <Text
-                          style={{
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                          }}
-                        >
-                          Ayuda a otros usuarios describiendo el estado actual del sendero.
-                        </Text>
-
-                        <View>
-                          <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                            Tipo de condicion
-                          </Text>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                            {reportTypeOptions.map((typeOption) => {
-                              const active = reportType === typeOption
-                              return (
-                                <Pressable
-                                  key={typeOption}
-                                  onPress={() => setReportType(typeOption)}
-                                  style={{
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 9,
-                                    borderRadius: 20,
-                                    borderWidth: 1,
-                                    marginRight: 8,
-                                    marginBottom: 8,
-                                    borderColor: active ? colors.primary : colors.border,
-                                    backgroundColor: active ? colors.primary : colors.cardSecondary,
-                                  }}
-                                >
-                                  <Text
-                                    style={{
-                                      color: active ? colors.text : colors.textSecondary,
-                                      fontWeight: '600',
-                                    }}
-                                  >
-                                    {formatReportTypeLabel(typeOption)}
-                                  </Text>
-                                </Pressable>
-                              )
-                            })}
-                          </View>
-                        </View>
-
-                        <View>
-                          <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                            Severidad
-                          </Text>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                            {reportSeverityOptions.map((severityOption) => {
-                              const active = reportStatus === severityOption
-                              return (
-                                <Pressable
-                                  key={severityOption}
-                                  onPress={() => setReportStatus(severityOption)}
-                                  style={{
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 9,
-                                    borderRadius: 20,
-                                    borderWidth: 1,
-                                    marginRight: 8,
-                                    marginBottom: 8,
-                                    borderColor: active ? colors.primary : colors.border,
-                                    backgroundColor: active ? colors.primary : colors.cardSecondary,
-                                  }}
-                                >
-                                  <Text
-                                    style={{
-                                      color: active ? colors.text : colors.textSecondary,
-                                      fontWeight: '600',
-                                    }}
-                                  >
-                                    {formatSeverityLabel(severityOption)}
-                                  </Text>
-                                </Pressable>
-                              )
-                            })}
-                          </View>
-                        </View>
-
-                        <View>
-                          <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                            Descripcion
-                          </Text>
-                          <TextInput
-                            value={description}
-                            onChangeText={setDescription}
-                            onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                            placeholder="Describe la condicion actual de la ruta..."
-                            placeholderTextColor={colors.placeholder}
-                            maxLength={MAX_ROUTE_REPORT_DESCRIPTION_LENGTH}
-                            multiline
-                            textAlignVertical="top"
-                            style={{
-                              minHeight: 110,
-                              backgroundColor: colors.cardSecondary,
-                              borderWidth: 1,
-                              borderColor: colors.border,
-                              borderRadius: 12,
-                              paddingHorizontal: 12,
-                              paddingVertical: 10,
-                              color: colors.text,
-                            }}
-                          />
-                          <Text
-                            style={{
-                              marginTop: 6,
-                              color:
-                                descriptionTooShort || descriptionTooLong
-                                  ? colors.danger
-                                  : colors.textSecondary,
-                              fontSize: 12,
-                            }}
-                          >
-                            {`${trimmedDescription.length}/${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} - Minimo ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`}
-                          </Text>
-                        </View>
-
-                        {selectedReportPhoto ? (
-                          <View
-                            style={{
-                              borderRadius: 12,
-                              overflow: 'hidden',
-                              borderWidth: 1,
-                              borderColor: colors.border,
-                              backgroundColor: colors.cardSecondary,
-                            }}
-                          >
-                            <Pressable onPress={() => setPreviewImageUrl(selectedReportPhoto.uri)}>
-                              <Image
-                                source={{ uri: selectedReportPhoto.uri }}
-                                style={{ width: '100%', height: 170 }}
-                                resizeMode="cover"
-                              />
-                            </Pressable>
-                            <View
-                              style={{
-                                paddingHorizontal: 12,
-                                paddingVertical: 9,
-                                flexDirection: 'row',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                              }}
-                            >
-                              <Text
-                                style={{ color: colors.textSecondary, fontSize: 12, flex: 1 }}
-                                numberOfLines={1}
-                              >
-                                {selectedReportPhoto.fileName ?? 'Foto seleccionada'}
-                              </Text>
-                              <Pressable
-                                onPress={() => setSelectedReportPhoto(null)}
-                                style={{
-                                  marginLeft: 10,
-                                  borderRadius: 9,
-                                  borderWidth: 1,
-                                  borderColor: colors.border,
-                                  paddingHorizontal: 9,
-                                  paddingVertical: 5,
-                                  backgroundColor: colors.card,
-                                }}
-                              >
-                                <Text
-                                  style={{
-                                    color: colors.textSecondary,
-                                    fontSize: 12,
-                                    fontWeight: '600',
-                                  }}
-                                >
-                                  Quitar
-                                </Text>
-                              </Pressable>
-                            </View>
-                          </View>
-                        ) : null}
-
-                        <Pressable
-                          onPress={handlePickReportPhoto}
-                          style={{
-                            minHeight: 44,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: colors.cardSecondary,
-                          }}
-                        >
-                          <Text style={{ color: colors.textSecondary, fontWeight: '700' }}>
-                            Agregar foto (opcional)
-                          </Text>
-                        </Pressable>
-                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                          Solo JPG/PNG. Maximo {MAX_ROUTE_REPORT_IMAGE_SIZE_MB} MB.
-                        </Text>
-
-                        {submitError ? (
-                          <Text style={{ color: colors.danger }}>{submitError}</Text>
-                        ) : null}
-
-                        <AuthButton
-                          title="Enviar reporte"
-                          onPress={handleSubmitReport}
-                          loading={submittingReport}
-                        />
-
-                        <Pressable
-                          disabled={submittingReport}
-                          onPress={() => {
-                            resetReportForm()
-                            setIsReportFormOpen(false)
-                            setSubmitError(null)
-                          }}
-                          style={{
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minHeight: 44,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                            backgroundColor: colors.cardSecondary,
-                            opacity: submittingReport ? 0.6 : 1,
-                          }}
-                        >
-                          <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-                            Cancelar
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: 18,
-                  marginBottom: 18,
+              <RouteCommentsSectionView
+                comments={comments}
+                commentsLoading={commentsLoading}
+                commentsError={commentsError}
+                canRetry={Boolean(routeId)}
+                currentUserId={user?.id}
+                commentsEnabled={route.comments_enabled}
+                commentInput={commentInput}
+                trimmedCommentLength={trimmedComment.length}
+                commentTooLong={commentTooLong}
+                commentSubmitting={commentSubmitting}
+                onRetryComments={() => {
+                  if (routeId) loadComments(routeId)
                 }}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontSize: 18,
-                    fontWeight: '700',
-                    marginBottom: 10,
-                  }}
-                >
-                  Comentarios
-                </Text>
-
-                {commentsLoading ? (
-                  <Text style={{ color: colors.textSecondary }}>
-                    Cargando comentarios...
-                  </Text>
-                ) : commentsError ? (
-                  <View>
-                    <Text style={{ color: colors.danger, marginBottom: 10 }}>
-                      {commentsError}
-                    </Text>
-                    {routeId ? (
-                      <Pressable
-                        onPress={() => loadComments(routeId)}
-                        style={{
-                          alignSelf: 'flex-start',
-                          borderRadius: 10,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          backgroundColor: colors.cardSecondary,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          marginBottom: 2,
-                        }}
-                      >
-                        <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-                          Reintentar
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : comments.length === 0 ? (
-                  <Text style={{ color: colors.textSecondary }}>
-                    Aun no hay comentarios para esta ruta.
-                  </Text>
-                ) : (
-                  comments.map((comment) => {
-                    const isOwnComment = Boolean(user?.id && comment.user_id === user.id)
-                    const commentAuthor = getAuthorDisplayName(comment.author, {
-                      fallbackUsername: isOwnComment ? undefined : null,
-                    })
-
-                    return (
-                      <View
-                        key={comment.id}
-                        style={{
-                          backgroundColor: colors.cardSecondary,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                          padding: 10,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: colors.text,
-                            fontWeight: '700',
-                            marginBottom: 4,
-                          }}
-                        >
-                          {commentAuthor}
-                        </Text>
-
-                        <Text style={{ color: colors.text, marginBottom: 4 }}>
-                          {comment.content}
-                        </Text>
-
-                        <Text style={{ color: colors.textSecondary, fontSize: 11 }}>
-                          {new Date(comment.created_at).toLocaleString()}
-                        </Text>
-
-                        {!(user?.id && comment.user_id === user.id) ? (
-                          <Pressable
-                            onPress={() => handleOpenReportComment(comment)}
-                            style={{
-                              alignSelf: 'flex-start',
-                              marginTop: 8,
-                              paddingVertical: 4,
-                              paddingHorizontal: 8,
-                              borderRadius: 8,
-                              borderWidth: 1,
-                              borderColor: colors.border,
-                              backgroundColor: colors.card,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: colors.danger,
-                                fontWeight: '600',
-                                fontSize: 12,
-                              }}
-                            >
-                              Denunciar
-                            </Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    )
-                  })
-                )}
-
-                {!user ? (
-                  <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
-                    Inicia sesion para comentar.
-                  </Text>
-                ) : !route.comments_enabled ? (
-                  <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
-                    Los comentarios estan deshabilitados para esta ruta.
-                  </Text>
-                ) : (
-                  <View style={{ marginTop: 8 }}>
-                    <TextInput
-                      value={commentInput}
-                      onChangeText={setCommentInput}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Escribe un comentario sobre la ruta..."
-                      placeholderTextColor={colors.placeholder}
-                      maxLength={MAX_ROUTE_COMMENT_LENGTH}
-                      multiline
-                      textAlignVertical="top"
-                      style={{
-                        minHeight: 80,
-                        backgroundColor: colors.cardSecondary,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 12,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        color: colors.text,
-                        marginBottom: 8,
-                      }}
-                    />
-                    <Text
-                      style={{
-                        color: commentTooLong ? colors.danger : colors.textSecondary,
-                        fontSize: 12,
-                        marginBottom: 8,
-                      }}
-                    >
-                      {`${trimmedComment.length}/${MAX_ROUTE_COMMENT_LENGTH}`}
-                    </Text>
-
-                    <AuthButton
-                      title="Enviar comentario"
-                      onPress={handleSubmitRouteComment}
-                      loading={commentSubmitting}
-                    />
-                  </View>
-                )}
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  padding: 18,
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontSize: 16,
-                    fontWeight: '700',
-                    marginBottom: 10,
-                  }}
-                >
-                  Coordenadas iniciales
-                </Text>
-
-                <Text style={{ color: colors.textSecondary, marginBottom: 14 }}>
-                  {route.start_lat ?? '-'}, {route.start_lng ?? '-'}
-                </Text>
-
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontSize: 16,
-                    fontWeight: '700',
-                    marginBottom: 10,
-                  }}
-                >
-                  Coordenadas finales
-                </Text>
-
-                <Text style={{ color: colors.textSecondary }}>
-                  {route.end_lat ?? '-'}, {route.end_lng ?? '-'}
-                </Text>
-              </View>
+                onOpenReportComment={handleOpenReportComment}
+                onChangeCommentInput={setCommentInput}
+                onCommentInputFocus={(event) => scrollToFocusedInput(scrollRef, event)}
+                onSubmitComment={handleSubmitRouteComment}
+              />
             </>
           )}
         </ScrollView>
