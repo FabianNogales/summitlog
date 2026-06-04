@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { RecordedTrip } from '../types/trip'
+import { formatRecordedTripFallbackTitle } from '../utils/date'
+import { normalizeText } from '../utils/text'
 
 export interface TripHistoryStats {
   completedTrips: number
@@ -48,26 +50,6 @@ type DecoratedTrip = RecordedTrip & {
   route_publication_status?: string | null
 }
 
-function normalizeText(value?: string | null) {
-  const normalized = value?.trim() ?? ''
-  return normalized || null
-}
-
-function formatTripFallbackTitle(startedAt?: string | null) {
-  const date = startedAt ? new Date(startedAt) : null
-
-  if (date && Number.isFinite(date.getTime())) {
-    const readableDate = date.toLocaleDateString('es-BO', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    })
-    return `Recorrido del ${readableDate}`
-  }
-
-  return 'Recorrido registrado'
-}
-
 async function decorateTripsWithJournalAndRouteData(trips: RecordedTrip[]) {
   if (trips.length === 0) {
     return []
@@ -113,7 +95,14 @@ async function decorateTripsWithJournalAndRouteData(trips: RecordedTrip[]) {
       normalizeText(journal?.title) ??
       normalizeText(trip.title) ??
       normalizeText(route?.title) ??
-      formatTripFallbackTitle(trip.started_at)
+      formatRecordedTripFallbackTitle(trip.started_at, {
+        locale: 'es-BO',
+        dateOptions: {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        },
+      })
 
     const displayDescription =
       normalizeText(journal?.content) ??

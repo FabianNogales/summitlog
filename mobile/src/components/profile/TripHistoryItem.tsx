@@ -2,46 +2,23 @@ import { Pressable, Text, View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { colors } from '../../theme/colors'
 import type { RecordedTrip } from '../../types/trip'
+import { formatRecordedTripFallbackTitle } from '../../utils/date'
+import {
+  formatTripDate,
+  formatTripDistance,
+  formatTripDuration,
+} from '../../utils/tripFormat'
 
 interface TripHistoryItemProps {
   trip: RecordedTrip
   onPress: () => void
 }
 
-function formatDate(dateString: string) {
-  const date = new Date(dateString)
-  return date.toLocaleDateString()
-}
-
-function getTripTitleFallback(dateString: string) {
-  const date = new Date(dateString)
-  if (Number.isFinite(date.getTime())) {
-    return `Recorrido del ${date.toLocaleDateString()}`
-  }
-
-  return 'Recorrido registrado'
-}
-
-function formatDistance(distanceMeters: number) {
-  return `${(distanceMeters / 1000).toFixed(2)} km`
-}
-
-function formatDuration(durationSeconds: number) {
-  const minutes = Math.floor(durationSeconds / 60)
-  const hours = Math.floor(minutes / 60)
-
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`
-  }
-
-  return `${minutes} min`
-}
-
 export function TripHistoryItem({ trip, onPress }: TripHistoryItemProps) {
   const title =
     trip.display_title?.trim() ||
     trip.title?.trim() ||
-    getTripTitleFallback(trip.started_at)
+    formatRecordedTripFallbackTitle(trip.started_at)
 
   return (
     <Pressable
@@ -85,16 +62,16 @@ export function TripHistoryItem({ trip, onPress }: TripHistoryItemProps) {
           marginBottom: 12,
         }}
       >
-        {formatDate(trip.started_at)}
+        {formatTripDate(trip.started_at)}
       </Text>
 
       <View style={{ flexDirection: 'row', gap: 14 }}>
         <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-          {formatDistance(Number(trip.distance_m ?? 0))}
+          {formatTripDistance(Number(trip.distance_m ?? 0))}
         </Text>
 
         <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-          {formatDuration(Number(trip.duration_s ?? 0))}
+          {formatTripDuration(Number(trip.duration_s ?? 0))}
         </Text>
       </View>
     </Pressable>

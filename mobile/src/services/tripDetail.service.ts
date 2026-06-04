@@ -14,6 +14,8 @@ import type { Journal } from '../types/journal'
 import type { OfflineRecordedTrip, OfflineRecordedTripPoint } from '../types/offlineTrip'
 import type { RouteItem } from '../types/route'
 import type { RecordedTrip, RecordedTripPoint } from '../types/trip'
+import { formatRecordedTripFallbackTitle } from '../utils/date'
+import { normalizeText } from '../utils/text'
 
 export type TripDetailMode = 'local' | 'remote'
 
@@ -39,20 +41,6 @@ export interface TripDetailData {
   commentsEnabled: boolean | null
   maxAltitudeM: number | null
   isOffline: boolean
-}
-
-function normalizeText(value?: string | null) {
-  const normalized = value?.trim() ?? ''
-  return normalized || null
-}
-
-function formatTripFallbackTitle(startedAt?: string | null) {
-  const date = startedAt ? new Date(startedAt) : null
-  if (date && Number.isFinite(date.getTime())) {
-    return `Recorrido del ${date.toLocaleDateString('es-BO')}`
-  }
-
-  return 'Recorrido registrado'
 }
 
 function getMaxAltitudeM(points: TripDetailPoint[]) {
@@ -189,7 +177,7 @@ function buildDetailData(params: {
     journalTitle ??
     tripTitle ??
     routeTitle ??
-    formatTripFallbackTitle(params.trip.started_at)
+    formatRecordedTripFallbackTitle(params.trip.started_at, { locale: 'es-BO' })
   const description = journalContent ?? routeDescription ?? tripSummary
 
   return {

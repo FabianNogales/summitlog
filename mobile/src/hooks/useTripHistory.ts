@@ -9,6 +9,7 @@ import { getPendingOfflineTripsByUser } from '../services/offlineTrip.service'
 import { getOfflineJournalByTripId } from '../services/journal.service'
 import type { OfflineRecordedTrip } from '../types/offlineTrip'
 import type { RecordedTrip } from '../types/trip'
+import { normalizeText } from '../utils/text'
 
 const initialStats = {
   completedTrips: 0,
@@ -29,11 +30,6 @@ type TripHistoryModel = RecordedTrip & {
   route_category?: string | null
   route_difficulty?: string | null
   route_publication_status?: string | null
-}
-
-function normalizeText(value?: string | null) {
-  const normalized = value?.trim() ?? ''
-  return normalized || null
 }
 
 async function mapOfflineTripToRecordedTrip(

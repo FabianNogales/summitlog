@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase'
 import { getJournalMediaPublicUrl } from './journalMedia.service'
 import type { RouteItem, RoutePoint, RouteReport } from '../types/route'
+import { formatRecordedTripTitleFromDate } from '../utils/date'
+import { normalizeText } from '../utils/text'
 
 interface RouteJournalRow {
   id: string
@@ -21,20 +23,6 @@ interface RouteTripTitleRow {
   started_at: string | null
 }
 
-function normalizeText(value?: string | null) {
-  const normalized = value?.trim() ?? ''
-  return normalized || null
-}
-
-function formatTitleFromDate(value?: string | null) {
-  const date = value ? new Date(value) : null
-  if (date && Number.isFinite(date.getTime())) {
-    return `Recorrido del ${date.toLocaleDateString('es-BO')}`
-  }
-
-  return null
-}
-
 function getRouteDisplayTitle(params: {
   route: RouteItem
   journalTitle?: string | null
@@ -51,9 +39,9 @@ function getRouteDisplayTitle(params: {
   }
 
   return (
-    formatTitleFromDate(params.tripStartedAt) ??
-    formatTitleFromDate(params.route.published_at) ??
-    formatTitleFromDate(params.route.created_at) ??
+    formatRecordedTripTitleFromDate(params.tripStartedAt, { locale: 'es-BO' }) ??
+    formatRecordedTripTitleFromDate(params.route.published_at, { locale: 'es-BO' }) ??
+    formatRecordedTripTitleFromDate(params.route.created_at, { locale: 'es-BO' }) ??
     'Ruta sin título'
   )
 }
