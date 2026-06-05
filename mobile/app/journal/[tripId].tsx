@@ -3,42 +3,29 @@ import {
   BackHandler,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  View,
 } from 'react-native'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
-import { Feather } from '@expo/vector-icons'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 
 import { colors } from '../../src/theme/colors'
 import { useTripJournalEditor } from '../../src/hooks/useTripJournalEditor'
-import { JournalVisibilitySelector } from '../../src/components/journal/JournalVisibilitySelector'
 import { AuthButton } from '../../src/components/auth/AuthButton'
-import { formatTripDistance, formatTripDuration } from '../../src/utils/tripFormat'
 import { useJournalMedia } from '../../src/hooks/useJournalMedia'
-import { JournalMediaGrid } from '../../src/components/journal/JournalMediaGrid'
-import type { JournalDifficulty } from '../../src/types/journal'
-import {
-  FORM_SCROLL_BOTTOM_PADDING,
-  scrollToFocusedInput,
-} from '../../src/utils/keyboard'
+import { FORM_SCROLL_BOTTOM_PADDING } from '../../src/utils/keyboard'
 import { useAuth } from '../../src/hooks/useAuth'
-
-const difficultyOptions: {
-  label: string
-  value: JournalDifficulty
-}[] = [
-  { label: 'Sin definir', value: '' },
-  { label: 'Fácil', value: 'easy' },
-  { label: 'Media', value: 'medium' },
-  { label: 'Difícil', value: 'hard' },
-]
+import { JournalEditorHeader } from '../../src/components/journal/JournalEditorHeader'
+import {
+  JournalAuthLoadingState,
+  JournalEditorErrorState,
+  JournalEditorLoadingState,
+  JournalTripMissingState,
+} from '../../src/components/journal/JournalEditorStates'
+import { JournalTripSummaryCard } from '../../src/components/journal/JournalTripSummaryCard'
+import { JournalEditorForm } from '../../src/components/journal/JournalEditorForm'
+import { JournalMediaSection } from '../../src/components/journal/JournalMediaSection'
 
 export default function JournalEditorScreen() {
   const router = useRouter()
@@ -288,11 +275,7 @@ export default function JournalEditorScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {authLoading || !user ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-            Validando sesión...
-          </Text>
-        </View>
+        <JournalAuthLoadingState />
       ) : (
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -308,391 +291,58 @@ export default function JournalEditorScreen() {
             }}
             keyboardShouldPersistTaps="handled"
           >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginBottom: 24,
-              }}
-            >
-              <Pressable
-                onPress={handleBack}
-                accessibilityState={{ disabled: saving || uploading }}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: colors.card,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                  opacity: saving || uploading ? 0.65 : 1,
-                }}
-              >
-                <Feather name="arrow-left" size={18} color={colors.text} />
-              </Pressable>
-
-              <Text
-                style={{
-                  color: colors.text,
-                  fontSize: 20,
-                  fontWeight: '700',
-                }}
-              >
-                {journal ? 'Editar bitácora' : 'Crear bitácora'}
-              </Text>
-            </View>
+            <JournalEditorHeader
+              hasJournal={Boolean(journal)}
+              saving={saving}
+              uploading={uploading}
+              onBack={handleBack}
+            />
 
             {loading ? (
-              <Text style={{ color: colors.textSecondary }}>Cargando editor...</Text>
+              <JournalEditorLoadingState />
             ) : error ? (
-              <View>
-                <Text style={{ color: colors.danger, marginBottom: 10 }}>{error}</Text>
-                <Pressable
-                  onPress={refreshEditor}
-                  style={{
-                    alignSelf: 'flex-start',
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    backgroundColor: colors.cardSecondary,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                  }}
-                >
-                  <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-                    Reintentar
-                  </Text>
-                </Pressable>
-              </View>
+              <JournalEditorErrorState error={error} onRetry={refreshEditor} />
             ) : !trip ? (
-              <Text style={{ color: colors.textSecondary }}>No se encontró el recorrido.</Text>
+              <JournalTripMissingState />
             ) : (
               <>
-                <View
-                  style={{
-                    backgroundColor: colors.card,
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    padding: 18,
-                    marginBottom: 18,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: colors.text,
-                      fontSize: 18,
-                      fontWeight: '700',
-                      marginBottom: 6,
-                    }}
-                  >
-                    Recorrido completado
-                  </Text>
+                <JournalTripSummaryCard trip={trip} />
 
-                  <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>
-                    {new Date(trip.started_at).toLocaleDateString()}
-                  </Text>
+                <JournalEditorForm
+                  scrollRef={scrollRef}
+                  hasJournal={Boolean(journal)}
+                  title={title}
+                  content={content}
+                  visibility={visibility}
+                  difficulty={difficulty}
+                  category={category}
+                  commentsEnabled={commentsEnabled}
+                  formError={formError}
+                  saving={saving}
+                  uploading={uploading}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                  onChangeTitle={setTitle}
+                  onChangeContent={setContent}
+                  onChangeVisibility={setVisibility}
+                  onChangeDifficulty={setDifficulty}
+                  onChangeCategory={setCategory}
+                  onChangeCommentsEnabled={setCommentsEnabled}
+                  onClearFormError={() => setFormError(null)}
+                  onSave={handleSaveJournal}
+                />
 
-                  <Text style={{ color: colors.textSecondary }}>
-                    Distancia: {formatTripDistance(Number(trip.distance_m ?? 0))}
-                  </Text>
-
-                  <Text style={{ color: colors.textSecondary }}>
-                    Duración: {formatTripDuration(Number(trip.duration_s ?? 0))}
-                  </Text>
-                </View>
-
-                <View
-                  style={{
-                    backgroundColor: colors.card,
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    padding: 18,
-                    marginBottom: 18,
-                  }}
-                >
-                  <View style={{ marginBottom: 18 }}>
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontSize: 14,
-                        fontWeight: '600',
-                        marginBottom: 8,
-                      }}
-                    >
-                      Título
-                    </Text>
-
-                    <TextInput
-                      value={title}
-                      onChangeText={(value) => {
-                        setTitle(value)
-                        if (formError) setFormError(null)
-                      }}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Ej: Pico Tunari"
-                      placeholderTextColor={colors.placeholder}
-                      style={{
-                        backgroundColor: colors.cardSecondary,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 14,
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
-                        color: colors.text,
-                        fontSize: 15,
-                      }}
-                    />
-                  </View>
-
-                  <View style={{ marginBottom: 18 }}>
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontSize: 14,
-                        fontWeight: '600',
-                        marginBottom: 8,
-                      }}
-                    >
-                      Contenido
-                    </Text>
-
-                    <TextInput
-                      value={content}
-                      onChangeText={(value) => {
-                        setContent(value)
-                        if (formError) setFormError(null)
-                      }}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Ej: Ruta por la cara norte, con bellas vistas y cascada."
-                      placeholderTextColor={colors.placeholder}
-                      multiline
-                      textAlignVertical="top"
-                      style={{
-                        minHeight: 140,
-                        backgroundColor: colors.cardSecondary,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 14,
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
-                        color: colors.text,
-                        fontSize: 15,
-                      }}
-                    />
-                  </View>
-
-                  <View style={{ marginBottom: 18 }}>
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontSize: 14,
-                        fontWeight: '600',
-                        marginBottom: 10,
-                      }}
-                    >
-                      Dificultad
-                    </Text>
-
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                      {difficultyOptions.map((option) => {
-                        const isSelected = difficulty === option.value
-
-                        return (
-                          <Pressable
-                            key={option.value || 'undefined'}
-                            onPress={() => setDifficulty(option.value)}
-                            style={{
-                              borderRadius: 999,
-                              borderWidth: 1,
-                              borderColor: isSelected ? colors.primary : colors.border,
-                              backgroundColor: isSelected
-                                ? colors.primary
-                                : colors.cardSecondary,
-                              paddingHorizontal: 16,
-                              paddingVertical: 10,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: isSelected
-                                  ? colors.chipActiveText
-                                  : colors.textSecondary,
-                                fontWeight: '700',
-                              }}
-                            >
-                              {option.label}
-                            </Text>
-                          </Pressable>
-                        )
-                      })}
-                    </View>
-                  </View>
-
-                  <View style={{ marginBottom: 18 }}>
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontSize: 14,
-                        fontWeight: '600',
-                        marginBottom: 8,
-                      }}
-                    >
-                      Categoría
-                    </Text>
-
-                    <TextInput
-                      value={category}
-                      onChangeText={(value) => {
-                        setCategory(value)
-                        if (formError) setFormError(null)
-                      }}
-                      onFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                      placeholder="Ej: trekking, trail, senderismo"
-                      placeholderTextColor={colors.placeholder}
-                      style={{
-                        backgroundColor: colors.cardSecondary,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderRadius: 14,
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
-                        color: colors.text,
-                        fontSize: 15,
-                      }}
-                    />
-                  </View>
-
-                  <View
-                    style={{
-                      marginBottom: 18,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: colors.text,
-                        fontSize: 14,
-                        fontWeight: '600',
-                        flex: 1,
-                      }}
-                    >
-                      Habilitar comentarios
-                    </Text>
-
-                    <Switch
-                      value={commentsEnabled}
-                      onValueChange={setCommentsEnabled}
-                      trackColor={{ false: colors.cardSecondary, true: colors.primary }}
-                      thumbColor={colors.text}
-                    />
-                  </View>
-
-                  <JournalVisibilitySelector value={visibility} onChange={setVisibility} />
-
-                  {formError ? (
-                    <Text
-                      style={{
-                        color: colors.danger,
-                        fontSize: 13,
-                        marginBottom: 12,
-                      }}
-                    >
-                      {formError}
-                    </Text>
-                  ) : null}
-
-                  <AuthButton
-                    title={journal ? 'Guardar cambios' : 'Crear bitácora'}
-                    onPress={handleSaveJournal}
-                    loading={saving}
-                    disabled={uploading || saving || (journal ? !hasUnsavedChanges : false)}
-                  />
-                </View>
-
-                <View
-                  style={{
-                    backgroundColor: colors.card,
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    padding: 18,
-                    marginBottom: 18,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: colors.text,
-                      fontSize: 16,
-                      fontWeight: '700',
-                      marginBottom: 8,
-                    }}
-                  >
-                    Fotos de la bitácora
-                  </Text>
-
-                  <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
-                    {`Máximo ${maxPhotos} fotos por bitácora (${media.length}/${maxPhotos}).`}
-                  </Text>
-
-                  {!journal ? (
-                    <Text style={{ color: colors.textSecondary }}>
-                      Guarda primero la bitácora para poder adjuntar fotos.
-                    </Text>
-                  ) : (
-                    <>
-                      <View style={{ marginBottom: 16 }}>
-                        <AuthButton
-                          title="Agregar fotos"
-                          onPress={handleAddPhotos}
-                          loading={uploading}
-                          disabled={media.length >= maxPhotos || deletingMediaIds.length > 0}
-                        />
-                      </View>
-
-                      {mediaLoading ? (
-                        <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>
-                          Cargando fotos...
-                        </Text>
-                      ) : null}
-
-                      {mediaError ? (
-                        <View style={{ marginBottom: 12 }}>
-                          <Text style={{ color: colors.danger, marginBottom: 10 }}>
-                            {mediaError}
-                          </Text>
-                          <Pressable
-                            onPress={refreshMedia}
-                            style={{
-                              alignSelf: 'flex-start',
-                              borderRadius: 10,
-                              borderWidth: 1,
-                              borderColor: colors.border,
-                              backgroundColor: colors.cardSecondary,
-                              paddingHorizontal: 12,
-                              paddingVertical: 8,
-                            }}
-                          >
-                            <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>
-                              Reintentar
-                            </Text>
-                          </Pressable>
-                        </View>
-                      ) : null}
-
-                      <JournalMediaGrid
-                        media={media}
-                        deletingMediaIds={deletingMediaIds}
-                        onRemove={(item) => handleRemovePhoto(item.id)}
-                      />
-                    </>
-                  )}
-                </View>
+                <JournalMediaSection
+                  hasJournal={Boolean(journal)}
+                  media={media}
+                  mediaLoading={mediaLoading}
+                  mediaError={mediaError}
+                  uploading={uploading}
+                  deletingMediaIds={deletingMediaIds}
+                  maxPhotos={maxPhotos}
+                  onAddPhotos={handleAddPhotos}
+                  onRefreshMedia={refreshMedia}
+                  onRemovePhoto={handleRemovePhoto}
+                />
 
                 <AuthButton
                   title="Finalizar bitácora"
