@@ -127,7 +127,7 @@ export function RoutesMap({
             textAlign: 'center',
           }}
         >
-          Cuando existan rutas publicas, apareceran aqui en el mapa.
+          Cuando existan rutas públicas, aparecerán aquí en el mapa.
         </Text>
       </View>
     )
@@ -189,7 +189,7 @@ export function RoutesMap({
       if (!permission.granted) {
         Alert.alert(
           'Permiso requerido',
-          'No hay permiso de ubicacion para centrar el mapa. Habilitalo en configuracion.'
+          'No hay permiso de ubicación para centrar el mapa. Habilítalo en configuración.'
         )
         return
       }
@@ -198,7 +198,7 @@ export function RoutesMap({
       if (!servicesEnabled) {
         Alert.alert(
           'GPS desactivado',
-          'Activa el GPS del dispositivo para centrar tu ubicacion.'
+          'Activa el GPS del dispositivo para centrar tu ubicación.'
         )
         return
       }

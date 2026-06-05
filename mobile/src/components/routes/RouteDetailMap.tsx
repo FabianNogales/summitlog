@@ -77,14 +77,14 @@ export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMap
 
       if (!permission.granted) {
         setCenterMessage(
-          'No hay permiso de ubicacion para centrar el mapa. Habilitalo en configuracion.'
+          'No hay permiso de ubicación para centrar el mapa. Habilítalo en configuración.'
         )
         return
       }
 
       const servicesEnabled = await hasLocationServicesEnabled()
       if (!servicesEnabled) {
-        setCenterMessage('Activa el GPS del dispositivo para centrar tu ubicacion.')
+        setCenterMessage('Activa el GPS del dispositivo para centrar tu ubicación.')
         return
       }
 
@@ -94,7 +94,7 @@ export function RouteDetailMap({ route, points, setIsMapActive }: RouteDetailMap
         zoomLevel: 14,
         animationDuration: 260,
       })
-      setCenterMessage('Mapa centrado en tu ubicacion actual.')
+      setCenterMessage('Mapa centrado en tu ubicación actual.')
     } catch (error) {
       setCenterMessage(getLocationFailureMessage(error))
     } finally {

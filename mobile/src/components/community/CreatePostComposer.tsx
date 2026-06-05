@@ -101,7 +101,7 @@ export function CreatePostComposer({
 
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>
-            Crear publicacion
+            Crear publicación
           </Text>
           <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
             Comparte una ruta, consejo o momento de montana.
@@ -139,7 +139,7 @@ export function CreatePostComposer({
           marginBottom: 10,
         }}
       >
-        Minimo 10 caracteres.
+        Mínimo 10 caracteres.
       </Text>
 
       {selectedPostImage ? (

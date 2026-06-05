@@ -93,7 +93,7 @@ function RouteCommentsSection({
         </View>
       ) : comments.length === 0 ? (
         <Text style={{ color: colors.textSecondary }}>
-          Aun no hay comentarios para esta ruta.
+          Aún no hay comentarios para esta ruta.
         </Text>
       ) : (
         comments.map((comment) => {
@@ -164,11 +164,11 @@ function RouteCommentsSection({
 
       {!currentUserId ? (
         <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
-          Inicia sesion para comentar.
+          Inicia sesión para comentar.
         </Text>
       ) : !commentsEnabled ? (
         <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
-          Los comentarios estan deshabilitados para esta ruta.
+          Los comentarios están deshabilitados para esta ruta.
         </Text>
       ) : (
         <View style={{ marginTop: 8 }}>

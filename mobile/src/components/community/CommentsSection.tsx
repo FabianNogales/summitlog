@@ -77,7 +77,7 @@ export function CommentsSection({
         <Text style={{ color: colors.danger }}>{commentsError}</Text>
       ) : comments.length === 0 ? (
         <Text style={{ color: colors.textSecondary }}>
-          Aun no hay comentarios en esta publicacion.
+          Aún no hay comentarios en esta publicación.
         </Text>
       ) : (
         comments.map((comment) => {
@@ -243,7 +243,7 @@ export function CommentsSection({
         </View>
       ) : (
         <Text style={{ color: colors.textSecondary, marginTop: 6 }}>
-          Inicia sesion para comentar.
+          Inicia sesión para comentar.
         </Text>
       )}
       <ImagePreviewModal
