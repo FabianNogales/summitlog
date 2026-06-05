@@ -20,6 +20,11 @@ export function RoutesFiltersPanel({
   onChangeMaxDurationMin,
   onClearFilters,
 }: RoutesFiltersPanelProps) {
+  const hasActiveFilters =
+    filters.difficulty !== 'all' ||
+    Boolean(filters.maxDistanceKm) ||
+    Boolean(filters.maxDurationMin)
+
   return (
     <View
       style={{
@@ -49,17 +54,19 @@ export function RoutesFiltersPanel({
           Filtros
         </Text>
 
-        <Pressable onPress={onClearFilters}>
-          <Text
-            style={{
-              color: colors.primary,
-              fontSize: 13,
-              fontWeight: '600',
-            }}
-          >
-            Limpiar
-          </Text>
-        </Pressable>
+        {hasActiveFilters ? (
+          <Pressable onPress={onClearFilters}>
+            <Text
+              style={{
+                color: colors.primary,
+                fontSize: 13,
+                fontWeight: '600',
+              }}
+            >
+              Limpiar
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <Text

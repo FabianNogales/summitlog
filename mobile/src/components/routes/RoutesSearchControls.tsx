@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
-import { Filter, Search, SlidersHorizontal } from 'lucide-react-native'
+import { Search, SlidersHorizontal } from 'lucide-react-native'
 import { colors } from '../../theme/colors'
 import type { RouteFilters } from '../../types/routeFilters'
 
@@ -9,11 +9,7 @@ interface RoutesSearchControlsProps {
   resultCount: number
   hasActiveFilters: boolean
   showAdvancedFilters: boolean
-  difficultyLabel: string
   onChangeSearchQuery: (value: string) => void
-  onCycleDifficulty: () => void
-  onCycleMaxDistance: () => void
-  onCycleMaxDuration: () => void
   onToggleAdvancedFilters: () => void
   onClearFilters: () => void
 }
@@ -24,14 +20,31 @@ export function RoutesSearchControls({
   resultCount,
   hasActiveFilters,
   showAdvancedFilters,
-  difficultyLabel,
   onChangeSearchQuery,
-  onCycleDifficulty,
-  onCycleMaxDistance,
-  onCycleMaxDuration,
   onToggleAdvancedFilters,
   onClearFilters,
 }: RoutesSearchControlsProps) {
+  const difficultyLabels = {
+    easy: 'Fácil',
+    medium: 'Media',
+    hard: 'Difícil',
+  } as const
+  const activeFilterLabels: string[] = []
+
+  if (filters.difficulty !== 'all') {
+    activeFilterLabels.push(`dificultad ${difficultyLabels[filters.difficulty]}`)
+  }
+
+  if (filters.maxDistanceKm) {
+    activeFilterLabels.push(`distancia hasta ${filters.maxDistanceKm} km`)
+  }
+
+  if (filters.maxDurationMin) {
+    activeFilterLabels.push(`duración hasta ${filters.maxDurationMin} min`)
+  }
+
+  const customFiltersChipActive = showAdvancedFilters || hasActiveFilters
+
   return (
     <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
       <View
@@ -68,103 +81,10 @@ export function RoutesSearchControls({
         contentContainerStyle={{ paddingRight: 16 }}
       >
         <Pressable
-          onPress={onCycleDifficulty}
-          style={{
-            backgroundColor:
-              filters.difficulty !== 'all' ? colors.chipActiveBg : colors.cardSecondary,
-            borderColor:
-              filters.difficulty !== 'all' ? colors.chipActiveBg : colors.border,
-            borderWidth: 1,
-            borderRadius: 16,
-            minHeight: 40,
-            paddingHorizontal: 12,
-            marginRight: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <Filter
-            size={13}
-            color={filters.difficulty !== 'all' ? colors.chipActiveText : colors.textSecondary}
-          />
-          <Text
-            style={{
-              color:
-                filters.difficulty !== 'all' ? colors.chipActiveText : colors.textSecondary,
-              fontSize: 14,
-              fontWeight: '600',
-              marginLeft: 7,
-            }}
-          >
-            Dificultad
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onCycleMaxDistance}
-          style={{
-            backgroundColor: filters.maxDistanceKm ? colors.chipActiveBg : colors.cardSecondary,
-            borderColor: filters.maxDistanceKm ? colors.chipActiveBg : colors.border,
-            borderWidth: 1,
-            borderRadius: 16,
-            minHeight: 40,
-            paddingHorizontal: 12,
-            marginRight: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <Filter
-            size={13}
-            color={filters.maxDistanceKm ? colors.chipActiveText : colors.textSecondary}
-          />
-          <Text
-            style={{
-              color: filters.maxDistanceKm ? colors.chipActiveText : colors.textSecondary,
-              fontSize: 14,
-              fontWeight: '600',
-              marginLeft: 7,
-            }}
-          >
-            Distancia
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onCycleMaxDuration}
-          style={{
-            backgroundColor: filters.maxDurationMin ? colors.chipActiveBg : colors.cardSecondary,
-            borderColor: filters.maxDurationMin ? colors.chipActiveBg : colors.border,
-            borderWidth: 1,
-            borderRadius: 16,
-            minHeight: 40,
-            paddingHorizontal: 12,
-            marginRight: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <Filter
-            size={13}
-            color={filters.maxDurationMin ? colors.chipActiveText : colors.textSecondary}
-          />
-          <Text
-            style={{
-              color: filters.maxDurationMin ? colors.chipActiveText : colors.textSecondary,
-              fontSize: 14,
-              fontWeight: '600',
-              marginLeft: 7,
-            }}
-          >
-            Duración
-          </Text>
-        </Pressable>
-
-        <Pressable
           onPress={onToggleAdvancedFilters}
           style={{
-            backgroundColor: showAdvancedFilters ? colors.chipActiveBg : colors.cardSecondary,
-            borderColor: showAdvancedFilters ? colors.chipActiveBg : colors.border,
+            backgroundColor: customFiltersChipActive ? colors.chipActiveBg : colors.cardSecondary,
+            borderColor: customFiltersChipActive ? colors.chipActiveBg : colors.border,
             borderWidth: 1,
             borderRadius: 16,
             minHeight: 40,
@@ -176,11 +96,11 @@ export function RoutesSearchControls({
         >
           <SlidersHorizontal
             size={13}
-            color={showAdvancedFilters ? colors.chipActiveText : colors.textSecondary}
+            color={customFiltersChipActive ? colors.chipActiveText : colors.textSecondary}
           />
           <Text
             style={{
-              color: showAdvancedFilters ? colors.chipActiveText : colors.textSecondary,
+              color: customFiltersChipActive ? colors.chipActiveText : colors.textSecondary,
               fontSize: 14,
               fontWeight: '600',
               marginLeft: 7,
@@ -218,10 +138,7 @@ export function RoutesSearchControls({
         {resultCount} rutas encontradas
       </Text>
 
-      {(filters.difficulty !== 'all' ||
-        filters.maxDistanceKm ||
-        filters.maxDurationMin ||
-        searchQuery.trim()) && (
+      {hasActiveFilters ? (
         <Text
           style={{
             color: colors.textMuted,
@@ -229,11 +146,9 @@ export function RoutesSearchControls({
             marginTop: 4,
           }}
         >
-          {`Filtros activos: dificultad ${difficultyLabel}${
-            searchQuery.trim() ? `, busqueda "${searchQuery.trim()}"` : ''
-          }`}
+          {`Filtros activos: ${activeFilterLabels.join(', ')}`}
         </Text>
-      )}
+      ) : null}
     </View>
   )
 }

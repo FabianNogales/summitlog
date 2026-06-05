@@ -16,7 +16,6 @@ interface RoutesListProps {
   loading: boolean
   error: string | null
   onPressRoute: (route: RouteItem) => void
-  onPreviewImage: (imageUrl: string) => void
 }
 
 function getRouteDisplayTitle(route: RouteItem) {
@@ -38,11 +37,9 @@ function getRouteDisplayImageUrl(route: RouteItem) {
 function RouteListCard({
   route,
   onPressRoute,
-  onPreviewImage,
 }: {
   route: RouteItem
   onPressRoute: (route: RouteItem) => void
-  onPreviewImage: (imageUrl: string) => void
 }) {
   const displayImageUrl = getRouteDisplayImageUrl(route)
 
@@ -59,13 +56,11 @@ function RouteListCard({
       }}
     >
       {displayImageUrl ? (
-        <Pressable onPress={() => onPreviewImage(displayImageUrl)}>
-          <Image
-            source={{ uri: displayImageUrl }}
-            style={{ width: '100%', height: 120 }}
-            resizeMode="cover"
-          />
-        </Pressable>
+        <Image
+          source={{ uri: displayImageUrl }}
+          style={{ width: '100%', height: 120 }}
+          resizeMode="cover"
+        />
       ) : (
         <View
           style={{
@@ -123,7 +118,6 @@ export function RoutesList({
   loading,
   error,
   onPressRoute,
-  onPreviewImage,
 }: RoutesListProps) {
   return (
     <ScrollView
@@ -143,7 +137,6 @@ export function RoutesList({
             key={route.id}
             route={route}
             onPressRoute={onPressRoute}
-            onPreviewImage={onPreviewImage}
           />
         ))
       )}
