@@ -2,12 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
-  RefreshControl,
   ScrollView,
-  Text,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -15,11 +11,7 @@ import * as ImagePicker from 'expo-image-picker'
 
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
-import {
-  createPost,
-  getPostMediaPublicUrl,
-  getPosts,
-} from '../../src/services/post.service'
+import { createPost, getPosts } from '../../src/services/post.service'
 import type { SocialPost } from '../../src/types/post'
 import {
   createPostComment,
@@ -34,23 +26,15 @@ import type {
   ContentReportTargetType,
 } from '../../src/types/contentReport'
 import {
-  FORM_SCROLL_BOTTOM_PADDING,
-  scrollToFocusedInput,
-} from '../../src/utils/keyboard'
-import { getAuthorDisplayName } from '../../src/utils/displayName'
-import {
   CommunityHeader,
   type CommunityView,
 } from '../../src/components/community/CommunityHeader'
-import {
-  CreatePostComposer,
-  type DraftPostImage,
-} from '../../src/components/community/CreatePostComposer'
-import { PostCard } from '../../src/components/community/PostCard'
-import { CommentsSection } from '../../src/components/community/CommentsSection'
+import type { DraftPostImage } from '../../src/components/community/CreatePostComposer'
+import { CommunityFeedSection } from '../../src/components/community/CommunityFeedSection'
+import { CommunityCreatePostModal } from '../../src/components/community/CommunityCreatePostModal'
+import { CommunityCreateOutingModal } from '../../src/components/community/CommunityCreateOutingModal'
 
 import { GroupOutingsView } from '../../src/components/community/GroupOutingsView'
-import { CreateOutingComposer } from '../../src/components/community/CreateOutingComposer'
 import { groupOutingService } from '../../src/services/groupOuting.service'
 
 interface ReportTargetDraft {
@@ -466,130 +450,27 @@ export default function HomeScreen() {
           />
         </View>
         {activeView === 'feed' ? (
-          <ScrollView
-            ref={outerScrollRef}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
-            }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshingFeed}
-                onRefresh={handleRefreshFeed}
-                tintColor={colors.primary}
-              />
-            }
-          >
-            {feedLoading ? (
-              <View
-                style={{
-                  backgroundColor: colors.cardSecondary,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 14,
-                  padding: 16,
-                  marginTop: 4,
-                }}
-              >
-                <Text style={{ color: colors.textSecondary }}>Cargando publicaciones...</Text>
-              </View>
-            ) : feedError ? (
-              <View
-                style={{
-                  backgroundColor: colors.cardSecondary,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 14,
-                  padding: 16,
-                  marginTop: 4,
-                }}
-              >
-                <Text style={{ color: colors.danger }}>{feedError}</Text>
-              </View>
-            ) : !hasFeedData ? (
-              <View
-                style={{
-                  backgroundColor: colors.cardSecondary,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 14,
-                  padding: 16,
-                  marginTop: 4,
-                }}
-              >
-                <Text style={{ color: colors.textSecondary }}>
-                  Aun no hay publicaciones de la comunidad.
-                </Text>
-              </View>
-            ) : (
-              posts.map((post) => {
-                const isOwnPost = Boolean(user?.id && post.user_id === user.id)
-                const authorName = getAuthorDisplayName(post.author, {
-                  fallbackUsername: isOwnPost ? profile?.username : null,
-                })
-                const isExpanded = expandedPostId === post.id
-                const comments = commentsByPostId[post.id] ?? []
-                const commentsLoading = commentsLoadingByPostId[post.id] ?? false
-                const commentsError = commentsErrorByPostId[post.id]
-                const commentInput = commentInputByPostId[post.id] ?? ''
-                const commentSubmitting = commentSubmittingByPostId[post.id] ?? false
-                const postImage = (post.media ?? []).length > 0 ? post.media?.[0] : null
-                const postImageUrl = getPostMediaPublicUrl(postImage?.file_path)
-
-                return (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    authorName={authorName}
-                    isOwnPost={isOwnPost}
-                    postImageUrl={postImageUrl}
-                    isExpanded={isExpanded}
-                    onToggleComments={() => handleToggleComments(post.id)}
-                    onReportPost={() =>
-                      handleOpenReportModal(
-                        'post',
-                        post.id,
-                        `publicacion de ${authorName}`,
-                        post.user_id
-                      )
-                    }
-                    commentsSection={
-                      <CommentsSection
-                        comments={comments}
-                        commentsLoading={commentsLoading}
-                        commentsError={commentsError}
-                        commentInput={commentInput}
-                        commentSubmitting={commentSubmitting}
-                        userLoggedIn={Boolean(user)}
-                        currentUserId={user?.id}
-                        fallbackUsername={profile?.username ?? null}
-                        maxCommentLength={MAX_POST_COMMENT_LENGTH}
-                        onUpdateCommentInput={(value) => updateCommentInput(post.id, value)}
-                        onCreateComment={() => handleCreateComment(post.id)}
-                        onCommentInputFocus={(event) =>
-                          scrollToFocusedInput(outerScrollRef, event)
-                        }
-                        onReportComment={(
-                          commentId,
-                          commentAuthorName,
-                          commentOwnerId
-                        ) =>
-                          handleOpenReportModal(
-                            'comment',
-                            commentId,
-                            `comentario de ${commentAuthorName}`,
-                            commentOwnerId
-                          )
-                        }
-                      />
-                    }
-                  />
-                )
-              })
-            )}
-          </ScrollView>
+          <CommunityFeedSection
+            scrollRef={outerScrollRef}
+            posts={posts}
+            feedLoading={feedLoading}
+            feedError={feedError}
+            refreshingFeed={refreshingFeed}
+            hasFeedData={hasFeedData}
+            userId={user?.id}
+            fallbackUsername={profile?.username ?? null}
+            expandedPostId={expandedPostId}
+            commentsByPostId={commentsByPostId}
+            commentsLoadingByPostId={commentsLoadingByPostId}
+            commentsErrorByPostId={commentsErrorByPostId}
+            commentInputByPostId={commentInputByPostId}
+            commentSubmittingByPostId={commentSubmittingByPostId}
+            onRefresh={handleRefreshFeed}
+            onToggleComments={handleToggleComments}
+            onUpdateCommentInput={updateCommentInput}
+            onCreateComment={handleCreateComment}
+            onOpenReportModal={handleOpenReportModal}
+          />
         ) : (
           <View style={{ flex: 1, paddingHorizontal: 16 }}>
             <GroupOutingsView refreshTrigger={outingsRefreshTrigger} />
@@ -597,60 +478,22 @@ export default function HomeScreen() {
         )}
       </KeyboardAvoidingView>
 
-      <Modal
+      <CommunityCreatePostModal
         visible={composerVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setComposerVisible(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.overlay,
-            justifyContent: 'flex-end',
-          }}
-        >
-          <Pressable onPress={() => setComposerVisible(false)} style={{ flex: 1 }} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
-              ref={composerScrollRef}
-              style={{
-                backgroundColor: colors.background,
-                borderTopLeftRadius: 22,
-                borderTopRightRadius: 22,
-                maxHeight: '88%',
-              }}
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingTop: 16,
-                paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
-              }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <CreatePostComposer
-                displayName={composerDisplayName}
-                avatarUrl={profile?.avatar_url}
-                content={content}
-                contentTooShort={contentTooShort}
-                selectedPostImage={selectedPostImage}
-                submitting={submitting}
-                submitError={submitError}
-                onChangeContent={setContent}
-                onInputFocus={(event) =>
-                  scrollToFocusedInput(composerScrollRef, event)
-                }
-                onPickImage={handlePickPostImage}
-                onRemoveImage={() => setSelectedPostImage(null)}
-                onSubmit={handleCreatePost}
-                onCancel={() => setComposerVisible(false)}
-              />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+        scrollRef={composerScrollRef}
+        displayName={composerDisplayName}
+        avatarUrl={profile?.avatar_url}
+        content={content}
+        contentTooShort={contentTooShort}
+        selectedPostImage={selectedPostImage}
+        submitting={submitting}
+        submitError={submitError}
+        onClose={() => setComposerVisible(false)}
+        onChangeContent={setContent}
+        onPickImage={handlePickPostImage}
+        onRemoveImage={() => setSelectedPostImage(null)}
+        onSubmit={handleCreatePost}
+      />
       <ContentReportModal
         visible={Boolean(reportTargetDraft)}
         targetLabel={reportTargetDraft?.targetLabel ?? 'contenido'}
@@ -663,51 +506,13 @@ export default function HomeScreen() {
         onClose={handleCloseReportModal}
         onSubmit={handleSubmitReport}
       />
-      <Modal
+      <CommunityCreateOutingModal
         visible={outingComposerVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOutingComposerVisible(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.overlay,
-            justifyContent: 'flex-end',
-          }}
-        >
-          <Pressable
-            onPress={() => !outingSubmitting && setOutingComposerVisible(false)}
-            style={{ flex: 1 }}
-          />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
-              style={{
-                backgroundColor: colors.background,
-                borderTopLeftRadius: 22,
-                borderTopRightRadius: 22,
-                maxHeight: '90%',
-              }}
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingTop: 16,
-                paddingBottom: FORM_SCROLL_BOTTOM_PADDING,
-              }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <CreateOutingComposer
-                submitting={outingSubmitting}
-                submitError={outingSubmitError}
-                onSubmit={handleCreateOuting}
-                onCancel={() => setOutingComposerVisible(false)}
-              />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+        submitting={outingSubmitting}
+        submitError={outingSubmitError}
+        onClose={() => setOutingComposerVisible(false)}
+        onSubmit={handleCreateOuting}
+      />
     </SafeAreaView>
   )
 }
