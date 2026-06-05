@@ -85,7 +85,7 @@ export default function TripDetailScreen() {
 
     if (!currentTripId || !user?.id || !canDeleteTrip) {
       Alert.alert(
-        'Accion no disponible',
+        'Acción no disponible',
         'No tienes permisos para eliminar este recorrido.'
       )
       return
@@ -93,7 +93,7 @@ export default function TripDetailScreen() {
 
     Alert.alert(
       'Eliminar recorrido',
-      'Esta accion quitara el recorrido de tu historial y ocultara su ruta publica si existe. No se puede deshacer desde la app.',
+      'Esta acción quitará el recorrido de tu historial y ocultará su ruta pública si existe. No se puede deshacer desde la app.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {

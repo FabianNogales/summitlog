@@ -119,7 +119,7 @@ export function CommunityFeedSection({
           }}
         >
           <Text style={{ color: colors.textSecondary }}>
-            Aun no hay publicaciones de la comunidad.
+            Aún no hay publicaciones de la comunidad.
           </Text>
         </View>
       ) : (
@@ -150,7 +150,7 @@ export function CommunityFeedSection({
                 onOpenReportModal(
                   'post',
                   post.id,
-                  `publicacion de ${authorName}`,
+                  `publicación de ${authorName}`,
                   post.user_id
                 )
               }

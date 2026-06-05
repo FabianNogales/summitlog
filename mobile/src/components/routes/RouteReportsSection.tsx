@@ -63,7 +63,7 @@ function formatReportTypeLabel(reportType: RouteReportType) {
     case 'broken_bridge':
       return 'Puente roto'
     case 'bad_signage':
-      return 'Mala senalizacion'
+      return 'Mala señalización'
     default:
       return 'Otro'
   }
@@ -172,7 +172,7 @@ function RouteReportsSection({
             }}
           >
             <Text style={{ color: colors.textSecondary }}>
-              Esta ruta todavÃ­a no tiene reportes visibles.
+              Esta ruta todavía no tiene reportes visibles.
             </Text>
           </View>
         ) : (
@@ -205,18 +205,18 @@ function RouteReportsSection({
             marginBottom: 10,
           }}
         >
-          Reportar condicion
+          Reportar condición
         </Text>
 
         {!userCanReport ? (
           <Text style={{ color: colors.textSecondary }}>
-            Debes iniciar sesion para enviar reportes de condicion.
+            Debes iniciar sesión para enviar reportes de condición.
           </Text>
         ) : (
           <>
             {!isReportFormOpen ? (
               <AuthButton
-                title="Reportar condicion"
+                title="Reportar condición"
                 onPress={onOpenReportForm}
               />
             ) : (
@@ -232,7 +232,7 @@ function RouteReportsSection({
 
                 <View>
                   <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                    Tipo de condicion
+                    Tipo de condición
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                     {reportTypeOptions.map((typeOption) => {
@@ -304,13 +304,13 @@ function RouteReportsSection({
 
                 <View>
                   <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                    Descripcion
+                    Descripción
                   </Text>
                   <TextInput
                     value={description}
                     onChangeText={onChangeDescription}
                     onFocus={onDescriptionFocus}
-                    placeholder="Describe la condicion actual de la ruta..."
+                    placeholder="Describe la condición actual de la ruta..."
                     placeholderTextColor={colors.placeholder}
                     maxLength={MAX_ROUTE_REPORT_DESCRIPTION_LENGTH}
                     multiline
@@ -336,7 +336,7 @@ function RouteReportsSection({
                       fontSize: 12,
                     }}
                   >
-                    {`${trimmedDescriptionLength}/${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} - Minimo ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`}
+                    {`${trimmedDescriptionLength}/${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} - Mínimo ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`}
                   </Text>
                 </View>
 
@@ -415,7 +415,7 @@ function RouteReportsSection({
                   </Text>
                 </Pressable>
                 <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                  Solo JPG/PNG. Maximo {MAX_ROUTE_REPORT_IMAGE_SIZE_MB} MB.
+                  Solo JPG/PNG. Máximo {MAX_ROUTE_REPORT_IMAGE_SIZE_MB} MB.
                 </Text>
 
                 {submitError ? (

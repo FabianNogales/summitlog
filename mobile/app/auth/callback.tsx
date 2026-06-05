@@ -120,7 +120,7 @@ export default function AuthCallbackScreen() {
           paddingHorizontal: 24,
         }}
       >
-        <Text>Procesando inicio de sesion...</Text>
+        <Text>Procesando inicio de sesión...</Text>
       </View>
     </SafeAreaView>
   )

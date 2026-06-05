@@ -32,7 +32,7 @@ export function useRouteDetail(routeId?: string) {
       setRoute(null)
       setPoints([])
       setReports([])
-      setError('No se encontro el identificador de la ruta.')
+      setError('No se encontró el identificador de la ruta.')
       setPointsError(null)
       setReportsError(null)
       setPointsLoading(false)

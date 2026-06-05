@@ -158,7 +158,7 @@ export function ContentReportModal({
               </View>
 
               <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Descripcion (opcional)
+                Descripción (opcional)
               </Text>
 
               <TextInput

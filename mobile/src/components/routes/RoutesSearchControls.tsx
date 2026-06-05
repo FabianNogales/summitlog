@@ -156,7 +156,7 @@ export function RoutesSearchControls({
               marginLeft: 7,
             }}
           >
-            Duracion
+            Duración
           </Text>
         </Pressable>
 

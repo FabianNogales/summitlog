@@ -94,7 +94,7 @@ export function PostCard({
         {isOwnPost ? (
           <Pressable onPress={onDeletePost} hitSlop={8}>
             <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>
-              Eliminar publicacion
+              Eliminar publicación
             </Text>
           </Pressable>
         ) : (

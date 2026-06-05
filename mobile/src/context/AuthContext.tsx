@@ -69,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error: any) {
       setProfile(null)
       setProfileLoadError(
-        'No se pudo cargar tu perfil. Intenta cerrar sesion e iniciar nuevamente.'
+        'No se pudo cargar tu perfil. Intenta cerrar sesión e iniciar nuevamente.'
       )
       console.log(
         '[AuthContext] ensureProfile error:',
@@ -169,10 +169,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null)
       setProfile(null)
       setProfileLoadError(
-        'La cuenta se creo, pero no se pudo completar el perfil.'
+        'La cuenta se creó, pero no se pudo completar el perfil.'
       )
       throw new Error(
-        'La cuenta se creo, pero no se pudo completar el perfil. Cerramos la sesion para evitar un estado incompleto. Intenta iniciar sesion nuevamente.'
+        'La cuenta se creó, pero no se pudo completar el perfil. Cerramos la sesión para evitar un estado incompleto. Intenta iniciar sesión nuevamente.'
       )
     }
 

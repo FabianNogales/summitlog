@@ -249,7 +249,7 @@ function RouteDetailOverviewSection({
         }}
       >
         {resolveRouteDisplayDescription({ routeDescription: route.description }) ||
-          'Esta ruta no tiene descripciÃ³n todavÃ­a.'}
+          'Esta ruta no tiene descripción todavía.'}
       </Text>
 
       <RouteDetailMap
@@ -293,7 +293,7 @@ function RouteDetailOverviewSection({
         />
 
         <RouteInfoRow
-          label="DuraciÃ³n estimada"
+          label="Duración estimada"
           value={formatRouteDuration(Number(route.duration_s ?? 0))}
         />
 
@@ -303,12 +303,12 @@ function RouteDetailOverviewSection({
         />
 
         <RouteInfoRow
-          label="CategorÃ­a"
+          label="Categoría"
           value={route.category ?? 'No definida'}
         />
 
         <RouteInfoRow
-          label="ElevaciÃ³n"
+          label="Elevación"
           value={
             route.elevation_gain_m != null
               ? `${Number(route.elevation_gain_m).toFixed(0)} m`

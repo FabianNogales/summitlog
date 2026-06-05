@@ -59,7 +59,7 @@ export function TrackingMap({
       if (!permission.granted) {
         Alert.alert(
           'Permiso requerido',
-          'No hay permiso de ubicacion para centrar. Habilitalo en configuracion.'
+          'No hay permiso de ubicación para centrar. Habilítalo en configuración.'
         )
         return
       }
@@ -69,7 +69,7 @@ export function TrackingMap({
       if (!servicesEnabled) {
         Alert.alert(
           'GPS desactivado',
-          'Activa el GPS del dispositivo para centrar tu ubicacion.'
+          'Activa el GPS del dispositivo para centrar tu ubicación.'
         )
         return
       }

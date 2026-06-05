@@ -42,7 +42,7 @@ export function useUserStats() {
       setStats(userStats)
       setPendingSyncCount(pendingTrips.length)
     } catch (catchError: any) {
-      setError(catchError?.message ?? 'No se pudieron cargar las estadisticas')
+      setError(catchError?.message ?? 'No se pudieron cargar las estadísticas')
       setStats(initialStats)
       setPendingSyncCount(0)
     } finally {
