@@ -4,9 +4,12 @@ import * as FileSystem from 'expo-file-system/legacy'
 
 import { getOfflineDb } from '../services/offlineDb.service'
 import {
+  deleteJournalMedia,
+  getJournalMediaByJournalId,
   MAX_JOURNAL_IMAGE_SIZE_BYTES,
   MAX_JOURNAL_IMAGE_SIZE_MB,
   MAX_JOURNAL_PHOTOS,
+  uploadJournalImage,
 } from '../services/journalMedia.service'
 import type { JournalMedia } from '../types/journal'
 
@@ -28,6 +31,12 @@ interface PickAndUploadResult {
 interface RemoveMediaResult {
   orphanedFilePath: string | null
   storageDeleted: boolean
+}
+
+interface UseJournalMediaParams {
+  journalId?: string
+  mode: 'local' | 'remote'
+  userId?: string | null
 }
 
 interface OfflineJournalMediaRow {
@@ -151,7 +160,11 @@ async function getAssetSize(asset: ImagePicker.ImagePickerAsset) {
   return 0
 }
 
-export function useJournalMedia(journalLocalId?: string) {
+export function useJournalMedia(params?: UseJournalMediaParams) {
+  const journalId = params?.journalId
+  const mode = params?.mode ?? 'local'
+  const userId = params?.userId ?? null
+
   const [media, setMedia] = useState<JournalMedia[]>([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -159,7 +172,7 @@ export function useJournalMedia(journalLocalId?: string) {
   const [deletingMediaIds, setDeletingMediaIds] = useState<string[]>([])
 
   const loadMedia = useCallback(async () => {
-    if (!journalLocalId) {
+    if (!journalId) {
       setMedia([])
       setError(null)
       return
@@ -168,6 +181,12 @@ export function useJournalMedia(journalLocalId?: string) {
     try {
       setLoading(true)
       setError(null)
+
+      if (mode === 'remote') {
+        const remoteMedia = await getJournalMediaByJournalId(journalId)
+        setMedia(remoteMedia)
+        return
+      }
 
       const db = await getOfflineDb()
 
@@ -178,7 +197,7 @@ export function useJournalMedia(journalLocalId?: string) {
           WHERE local_journal_id = ?
           ORDER BY sort_order ASC, created_at ASC
         `,
-        [journalLocalId]
+        [journalId]
       )
 
       setMedia(rows.map(mapLocalMediaToJournalMedia))
@@ -188,14 +207,14 @@ export function useJournalMedia(journalLocalId?: string) {
     } finally {
       setLoading(false)
     }
-  }, [journalLocalId])
+  }, [journalId, mode])
 
   useEffect(() => {
     loadMedia()
   }, [loadMedia])
 
   async function pickAndUploadImages(): Promise<PickAndUploadResult> {
-    if (!journalLocalId) {
+    if (!journalId) {
       throw new Error('Primero debes guardar la bitácora.')
     }
 
@@ -231,8 +250,63 @@ export function useJournalMedia(journalLocalId?: string) {
       setUploading(true)
       setError(null)
 
+      if (mode === 'remote') {
+        if (!userId) {
+          throw new Error('Debes iniciar sesión.')
+        }
+
+        let uploadedCount = 0
+        const failures: MediaFailure[] = []
+        let sortBase = media.length
+
+        for (let index = 0; index < selectedAssets.length; index += 1) {
+          const asset = selectedAssets[index]
+          const fileName = asset.fileName?.trim() || `imagen-${Date.now()}-${index + 1}.jpg`
+
+          try {
+            if (!isSupportedImage(asset)) {
+              throw new Error('Solo se permiten imágenes JPG o PNG.')
+            }
+
+            const fileSize = await getAssetSize(asset)
+
+            if (fileSize > MAX_JOURNAL_IMAGE_SIZE_BYTES) {
+              throw new Error(`Cada imagen debe pesar menos de ${MAX_JOURNAL_IMAGE_SIZE_MB} MB.`)
+            }
+
+            await uploadJournalImage({
+              journalId,
+              userId,
+              fileUri: asset.uri,
+              fileName,
+              mimeType: asset.mimeType,
+              sortOrder: sortBase,
+            })
+
+            uploadedCount += 1
+            sortBase += 1
+          } catch (itemError) {
+            failures.push({
+              index: index + 1,
+              fileName,
+              reason: mapUploadError(itemError),
+            })
+          }
+        }
+
+        if (uploadedCount > 0) {
+          await loadMedia()
+        }
+
+        return {
+          uploadedCount,
+          failedCount: failures.length,
+          failures,
+        }
+      }
+
       const db = await getOfflineDb()
-      const directory = await ensureJournalMediaDirectory(journalLocalId)
+      const directory = await ensureJournalMediaDirectory(journalId)
 
       let uploadedCount = 0
       const failures: MediaFailure[] = []
@@ -283,7 +357,7 @@ export function useJournalMedia(journalLocalId?: string) {
             [
               localId,
               null,
-              journalLocalId,
+              journalId,
               localPath,
               null,
               fileName,
@@ -301,7 +375,7 @@ export function useJournalMedia(journalLocalId?: string) {
               SET sync_status = ?, updated_at = ?
               WHERE local_id = ?
             `,
-            ['pending', now, journalLocalId]
+            ['pending', now, journalId]
           )
 
           uploadedCount += 1
@@ -330,7 +404,7 @@ export function useJournalMedia(journalLocalId?: string) {
   }
 
   async function removeMedia(item: JournalMedia): Promise<RemoveMediaResult> {
-    if (!journalLocalId) {
+    if (!journalId) {
       throw new Error('No se encontró la bitácora para eliminar la foto.')
     }
 
@@ -338,6 +412,18 @@ export function useJournalMedia(journalLocalId?: string) {
     setError(null)
 
     try {
+      if (mode === 'remote') {
+        const result = await deleteJournalMedia({
+          mediaId: item.id,
+          journalId,
+          filePath: item.file_path,
+        })
+
+        await loadMedia()
+
+        return result
+      }
+
       const db = await getOfflineDb()
 
       const row = await db.getFirstAsync<OfflineJournalMediaRow>(
@@ -347,7 +433,7 @@ export function useJournalMedia(journalLocalId?: string) {
           WHERE local_id = ?
           AND local_journal_id = ?
         `,
-        [item.id, journalLocalId]
+        [item.id, journalId]
       )
 
       if (!row) {
@@ -360,7 +446,7 @@ export function useJournalMedia(journalLocalId?: string) {
           WHERE local_id = ?
           AND local_journal_id = ?
         `,
-        [item.id, journalLocalId]
+        [item.id, journalId]
       )
 
       const fileInfo = await FileSystem.getInfoAsync(row.local_path)

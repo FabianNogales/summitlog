@@ -65,10 +65,10 @@ export default function JournalEditorScreen() {
     refreshEditor,
   } = useTripJournalEditor(tripId)
 
-  const journalMediaId = journal
+  const journalMediaParams = journal
     ? 'local_id' in journal
-      ? journal.local_id
-      : journal.id
+      ? { journalId: journal.local_id, mode: 'local' as const }
+      : { journalId: journal.id, mode: 'remote' as const, userId: user?.id }
     : undefined
 
   const {
@@ -81,7 +81,7 @@ export default function JournalEditorScreen() {
     removeMedia,
     refreshMedia,
     maxPhotos,
-  } = useJournalMedia(journalMediaId)
+  } = useJournalMedia(journalMediaParams)
 
   useFocusEffect(
     useCallback(() => {
