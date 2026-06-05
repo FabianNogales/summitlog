@@ -82,7 +82,7 @@ function mapUploadError(error: unknown) {
   const normalized = message.toLowerCase()
 
   if (normalized.includes('bucket') && normalized.includes('not found')) {
-    return `No se encontro el bucket de fotos para reportes (${ROUTE_REPORT_MEDIA_BUCKET}).`
+    return `No se encontró el bucket de fotos para reportes (${ROUTE_REPORT_MEDIA_BUCKET}).`
   }
 
   if (
@@ -189,23 +189,23 @@ export async function createRouteReport(input: CreateRouteReportInput) {
 
   const currentUser = authData.user
   if (!currentUser) {
-    throw new Error('Debes iniciar sesion para reportar una condicion.')
+    throw new Error('Debes iniciar sesión para reportar una condición.')
   }
 
   const normalizedDescription = input.description.trim()
   if (!normalizedDescription) {
-    throw new Error('La descripcion del reporte es obligatoria.')
+    throw new Error('La descripción del reporte es obligatoria.')
   }
 
   if (normalizedDescription.length < MIN_ROUTE_REPORT_DESCRIPTION_LENGTH) {
     throw new Error(
-      `La descripcion debe tener al menos ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
+      `La descripción debe tener al menos ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
     )
   }
 
   if (normalizedDescription.length > MAX_ROUTE_REPORT_DESCRIPTION_LENGTH) {
     throw new Error(
-      `La descripcion no puede superar ${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
+      `La descripción no puede superar ${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
     )
   }
 
@@ -213,7 +213,7 @@ export async function createRouteReport(input: CreateRouteReportInput) {
 
   if (input.photo) {
     if (!isSupportedImage(input.photo.mimeType, input.photo.fileName)) {
-      throw new Error('Solo se permiten imagenes JPG o PNG para reportes.')
+      throw new Error('Solo se permiten imágenes JPG o PNG para reportes.')
     }
 
     if ((input.photo.fileSize ?? 0) > MAX_ROUTE_REPORT_IMAGE_SIZE_BYTES) {
@@ -260,7 +260,7 @@ export async function createRouteReport(input: CreateRouteReportInput) {
         .catch(() => null)
     }
     console.error('Error detallado de Supabase:', error)
-    throw new Error(error.message ?? 'No se pudo crear el reporte de condicion para la ruta.')
+    throw new Error(error.message ?? 'No se pudo crear el reporte de condición para la ruta.')
   }
 
   return data as RouteReport

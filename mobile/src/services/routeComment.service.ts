@@ -40,7 +40,7 @@ function normalizeRouteCommentRecord(record: any): RouteComment {
 
 export async function getRouteComments(routeId: string) {
   if (!routeId) {
-    throw new Error('No se encontro la ruta para cargar comentarios.')
+    throw new Error('No se encontró la ruta para cargar comentarios.')
   }
 
   const { data, error } = await supabase
@@ -77,7 +77,7 @@ export async function createRouteComment(input: CreateRouteCommentInput) {
   const normalizedContent = input.content?.trim()
 
   if (!routeId) {
-    throw new Error('No se encontro la ruta para comentar.')
+    throw new Error('No se encontró la ruta para comentar.')
   }
 
   if (!normalizedContent) {
@@ -104,7 +104,7 @@ export async function createRouteComment(input: CreateRouteCommentInput) {
 
   const currentUser = authData.user
   if (!currentUser) {
-    throw new Error('Debes iniciar sesion para comentar rutas.')
+    throw new Error('Debes iniciar sesión para comentar rutas.')
   }
 
   const { data: routeData, error: routeError } = await supabase

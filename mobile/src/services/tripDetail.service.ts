@@ -250,11 +250,11 @@ export async function softDeleteOwnRecordedTrip(recordedTripId: string, userId: 
   const normalizedUserId = normalizeText(userId)
 
   if (!normalizedTripId) {
-    throw new Error('No se encontro el recorrido para eliminar.')
+    throw new Error('No se encontró el recorrido para eliminar.')
   }
 
   if (!normalizedUserId) {
-    throw new Error('Debes iniciar sesion para eliminar un recorrido.')
+    throw new Error('Debes iniciar sesión para eliminar un recorrido.')
   }
 
   const { data: authData, error: authError } = await supabase.auth.getUser()

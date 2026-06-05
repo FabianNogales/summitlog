@@ -56,7 +56,7 @@ function mapReportErrorMessage(error: any) {
   }
 
   if (message.includes('invalid input value for enum')) {
-    return 'El motivo seleccionado no es compatible con la configuracion actual.'
+    return 'El motivo seleccionado no es compatible con la configuración actual.'
   }
 
   return error?.message ?? 'No se pudo enviar la denuncia de contenido.'
@@ -74,7 +74,7 @@ export async function createContentReport(input: CreateContentReportInput) {
   }
 
   if (!targetId) {
-    throw new Error('No se encontro el contenido a denunciar.')
+    throw new Error('No se encontró el contenido a denunciar.')
   }
 
   if (!reason || !isValidReason(reason)) {
@@ -86,7 +86,7 @@ export async function createContentReport(input: CreateContentReportInput) {
     normalizedDescription.length > MAX_REPORT_DESCRIPTION_LENGTH
   ) {
     throw new Error(
-      `La descripcion de la denuncia no puede superar ${MAX_REPORT_DESCRIPTION_LENGTH} caracteres.`
+      `La descripción de la denuncia no puede superar ${MAX_REPORT_DESCRIPTION_LENGTH} caracteres.`
     )
   }
 
@@ -98,7 +98,7 @@ export async function createContentReport(input: CreateContentReportInput) {
 
   const currentUser = authData.user
   if (!currentUser) {
-    throw new Error('Debes iniciar sesion para denunciar contenido.')
+    throw new Error('Debes iniciar sesión para denunciar contenido.')
   }
 
   if (targetOwnerId && targetOwnerId === currentUser.id) {

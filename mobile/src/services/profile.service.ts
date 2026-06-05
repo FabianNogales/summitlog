@@ -192,7 +192,7 @@ export async function uploadAvatarToStorage(params: UploadAvatarParams): Promise
   console.log("[Avatar] bucket avatars");
 
   if (!isSupportedAvatar(params.mimeType, params.fileName)) {
-    throw new AvatarUploadError("invalid_format", "Solo se permiten imagenes JPG o PNG.");
+    throw new AvatarUploadError("invalid_format", "Solo se permiten imágenes JPG o PNG.");
   }
 
   if ((params.fileSize ?? 0) > MAX_AVATAR_IMAGE_SIZE_BYTES) {
@@ -257,7 +257,7 @@ export async function uploadAvatarToStorage(params: UploadAvatarParams): Promise
     console.log("[Avatar] public URL generated", Boolean(data.publicUrl));
 
     if (!data.publicUrl) {
-      throw new AvatarUploadError("public_url", "No se pudo obtener la URL publica del avatar.");
+      throw new AvatarUploadError("public_url", "No se pudo obtener la URL pública del avatar.");
     }
 
     return {

@@ -40,7 +40,7 @@ function normalizeCommentRecord(record: any): SocialPostComment {
 
 export async function getPostComments(postId: string) {
   if (!postId) {
-    throw new Error('No se encontro la publicacion para cargar comentarios.')
+    throw new Error('No se encontró la publicación para cargar comentarios.')
   }
 
   const { data, error } = await supabase
@@ -65,7 +65,7 @@ export async function getPostComments(postId: string) {
     .order('created_at', { ascending: true })
 
   if (error) {
-    throw new Error(error.message ?? 'No se pudieron cargar los comentarios de la publicacion.')
+    throw new Error(error.message ?? 'No se pudieron cargar los comentarios de la publicación.')
   }
 
   return (data ?? []).map(normalizeCommentRecord)
@@ -76,7 +76,7 @@ export async function createPostComment(input: CreatePostCommentInput) {
   const normalizedContent = input.content?.trim()
 
   if (!postId) {
-    throw new Error('No se encontro la publicacion para comentar.')
+    throw new Error('No se encontró la publicación para comentar.')
   }
 
   if (!normalizedContent) {
@@ -99,7 +99,7 @@ export async function createPostComment(input: CreatePostCommentInput) {
 
   const currentUser = authData.user
   if (!currentUser) {
-    throw new Error('Debes iniciar sesion para comentar publicaciones.')
+    throw new Error('Debes iniciar sesión para comentar publicaciones.')
   }
 
   const { data, error } = await supabase
@@ -129,10 +129,10 @@ export async function createPostComment(input: CreatePostCommentInput) {
   if (error) {
     const message = error.message?.toLowerCase() ?? ''
     if (message.includes('violates row-level security') || message.includes('permission')) {
-      throw new Error('La publicacion ya no esta disponible para comentar.')
+      throw new Error('La publicación ya no está disponible para comentar.')
     }
 
-    throw new Error(error.message ?? 'No se pudo crear el comentario de la publicacion.')
+    throw new Error(error.message ?? 'No se pudo crear el comentario de la publicación.')
   }
 
   return normalizeCommentRecord(data)
@@ -146,11 +146,11 @@ export async function hideOwnPostComment(
   const normalizedUserId = userId?.trim()
 
   if (!normalizedCommentId) {
-    throw new Error('No se encontro el comentario para eliminar.')
+    throw new Error('No se encontró el comentario para eliminar.')
   }
 
   if (!normalizedUserId) {
-    throw new Error('Debes iniciar sesion para eliminar un comentario.')
+    throw new Error('Debes iniciar sesión para eliminar un comentario.')
   }
 
   const { data: authData, error: authError } = await supabase.auth.getUser()

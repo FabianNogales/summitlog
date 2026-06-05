@@ -97,7 +97,7 @@ function mapUploadError(error: unknown) {
   const normalized = message.toLowerCase()
 
   if (normalized.includes('bucket') && normalized.includes('not found')) {
-    return 'No se encontro el bucket de imagenes para publicaciones (post-media).'
+    return 'No se encontró el bucket de imágenes para publicaciones (post-media).'
   }
 
   if (
@@ -105,7 +105,7 @@ function mapUploadError(error: unknown) {
     normalized.includes('permission denied') ||
     normalized.includes('not allowed')
   ) {
-    return 'No tienes permisos para subir imagenes en publicaciones.'
+    return 'No tienes permisos para subir imágenes en publicaciones.'
   }
 
   if (normalized.includes('network')) {
@@ -234,19 +234,19 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
 
   const currentUser = authData.user
   if (!currentUser) {
-    throw new Error('Debes iniciar sesion para crear una publicacion.')
+    throw new Error('Debes iniciar sesión para crear una publicación.')
   }
 
   const normalizedContent = input.content.trim()
   if (!normalizedContent) {
-    throw new Error('El contenido de la publicacion es obligatorio.')
+    throw new Error('El contenido de la publicación es obligatorio.')
   }
 
   let uploadedFilePath: string | null = null
 
   if (input.image) {
     if (!isSupportedImage(input.image.mimeType, input.image.fileName)) {
-      throw new Error('Solo se permiten imagenes JPG o PNG para publicaciones.')
+      throw new Error('Solo se permiten imágenes JPG o PNG para publicaciones.')
     }
 
     if ((input.image.fileSize ?? 0) > MAX_POST_IMAGE_SIZE_BYTES) {
@@ -279,7 +279,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
       await supabase.storage.from(POST_MEDIA_BUCKET).remove([uploadedFilePath]).catch(() => null)
     }
 
-    throw new Error(error.message ?? 'No se pudo crear la publicacion social.')
+    throw new Error(error.message ?? 'No se pudo crear la publicación social.')
   }
 
   const createdPost = data as SocialPost
@@ -315,7 +315,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
       },
       imageStatus: 'failed_after_post',
       imageError:
-        mediaError.message ?? 'La publicacion se creo, pero no se pudo asociar la imagen.',
+        mediaError.message ?? 'La publicación se creó, pero no se pudo asociar la imagen.',
     }
   }
 
@@ -333,11 +333,11 @@ export async function hideOwnPost(postId: string, userId: string): Promise<void>
   const normalizedUserId = userId?.trim()
 
   if (!normalizedPostId) {
-    throw new Error('No se encontro la publicacion para eliminar.')
+    throw new Error('No se encontró la publicación para eliminar.')
   }
 
   if (!normalizedUserId) {
-    throw new Error('Debes iniciar sesion para eliminar una publicacion.')
+    throw new Error('Debes iniciar sesión para eliminar una publicación.')
   }
 
   const { data: authData, error: authError } = await supabase.auth.getUser()
@@ -347,7 +347,7 @@ export async function hideOwnPost(postId: string, userId: string): Promise<void>
   }
 
   if (!authData.user || authData.user.id !== normalizedUserId) {
-    throw new Error('No tienes permisos para eliminar esta publicacion.')
+    throw new Error('No tienes permisos para eliminar esta publicación.')
   }
 
   const { data, error } = await supabase
@@ -362,10 +362,10 @@ export async function hideOwnPost(postId: string, userId: string): Promise<void>
     .maybeSingle()
 
   if (error) {
-    throw new Error(error.message ?? 'No se pudo eliminar la publicacion.')
+    throw new Error(error.message ?? 'No se pudo eliminar la publicación.')
   }
 
   if (!data) {
-    throw new Error('No tienes permisos para eliminar esta publicacion.')
+    throw new Error('No tienes permisos para eliminar esta publicación.')
   }
 }

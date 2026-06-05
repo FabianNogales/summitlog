@@ -70,7 +70,7 @@ export async function updateContentReportStatus(reportId: string, status: string
   const normalizedStatus = status?.trim()
 
   if (!normalizedReportId) {
-    throw new Error('No se encontro la denuncia a actualizar.')
+    throw new Error('No se encontró la denuncia a actualizar.')
   }
 
   if (!normalizedStatus) {
@@ -112,11 +112,11 @@ async function hidePostById(postId: string) {
     .maybeSingle()
 
   if (error) {
-    throw new Error(mapModerationError(error, 'No se pudo ocultar la publicacion denunciada.'))
+    throw new Error(mapModerationError(error, 'No se pudo ocultar la publicación denunciada.'))
   }
 
   if (!data) {
-    throw new Error('No se encontro la publicacion denunciada o no tienes permisos para ocultarla.')
+    throw new Error('No se encontró la publicación denunciada o no tienes permisos para ocultarla.')
   }
 }
 
@@ -135,7 +135,7 @@ async function hideCommentById(commentId: string) {
   }
 
   if (!data) {
-    throw new Error('No se encontro el comentario denunciado o no tienes permisos para ocultarlo.')
+    throw new Error('No se encontró el comentario denunciado o no tienes permisos para ocultarlo.')
   }
 }
 
@@ -154,7 +154,7 @@ async function hideRouteById(routeId: string) {
   }
 
   if (!data) {
-    throw new Error('No se encontro la ruta denunciada o no tienes permisos para ocultarla.')
+    throw new Error('No se encontró la ruta denunciada o no tienes permisos para ocultarla.')
   }
 }
 
@@ -163,7 +163,7 @@ async function hideReportedTarget(report: ModerationContentReport) {
   const targetId = report.target_id?.trim()
 
   if (!targetId) {
-    throw new Error('No se encontro el contenido denunciado para ocultar.')
+    throw new Error('No se encontró el contenido denunciado para ocultar.')
   }
 
   if (targetType === 'post') {
@@ -192,7 +192,7 @@ export async function hideReportedContentAndManageReport(
   const managedStatus = nextStatus?.trim() || DEFAULT_MANAGED_STATUS
 
   if (!reportId) {
-    throw new Error('No se encontro la denuncia a gestionar.')
+    throw new Error('No se encontró la denuncia a gestionar.')
   }
 
   await hideReportedTarget(report)

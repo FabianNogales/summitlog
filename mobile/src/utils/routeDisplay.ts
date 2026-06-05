@@ -1,7 +1,7 @@
 import { formatRecordedTripTitleFromDate } from './date'
 import { normalizeText } from './text'
 
-const ROUTE_FALLBACK_TITLE = 'Ruta sin tÃ­tulo'
+const ROUTE_FALLBACK_TITLE = 'Ruta sin título'
 
 interface ResolveRouteDisplayTitleParams {
   displayTitle?: string | null

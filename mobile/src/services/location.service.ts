@@ -30,18 +30,18 @@ export function getLocationFailureMessage(error: unknown) {
       : ''
 
   if (rawMessage.includes('disabled') || rawMessage.includes('services')) {
-    return 'Activa el GPS del dispositivo para centrar tu ubicacion.'
+    return 'Activa el GPS del dispositivo para centrar tu ubicación.'
   }
 
   if (rawMessage.includes('denied') || rawMessage.includes('permission')) {
-    return 'No hay permiso de ubicacion. Habilitalo desde configuracion.'
+    return 'No hay permiso de ubicación. Habilítalo desde configuración.'
   }
 
   if (rawMessage.includes('timeout')) {
-    return 'No se pudo obtener tu ubicacion a tiempo. Intenta de nuevo.'
+    return 'No se pudo obtener tu ubicación a tiempo. Intenta de nuevo.'
   }
 
-  return 'No se pudo obtener tu ubicacion actual. Intenta nuevamente.'
+  return 'No se pudo obtener tu ubicación actual. Intenta nuevamente.'
 }
 
 export async function startForegroundLocationWatcher(
@@ -75,9 +75,9 @@ export async function startBackgroundLocationTracking() {
     pausesUpdatesAutomatically: false,
     showsBackgroundLocationIndicator: true,
     foregroundService: {
-      notificationTitle: 'SummitLog esta registrando tu recorrido',
+      notificationTitle: 'SummitLog está registrando tu recorrido',
       notificationBody:
-        'Tu ubicacion se esta guardando durante el recorrido activo.',
+        'Tu ubicación se está guardando durante el recorrido activo.',
       notificationColor: colors.primary,
     },
   })
