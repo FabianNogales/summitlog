@@ -24,6 +24,7 @@ export const groupOutingService = {
    */
   async getGroupOutings(): Promise<GroupOuting[]> {
     const { data: { user } } = await supabase.auth.getUser();
+    const nowIso = new Date().toISOString();
 
     // 1. Obtener salidas visibles junto con perfiles y archivos multimedia asociados
     const { data, error } = await supabase
@@ -34,6 +35,7 @@ export const groupOutingService = {
         group_outing_media (file_path, sort_order)
       `)
       .eq('moderation_status', 'visible')
+      .gte('date_time', nowIso)
       .order('date_time', { ascending: true });
 
     if (error) throw error;

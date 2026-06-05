@@ -61,7 +61,7 @@ export function GroupOutingsView({ refreshTrigger }: GroupOutingsViewProps) {
         contentContainerStyle={{ paddingVertical: 60, alignItems: 'center' }}
       >
         <Text style={{ color: colors.textSecondary, fontSize: 16, textAlign: 'center' }}>
-          No hay salidas próximas activas. ¡Sé el primero en proponer una caminata!
+          No hay salidas grupales próximas.
         </Text>
       </ScrollView>
     )
