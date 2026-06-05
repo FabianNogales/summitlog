@@ -327,3 +327,45 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     imageStatus: 'uploaded',
   }
 }
+
+export async function hideOwnPost(postId: string, userId: string): Promise<void> {
+  const normalizedPostId = postId?.trim()
+  const normalizedUserId = userId?.trim()
+
+  if (!normalizedPostId) {
+    throw new Error('No se encontro la publicacion para eliminar.')
+  }
+
+  if (!normalizedUserId) {
+    throw new Error('Debes iniciar sesion para eliminar una publicacion.')
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+
+  if (authError) {
+    throw authError
+  }
+
+  if (!authData.user || authData.user.id !== normalizedUserId) {
+    throw new Error('No tienes permisos para eliminar esta publicacion.')
+  }
+
+  const { data, error } = await supabase
+    .from('posts')
+    .update({
+      moderation_status: 'hidden',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', normalizedPostId)
+    .eq('user_id', normalizedUserId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message ?? 'No se pudo eliminar la publicacion.')
+  }
+
+  if (!data) {
+    throw new Error('No tienes permisos para eliminar esta publicacion.')
+  }
+}

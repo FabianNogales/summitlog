@@ -31,6 +31,8 @@ interface CommunityFeedSectionProps {
   onToggleComments: (postId: string) => void
   onUpdateCommentInput: (postId: string, value: string) => void
   onCreateComment: (postId: string) => void
+  onDeletePost: (postId: string) => void
+  onDeleteComment: (postId: string, commentId: string) => void
   onOpenReportModal: (
     targetType: ContentReportTargetType,
     targetId: string,
@@ -58,6 +60,8 @@ export function CommunityFeedSection({
   onToggleComments,
   onUpdateCommentInput,
   onCreateComment,
+  onDeletePost,
+  onDeleteComment,
   onOpenReportModal,
 }: CommunityFeedSectionProps) {
   return (
@@ -150,6 +154,7 @@ export function CommunityFeedSection({
                   post.user_id
                 )
               }
+              onDeletePost={() => onDeletePost(post.id)}
               commentsSection={
                 <CommentsSection
                   comments={comments}
@@ -163,6 +168,7 @@ export function CommunityFeedSection({
                   maxCommentLength={MAX_POST_COMMENT_LENGTH}
                   onUpdateCommentInput={(value) => onUpdateCommentInput(post.id, value)}
                   onCreateComment={() => onCreateComment(post.id)}
+                  onDeleteComment={(commentId) => onDeleteComment(post.id, commentId)}
                   onCommentInputFocus={(event) => scrollToFocusedInput(scrollRef, event)}
                   onReportComment={(commentId, commentAuthorName, commentOwnerId) =>
                     onOpenReportModal(

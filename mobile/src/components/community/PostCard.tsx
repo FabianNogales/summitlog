@@ -13,6 +13,7 @@ interface PostCardProps {
   isExpanded: boolean
   onToggleComments: () => void
   onReportPost: () => void
+  onDeletePost: () => void
   commentsSection?: React.ReactNode
 }
 
@@ -36,6 +37,7 @@ export function PostCard({
   isExpanded,
   onToggleComments,
   onReportPost,
+  onDeletePost,
   commentsSection,
 }: PostCardProps) {
   const hasImage = Boolean(postImageUrl)
@@ -89,16 +91,18 @@ export function PostCard({
           </Text>
         </View>
 
-        {!isOwnPost ? (
+        {isOwnPost ? (
+          <Pressable onPress={onDeletePost} hitSlop={8}>
+            <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>
+              Eliminar publicacion
+            </Text>
+          </Pressable>
+        ) : (
           <Pressable onPress={onReportPost} hitSlop={8}>
             <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '700' }}>
               Denunciar
             </Text>
           </Pressable>
-        ) : (
-          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-            {post.moderation_status}
-          </Text>
         )}
       </View>
       </View>

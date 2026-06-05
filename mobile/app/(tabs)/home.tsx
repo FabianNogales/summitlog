@@ -11,11 +11,12 @@ import * as ImagePicker from 'expo-image-picker'
 
 import { useAuth } from '../../src/hooks/useAuth'
 import { colors } from '../../src/theme/colors'
-import { createPost, getPosts } from '../../src/services/post.service'
+import { createPost, getPosts, hideOwnPost } from '../../src/services/post.service'
 import type { SocialPost } from '../../src/types/post'
 import {
   createPostComment,
   getPostComments,
+  hideOwnPostComment,
   MAX_POST_COMMENT_LENGTH,
 } from '../../src/services/postComment.service'
 import type { SocialPostComment } from '../../src/types/postComment'
@@ -282,6 +283,92 @@ export default function HomeScreen() {
     }
   }
 
+  function handleDeletePost(postId: string) {
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para eliminar publicaciones.')
+      return
+    }
+
+    const post = posts.find((item) => item.id === postId)
+    if (!post || post.user_id !== user.id) {
+      Alert.alert('Accion no disponible', 'No puedes eliminar esta publicacion.')
+      return
+    }
+
+    Alert.alert(
+      'Eliminar publicacion',
+      'Esta publicacion dejara de mostrarse en Comunidad. Esta accion no se puede deshacer desde la app.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await hideOwnPost(postId, user.id)
+              setPosts((prev) => prev.filter((item) => item.id !== postId))
+              setExpandedPostId((prev) => (prev === postId ? null : prev))
+              setCommentsByPostId((prev) => {
+                const next = { ...prev }
+                delete next[postId]
+                return next
+              })
+              setCommentInputByPostId((prev) => {
+                const next = { ...prev }
+                delete next[postId]
+                return next
+              })
+            } catch (error: any) {
+              Alert.alert(
+                'No se pudo eliminar la publicacion',
+                error?.message ?? 'Intentalo nuevamente.'
+              )
+            }
+          },
+        },
+      ]
+    )
+  }
+
+  function handleDeleteComment(postId: string, commentId: string) {
+    if (!user) {
+      Alert.alert('Inicia sesion', 'Debes iniciar sesion para eliminar comentarios.')
+      return
+    }
+
+    const comment = commentsByPostId[postId]?.find((item) => item.id === commentId)
+    if (!comment || comment.user_id !== user.id) {
+      Alert.alert('Accion no disponible', 'No puedes eliminar este comentario.')
+      return
+    }
+
+    Alert.alert(
+      'Eliminar comentario',
+      'Este comentario dejara de mostrarse en Comunidad. Esta accion no se puede deshacer desde la app.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await hideOwnPostComment(commentId, user.id)
+              setCommentsByPostId((prev) => ({
+                ...prev,
+                [postId]: (prev[postId] ?? []).filter((item) => item.id !== commentId),
+              }))
+            } catch (error: any) {
+              Alert.alert(
+                'No se pudo eliminar el comentario',
+                error?.message ?? 'Intentalo nuevamente.'
+              )
+            }
+          },
+        },
+      ]
+    )
+  }
+
   async function handlePickPostImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
 
@@ -469,6 +556,8 @@ export default function HomeScreen() {
             onToggleComments={handleToggleComments}
             onUpdateCommentInput={updateCommentInput}
             onCreateComment={handleCreateComment}
+            onDeletePost={handleDeletePost}
+            onDeleteComment={handleDeleteComment}
             onOpenReportModal={handleOpenReportModal}
           />
         ) : (

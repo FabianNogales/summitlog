@@ -137,3 +137,48 @@ export async function createPostComment(input: CreatePostCommentInput) {
 
   return normalizeCommentRecord(data)
 }
+
+export async function hideOwnPostComment(
+  commentId: string,
+  userId: string
+): Promise<void> {
+  const normalizedCommentId = commentId?.trim()
+  const normalizedUserId = userId?.trim()
+
+  if (!normalizedCommentId) {
+    throw new Error('No se encontro el comentario para eliminar.')
+  }
+
+  if (!normalizedUserId) {
+    throw new Error('Debes iniciar sesion para eliminar un comentario.')
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+
+  if (authError) {
+    throw authError
+  }
+
+  if (!authData.user || authData.user.id !== normalizedUserId) {
+    throw new Error('No tienes permisos para eliminar este comentario.')
+  }
+
+  const { data, error } = await supabase
+    .from('comments')
+    .update({
+      moderation_status: 'hidden',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', normalizedCommentId)
+    .eq('user_id', normalizedUserId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message ?? 'No se pudo eliminar el comentario.')
+  }
+
+  if (!data) {
+    throw new Error('No tienes permisos para eliminar este comentario.')
+  }
+}

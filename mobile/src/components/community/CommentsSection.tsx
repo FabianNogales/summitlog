@@ -20,6 +20,7 @@ interface CommentsSectionProps {
   onUpdateCommentInput: (value: string) => void
   onCreateComment: () => void
   onCommentInputFocus: (event: any) => void
+  onDeleteComment: (commentId: string) => void
   onReportComment: (
     commentId: string,
     commentAuthorName: string,
@@ -52,6 +53,7 @@ export function CommentsSection({
   onUpdateCommentInput,
   onCreateComment,
   onCommentInputFocus,
+  onDeleteComment,
   onReportComment,
 }: CommentsSectionProps) {
   const trimmedCommentInput = commentInput.trim()
@@ -137,7 +139,31 @@ export function CommentsSection({
                 {comment.content}
               </Text>
 
-              {!isOwnComment ? (
+              {isOwnComment ? (
+                <Pressable
+                  onPress={() => onDeleteComment(comment.id)}
+                  style={{
+                    alignSelf: 'flex-start',
+                    marginTop: 7,
+                    paddingVertical: 4,
+                    paddingHorizontal: 8,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.cardSecondary,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.danger,
+                      fontWeight: '700',
+                      fontSize: 12,
+                    }}
+                  >
+                    Eliminar comentario
+                  </Text>
+                </Pressable>
+              ) : (
                 <Pressable
                   onPress={() =>
                     onReportComment(comment.id, commentAuthor, comment.user_id)
@@ -163,7 +189,7 @@ export function CommentsSection({
                     Denunciar
                   </Text>
                 </Pressable>
-              ) : null}
+              )}
             </View>
           )
         })
