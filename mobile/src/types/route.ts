@@ -7,6 +7,7 @@ export interface RouteItem {
   publication_status: RoutePublicationStatus
   display_title?: string
   display_image_url?: string | null
+  display_image_urls?: string[]
   title: string
   description: string | null
   category: string | null

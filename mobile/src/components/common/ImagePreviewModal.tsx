@@ -1,39 +1,111 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
   Modal,
   Pressable,
+  ScrollView,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native'
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { colors } from '../../theme/colors'
 
 interface ImagePreviewModalProps {
   visible: boolean
   imageUrl: string | null
+  imageUrls?: string[]
   onClose: () => void
 }
 
 export function ImagePreviewModal({
   visible,
   imageUrl,
+  imageUrls,
   onClose,
 }: ImagePreviewModalProps) {
+  const scrollRef = useRef<ScrollView | null>(null)
+  const { width } = useWindowDimensions()
   const [loading, setLoading] = useState(false)
-  const [loadFailed, setLoadFailed] = useState(false)
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set())
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+
+  const previewImageUrls = useMemo(() => {
+    const seen = new Set<string>()
+    const resolvedUrls: string[] = []
+    const candidateUrls = imageUrls?.length ? [...imageUrls] : []
+
+    if (imageUrl) {
+      candidateUrls.push(imageUrl)
+    }
+
+    for (const candidateUrl of candidateUrls) {
+      const normalizedUrl = candidateUrl?.trim()
+
+      if (!normalizedUrl || seen.has(normalizedUrl)) {
+        continue
+      }
+
+      seen.add(normalizedUrl)
+      resolvedUrls.push(normalizedUrl)
+    }
+
+    return resolvedUrls
+  }, [imageUrl, imageUrls])
+
+  const initialImageIndex = useMemo(() => {
+    const foundIndex = previewImageUrls.findIndex((previewUrl) => previewUrl === imageUrl)
+    return foundIndex >= 0 ? foundIndex : 0
+  }, [imageUrl, previewImageUrls])
+
+  const activeImageUrl = previewImageUrls[activeImageIndex] ?? null
 
   useEffect(() => {
     if (!visible) {
       setLoading(false)
-      setLoadFailed(false)
+      setFailedImageUrls(new Set())
+      setActiveImageIndex(0)
       return
     }
 
-    setLoading(Boolean(imageUrl))
-    setLoadFailed(false)
-  }, [visible, imageUrl])
+    setLoading(Boolean(previewImageUrls[initialImageIndex]))
+    setFailedImageUrls(new Set())
+    setActiveImageIndex(initialImageIndex)
+  }, [visible, initialImageIndex, previewImageUrls])
+
+  useEffect(() => {
+    if (!visible || !width || previewImageUrls.length === 0) {
+      return
+    }
+
+    scrollRef.current?.scrollTo({
+      x: width * initialImageIndex,
+      animated: false,
+    })
+  }, [visible, width, initialImageIndex, previewImageUrls.length])
+
+  function handlePreviewScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (!width || previewImageUrls.length === 0) {
+      return
+    }
+
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / width)
+    setActiveImageIndex(
+      Math.max(0, Math.min(nextIndex, previewImageUrls.length - 1))
+    )
+    setLoading(false)
+  }
+
+  function handleImageError(failedImageUrl: string) {
+    setFailedImageUrls((prev) => {
+      const next = new Set(prev)
+      next.add(failedImageUrl)
+      return next
+    })
+    setLoading(false)
+  }
 
   return (
     <Modal
@@ -73,18 +145,63 @@ export function ImagePreviewModal({
           <Feather name="x" size={18} color="#fff" />
         </Pressable>
 
-        {imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
+        {previewImageUrls.length > 0 ? (
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handlePreviewScroll}
+            scrollEventThrottle={16}
             style={{ width: '100%', height: '100%' }}
-            resizeMode="contain"
-            onLoadStart={() => setLoading(true)}
-            onLoadEnd={() => setLoading(false)}
-            onError={() => {
-              setLoadFailed(true)
-              setLoading(false)
+          >
+            {previewImageUrls.map((previewUrl) => (
+              <View
+                key={previewUrl}
+                style={{
+                  width,
+                  height: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Image
+                  source={{ uri: previewUrl }}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode="contain"
+                  onLoadStart={() => {
+                    if (previewUrl === activeImageUrl) {
+                      setLoading(true)
+                    }
+                  }}
+                  onLoadEnd={() => {
+                    if (previewUrl === activeImageUrl) {
+                      setLoading(false)
+                    }
+                  }}
+                  onError={() => handleImageError(previewUrl)}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {previewImageUrls.length > 1 ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: 56,
+              alignSelf: 'center',
+              borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.12)',
+              paddingHorizontal: 12,
+              paddingVertical: 7,
             }}
-          />
+          >
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+              {activeImageIndex + 1}/{previewImageUrls.length}
+            </Text>
+          </View>
         ) : null}
 
         {loading ? (
@@ -107,7 +224,7 @@ export function ImagePreviewModal({
           </View>
         ) : null}
 
-        {loadFailed ? (
+        {activeImageUrl && failedImageUrls.has(activeImageUrl) ? (
           <View
             style={{
               position: 'absolute',

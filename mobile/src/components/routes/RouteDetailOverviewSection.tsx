@@ -1,4 +1,10 @@
-import { Image, Pressable, Text, View } from 'react-native'
+import { useEffect, useMemo, useState } from 'react'
+import { Image, Pressable, ScrollView, Text, View } from 'react-native'
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native'
 import { colors } from '../../theme/colors'
 import type { RouteItem, RoutePoint } from '../../types/route'
 import {
@@ -15,7 +21,7 @@ interface RouteDetailOverviewSectionProps {
   points: RoutePoint[]
   pointsLoading: boolean
   pointsError: string | null
-  onPreviewImage: (imageUrl: string) => void
+  onPreviewImage: (imageUrl: string, imageUrls?: string[]) => void
   setIsMapActive: (active: boolean) => void
 }
 
@@ -38,6 +44,27 @@ function getRouteDisplayImageUrl(params: {
   )
 }
 
+function getRouteDisplayImageUrls(route: RouteItem) {
+  const imageUrls = route.display_image_urls?.length
+    ? route.display_image_urls
+    : [getRouteDisplayImageUrl(route)]
+  const seen = new Set<string>()
+  const resolvedUrls: string[] = []
+
+  for (const imageUrl of imageUrls) {
+    const normalizedUrl = imageUrl?.trim()
+
+    if (!normalizedUrl || seen.has(normalizedUrl)) {
+      continue
+    }
+
+    seen.add(normalizedUrl)
+    resolvedUrls.push(normalizedUrl)
+  }
+
+  return resolvedUrls
+}
+
 function RouteDetailOverviewSection({
   route,
   points,
@@ -46,13 +73,58 @@ function RouteDetailOverviewSection({
   onPreviewImage,
   setIsMapActive,
 }: RouteDetailOverviewSectionProps) {
-  const displayImageUrl = getRouteDisplayImageUrl(route)
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set())
+  const [carouselWidth, setCarouselWidth] = useState(0)
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const routeImageUrls = useMemo(() => getRouteDisplayImageUrls(route), [route])
+  const visibleImageUrls = useMemo(
+    () => routeImageUrls.filter((imageUrl) => !failedImageUrls.has(imageUrl)),
+    [failedImageUrls, routeImageUrls]
+  )
+  const carouselImageWidth = Math.max(carouselWidth, 1)
+
+  useEffect(() => {
+    setFailedImageUrls(new Set())
+    setActiveImageIndex(0)
+  }, [route.id, routeImageUrls])
+
+  useEffect(() => {
+    setActiveImageIndex((currentIndex) => {
+      const maxIndex = Math.max(visibleImageUrls.length - 1, 0)
+      return Math.min(currentIndex, maxIndex)
+    })
+  }, [visibleImageUrls.length])
+
+  function handleImageError(imageUrl: string) {
+    setFailedImageUrls((prev) => {
+      const next = new Set(prev)
+      next.add(imageUrl)
+      return next
+    })
+  }
+
+  function handleCarouselLayout(event: LayoutChangeEvent) {
+    setCarouselWidth(event.nativeEvent.layout.width)
+  }
+
+  function handleCarouselScroll(
+    event: NativeSyntheticEvent<NativeScrollEvent>
+  ) {
+    if (!carouselWidth) {
+      return
+    }
+
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / carouselWidth)
+    setActiveImageIndex(
+      Math.max(0, Math.min(nextIndex, visibleImageUrls.length - 1))
+    )
+  }
 
   return (
     <>
-      {displayImageUrl ? (
-        <Pressable
-          onPress={() => onPreviewImage(displayImageUrl)}
+      {visibleImageUrls.length > 0 ? (
+        <View
+          onLayout={handleCarouselLayout}
           style={{
             marginBottom: 16,
             borderRadius: 18,
@@ -62,12 +134,99 @@ function RouteDetailOverviewSection({
             backgroundColor: colors.card,
           }}
         >
-          <Image
-            source={{ uri: displayImageUrl }}
-            style={{ width: '100%', height: 180 }}
-            resizeMode="cover"
-          />
-        </Pressable>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleCarouselScroll}
+            scrollEventThrottle={16}
+            bounces={visibleImageUrls.length > 1}
+          >
+            {visibleImageUrls.map((imageUrl) => (
+              <Pressable
+                key={imageUrl}
+                onPress={() => onPreviewImage(imageUrl, visibleImageUrls)}
+                style={{
+                  width: carouselImageWidth,
+                  height: 220,
+                  backgroundColor: colors.cardSecondary,
+                }}
+              >
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode="cover"
+                  onError={() => handleImageError(imageUrl)}
+                />
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {visibleImageUrls.length > 1 ? (
+            <>
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(0,0,0,0.48)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+                  {activeImageIndex + 1}/{visibleImageUrls.length}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 12,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {visibleImageUrls.map((imageUrl, index) => (
+                  <View
+                    key={`dot-${imageUrl}`}
+                    style={{
+                      width: index === activeImageIndex ? 18 : 7,
+                      height: 7,
+                      borderRadius: 999,
+                      backgroundColor:
+                        index === activeImageIndex
+                          ? colors.primary
+                          : 'rgba(255,255,255,0.72)',
+                    }}
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
+        </View>
+      ) : routeImageUrls.length > 0 ? (
+        <View
+          style={{
+            height: 220,
+            marginBottom: 16,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.cardSecondary,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+            Imagen no disponible
+          </Text>
+        </View>
       ) : null}
 
       <Text

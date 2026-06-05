@@ -86,6 +86,7 @@ export default function RouteDetailScreen() {
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  const [previewImageUrls, setPreviewImageUrls] = useState<string[]>([])
 
   
   const [isMapActive, setIsMapActive] = useState(false)
@@ -144,6 +145,16 @@ export default function RouteDetailScreen() {
     setDescription('')
     setSelectedReportPhoto(null)
     setSubmitError(null)
+  }
+
+  function handlePreviewImage(imageUrl: string, imageUrls?: string[]) {
+    setPreviewImageUrl(imageUrl)
+    setPreviewImageUrls(imageUrls?.length ? imageUrls : [imageUrl])
+  }
+
+  function handleCloseImagePreview() {
+    setPreviewImageUrl(null)
+    setPreviewImageUrls([])
   }
 
   async function handlePickReportPhoto() {
@@ -414,7 +425,7 @@ export default function RouteDetailScreen() {
                 points={points}
                 pointsLoading={pointsLoading}
                 pointsError={pointsError}
-                onPreviewImage={setPreviewImageUrl}
+                onPreviewImage={handlePreviewImage}
                 setIsMapActive={setIsMapActive}
               />
 
@@ -447,7 +458,7 @@ export default function RouteDetailScreen() {
                 onChangeReportStatus={setReportStatus}
                 onChangeDescription={setDescription}
                 onDescriptionFocus={(event) => scrollToFocusedInput(scrollRef, event)}
-                onPreviewImage={setPreviewImageUrl}
+                onPreviewImage={handlePreviewImage}
                 onRemoveReportPhoto={() => setSelectedReportPhoto(null)}
                 onPickReportPhoto={handlePickReportPhoto}
                 onSubmitReport={handleSubmitReport}
@@ -497,7 +508,8 @@ export default function RouteDetailScreen() {
       <ImagePreviewModal
         visible={Boolean(previewImageUrl)}
         imageUrl={previewImageUrl}
-        onClose={() => setPreviewImageUrl(null)}
+        imageUrls={previewImageUrls}
+        onClose={handleCloseImagePreview}
       />
     </SafeAreaView>
   )

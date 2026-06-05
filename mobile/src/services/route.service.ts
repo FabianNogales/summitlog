@@ -26,6 +26,24 @@ interface RouteTripTitleRow {
   started_at: string | null
 }
 
+function dedupeImageUrls(imageUrls: (string | null | undefined)[]) {
+  const seen = new Set<string>()
+  const resolvedUrls: string[] = []
+
+  for (const imageUrl of imageUrls) {
+    const normalizedUrl = normalizeText(imageUrl)
+
+    if (!normalizedUrl || seen.has(normalizedUrl)) {
+      continue
+    }
+
+    seen.add(normalizedUrl)
+    resolvedUrls.push(normalizedUrl)
+  }
+
+  return resolvedUrls
+}
+
 async function decorateRoutes(routes: RouteItem[]) {
   if (routes.length === 0) {
     return routes
@@ -50,6 +68,7 @@ async function decorateRoutes(routes: RouteItem[]) {
       display_image_url: resolveRouteDisplayImageUrl({
         coverImageUrl: route.cover_image_url,
       }),
+      display_image_urls: dedupeImageUrls([route.cover_image_url]),
     }))
   }
 
@@ -91,7 +110,7 @@ async function decorateRoutes(routes: RouteItem[]) {
     }
 
     const journalByTripId = new Map<string, RouteJournalRow>()
-    const journalMediaPathByJournalId = new Map<string, string | null>()
+    const journalMediaPathsByJournalId = new Map<string, string[]>()
     const tripDataById = new Map<string, RouteTripTitleRow>()
 
     for (const journal of journals) {
@@ -101,9 +120,15 @@ async function decorateRoutes(routes: RouteItem[]) {
     }
 
     for (const media of (mediaByJournalResult?.data ?? []) as RouteJournalMediaRow[]) {
-      if (!journalMediaPathByJournalId.has(media.journal_id)) {
-        journalMediaPathByJournalId.set(media.journal_id, media.file_path)
+      const normalizedPath = normalizeText(media.file_path)
+
+      if (!normalizedPath) {
+        continue
       }
+
+      const mediaPaths = journalMediaPathsByJournalId.get(media.journal_id) ?? []
+      mediaPaths.push(normalizedPath)
+      journalMediaPathsByJournalId.set(media.journal_id, mediaPaths)
     }
 
     for (const trip of (tripsResult.data ?? []) as RouteTripTitleRow[]) {
@@ -113,16 +138,16 @@ async function decorateRoutes(routes: RouteItem[]) {
     return routes.map((route) => {
       const journal = journalByTripId.get(route.source_recorded_trip_id)
       const tripData = tripDataById.get(route.source_recorded_trip_id)
-      const journalMediaPath = journal
-        ? journalMediaPathByJournalId.get(journal.id)
-        : null
+      const journalMediaPaths = journal
+        ? journalMediaPathsByJournalId.get(journal.id) ?? []
+        : []
       const routeCoverUrl = normalizeText(route.cover_image_url)
-      const normalizedJournalMediaPath = normalizeText(journalMediaPath)
+      const journalMediaImageUrls = journalMediaPaths
+        .map((filePath) => getJournalMediaPublicUrl(filePath))
+        .filter((imageUrl) => Boolean(normalizeText(imageUrl)))
       const journalMediaImageUrl = routeCoverUrl
         ? null
-        : normalizedJournalMediaPath
-          ? getJournalMediaPublicUrl(normalizedJournalMediaPath)
-          : null
+        : journalMediaImageUrls[0] ?? null
       const displayTitle = resolveRouteDisplayTitle({
         journalTitle: journal?.title,
         tripTitle: tripData?.title,
@@ -135,11 +160,16 @@ async function decorateRoutes(routes: RouteItem[]) {
         coverImageUrl: routeCoverUrl,
         journalMediaImageUrl,
       })
+      const displayImageUrls = dedupeImageUrls([
+        displayImageUrl,
+        ...journalMediaImageUrls,
+      ])
 
       return {
         ...route,
         display_title: displayTitle,
         display_image_url: displayImageUrl,
+        display_image_urls: displayImageUrls,
       }
     })
   } catch (error) {
@@ -158,6 +188,7 @@ async function decorateRoutes(routes: RouteItem[]) {
       display_image_url: resolveRouteDisplayImageUrl({
         coverImageUrl: route.cover_image_url,
       }),
+      display_image_urls: dedupeImageUrls([route.cover_image_url]),
     }))
   }
 }
