@@ -12,7 +12,6 @@ import { useFocusEffect } from '@react-navigation/native'
 
 import { colors } from '../../src/theme/colors'
 import { useTripJournalEditor } from '../../src/hooks/useTripJournalEditor'
-import { AuthButton } from '../../src/components/auth/AuthButton'
 import { useJournalMedia } from '../../src/hooks/useJournalMedia'
 import { FORM_SCROLL_BOTTOM_PADDING } from '../../src/utils/keyboard'
 import { useAuth } from '../../src/hooks/useAuth'
@@ -43,6 +42,7 @@ export default function JournalEditorScreen() {
   }, [rawTripId])
 
   const {
+    mode,
     trip,
     journal,
     title,
@@ -69,7 +69,7 @@ export default function JournalEditorScreen() {
     ? 'local_id' in journal
       ? { journalId: journal.local_id, mode: 'local' as const }
       : { journalId: journal.id, mode: 'remote' as const, userId: user?.id }
-    : undefined
+    : { mode, userId: user?.id }
 
   const {
     media,
@@ -77,11 +77,16 @@ export default function JournalEditorScreen() {
     uploading,
     error: mediaError,
     deletingMediaIds,
-    pickAndUploadImages,
+    pendingNewImageIds,
+    mediaDirty,
+    pickAndStageImages,
     removeMedia,
+    applyPendingMediaChanges,
     refreshMedia,
     maxPhotos,
   } = useJournalMedia(journalMediaParams)
+
+  const hasPendingChanges = hasUnsavedChanges || mediaDirty
 
   useFocusEffect(
     useCallback(() => {
@@ -150,7 +155,7 @@ export default function JournalEditorScreen() {
       return true
     }
 
-    if (hasUnsavedChanges) {
+    if (hasPendingChanges) {
       confirmExitWithoutSaving()
       return true
     }
@@ -161,7 +166,7 @@ export default function JournalEditorScreen() {
     saving,
     uploading,
     showSavingInProgressAlert,
-    hasUnsavedChanges,
+    hasPendingChanges,
     confirmExitWithoutSaving,
     navigateBackSafely,
   ])
@@ -181,16 +186,36 @@ export default function JournalEditorScreen() {
 
     try {
       setFormError(null)
-      const savedJournal = await saveJournal()
+      const savedJournal = await saveJournal({ allowNoFormChanges: mediaDirty })
+      const savedJournalId = savedJournal
+        ? 'local_id' in savedJournal
+          ? savedJournal.local_id
+          : savedJournal.id
+        : null
 
-      Alert.alert(
-        'Bitácora guardada',
-        savedJournal
-          ? 'La bitácora se guardó correctamente. Ahora puedes agregar fotos si deseas.'
-          : 'No se pudo guardar la bitácora.',
-        [{ text: 'OK' }],
-        { cancelable: false }
-      )
+      if (!savedJournalId) {
+        throw new Error('No se encontro la bitacora para guardar las fotos.')
+      }
+
+      const mediaResult = await applyPendingMediaChanges(savedJournalId)
+      await refreshEditor()
+
+      if (mediaResult.failedCount > 0) {
+        const details = mediaResult.failures
+          .slice(0, 2)
+          .map((item) => `${item.fileName}: ${item.reason}`)
+          .join('\n')
+
+        Alert.alert(
+          'Guardado parcial',
+          `La bitacora se guardo, pero fallaron ${mediaResult.failedCount} foto(s).${
+            details ? `\n\n${details}` : ''
+          }`
+        )
+        return
+      }
+
+      navigateToTripPreview()
     } catch (err: any) {
       const message = err?.message ?? 'No se pudo guardar la bitácora.'
       setFormError(message)
@@ -199,9 +224,9 @@ export default function JournalEditorScreen() {
 
   async function handleAddPhotos() {
     try {
-      const result = await pickAndUploadImages()
+      const result = await pickAndStageImages()
 
-      if (result.uploadedCount === 0 && result.failedCount === 0) {
+      if (result.selectedCount === 0 && result.failedCount === 0) {
         return
       }
 
@@ -212,8 +237,8 @@ export default function JournalEditorScreen() {
           .join('\n')
 
         Alert.alert(
-          'Guardado parcial de fotos',
-          `Se guardaron ${result.uploadedCount} foto(s) y fallaron ${result.failedCount}.${
+          'Seleccion parcial de fotos',
+          `Se agregaron ${result.selectedCount} foto(s) pendientes y fallaron ${result.failedCount}.${
             details ? `\n\n${details}` : ''
           }`
         )
@@ -221,11 +246,11 @@ export default function JournalEditorScreen() {
       }
 
       Alert.alert(
-        'Fotos guardadas',
-        `Se guardaron ${result.uploadedCount} foto(s) localmente.`
+        'Fotos pendientes',
+        `Se agregaron ${result.selectedCount} foto(s). Guarda los cambios para aplicarlas.`
       )
     } catch (err: any) {
-      Alert.alert('Error al guardar fotos', err.message ?? 'No se pudieron guardar las imágenes.')
+      Alert.alert('Error al agregar fotos', err.message ?? 'No se pudieron agregar las imagenes.')
     }
   }
 
@@ -233,7 +258,17 @@ export default function JournalEditorScreen() {
     const selectedMedia = media.find((item) => item.id === mediaId)
     if (!selectedMedia) return
 
-    Alert.alert('Eliminar foto', 'Esta acción quitará la foto de la bitácora.', [
+    if (pendingNewImageIds.includes(mediaId)) {
+      removeMedia(selectedMedia).catch((removeError: any) => {
+        Alert.alert(
+          'Error al quitar foto',
+          removeError?.message ?? 'No se pudo quitar la foto pendiente.'
+        )
+      })
+      return
+    }
+
+    Alert.alert('Eliminar foto', 'La foto se eliminara cuando guardes los cambios.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -250,26 +285,6 @@ export default function JournalEditorScreen() {
         },
       },
     ])
-  }
-
-  function handleFinishJournal() {
-    if (!journal) {
-      Alert.alert(
-        'Guarda la bitácora',
-        'Primero debes guardar la bitácora antes de finalizar.'
-      )
-      return
-    }
-
-    if (hasUnsavedChanges) {
-      Alert.alert(
-        'Cambios sin guardar',
-        'Guarda los cambios antes de finalizar la bitácora.'
-      )
-      return
-    }
-
-    navigateToTripPreview()
   }
 
   return (
@@ -318,9 +333,9 @@ export default function JournalEditorScreen() {
                   category={category}
                   commentsEnabled={commentsEnabled}
                   formError={formError}
-                  saving={saving}
+                  saving={saving || uploading}
                   uploading={uploading}
-                  hasUnsavedChanges={hasUnsavedChanges}
+                  hasUnsavedChanges={hasPendingChanges}
                   onChangeTitle={setTitle}
                   onChangeContent={setContent}
                   onChangeVisibility={setVisibility}
@@ -329,25 +344,22 @@ export default function JournalEditorScreen() {
                   onChangeCommentsEnabled={setCommentsEnabled}
                   onClearFormError={() => setFormError(null)}
                   onSave={handleSaveJournal}
-                />
-
-                <JournalMediaSection
-                  hasJournal={Boolean(journal)}
-                  media={media}
-                  mediaLoading={mediaLoading}
-                  mediaError={mediaError}
-                  uploading={uploading}
-                  deletingMediaIds={deletingMediaIds}
-                  maxPhotos={maxPhotos}
-                  onAddPhotos={handleAddPhotos}
-                  onRefreshMedia={refreshMedia}
-                  onRemovePhoto={handleRemovePhoto}
-                />
-
-                <AuthButton
-                  title="Finalizar bitácora"
-                  onPress={handleFinishJournal}
-                  disabled={!journal || hasUnsavedChanges || saving || uploading}
+                  mediaSection={
+                    <JournalMediaSection
+                      hasJournal={Boolean(journal)}
+                      media={media}
+                      mediaLoading={mediaLoading}
+                      mediaError={mediaError}
+                      uploading={uploading}
+                      deletingMediaIds={deletingMediaIds}
+                      pendingMediaIds={pendingNewImageIds}
+                      embedded
+                      maxPhotos={maxPhotos}
+                      onAddPhotos={handleAddPhotos}
+                      onRefreshMedia={refreshMedia}
+                      onRemovePhoto={handleRemovePhoto}
+                    />
+                  }
                 />
               </>
             )}

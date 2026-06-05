@@ -10,7 +10,12 @@ import {
   getOfflineJournalByTripId,
   type OfflineJournal,
 } from './journal.service'
-import type { Journal } from '../types/journal'
+import {
+  getJournalMediaByJournalId,
+  getJournalMediaPublicUrl,
+  getOfflineJournalMediaByJournalId,
+} from './journalMedia.service'
+import type { Journal, JournalMedia } from '../types/journal'
 import type { OfflineRecordedTrip, OfflineRecordedTripPoint } from '../types/offlineTrip'
 import type { RouteItem } from '../types/route'
 import type { RecordedTrip, RecordedTripPoint } from '../types/trip'
@@ -34,6 +39,9 @@ export interface TripDetailData {
   mode: TripDetailMode
   trip: RecordedTrip | OfflineRecordedTrip
   journal: Journal | OfflineJournal | null
+  journalMedia: JournalMedia[]
+  journalMediaUrls: string[]
+  display_image_urls: string[]
   route: RouteItem | null
   points: TripDetailPoint[]
   title: string
@@ -160,10 +168,37 @@ function getJournalCommentsEnabled(journal: Journal | OfflineJournal | null) {
   return null
 }
 
+function dedupeImageUrls(imageUrls: (string | null | undefined)[]) {
+  const seen = new Set<string>()
+  const resolvedUrls: string[] = []
+
+  for (const imageUrl of imageUrls) {
+    const normalizedUrl = normalizeText(imageUrl)
+
+    if (!normalizedUrl || seen.has(normalizedUrl)) {
+      continue
+    }
+
+    seen.add(normalizedUrl)
+    resolvedUrls.push(normalizedUrl)
+  }
+
+  return resolvedUrls
+}
+
+function getJournalMediaImageUrl(media: JournalMedia) {
+  const localPath = normalizeText(media.local_path)
+  const remoteUrl = normalizeText(media.remote_url)
+  const filePath = normalizeText(media.file_path)
+
+  return localPath ?? remoteUrl ?? getJournalMediaPublicUrl(filePath)
+}
+
 function buildDetailData(params: {
   mode: TripDetailMode
   trip: RecordedTrip | OfflineRecordedTrip
   journal: Journal | OfflineJournal | null
+  journalMedia: JournalMedia[]
   route: RouteItem | null
   points: TripDetailPoint[]
   isOffline: boolean
@@ -188,11 +223,17 @@ function buildDetailData(params: {
     routeDescription,
     tripSummary,
   })
+  const journalMediaUrls = dedupeImageUrls(
+    params.journalMedia.map(getJournalMediaImageUrl)
+  )
 
   return {
     mode: params.mode,
     trip: params.trip,
     journal: params.journal,
+    journalMedia: params.journalMedia,
+    journalMediaUrls,
+    display_image_urls: journalMediaUrls,
     route: params.route,
     points: params.points,
     title,
@@ -213,6 +254,9 @@ export async function getTripDetailData(tripId: string, userId: string) {
 
   if (localTrip) {
     const localJournal = await getOfflineJournalByTripId(localTrip.local_id)
+    const journalMedia = localJournal
+      ? await getOfflineJournalMediaByJournalId(localJournal.local_id)
+      : []
     const points = await getOfflineTripPointsByTripId(localTrip.local_id)
     const route = localTrip.remote_id
       ? await getRouteByRecordedTripId(localTrip.remote_id, userId)
@@ -222,6 +266,7 @@ export async function getTripDetailData(tripId: string, userId: string) {
       mode: 'local',
       trip: localTrip,
       journal: localJournal,
+      journalMedia,
       route,
       points: points.map(mapOfflinePoint),
       isOffline: localTrip.sync_status !== 'synced',
@@ -234,11 +279,13 @@ export async function getTripDetailData(tripId: string, userId: string) {
     getRouteByRecordedTripId(remoteTrip.id, userId),
     getRecordedTripPointsByTripId(remoteTrip.id),
   ])
+  const journalMedia = journal ? await getJournalMediaByJournalId(journal.id) : []
 
   return buildDetailData({
     mode: 'remote',
     trip: remoteTrip,
     journal,
+    journalMedia,
     route,
     points: points.map(mapRemotePoint),
     isOffline: false,

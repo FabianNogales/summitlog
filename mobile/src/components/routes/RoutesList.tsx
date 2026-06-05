@@ -26,6 +26,10 @@ function getRouteDisplayTitle(route: RouteItem) {
 }
 
 function getRouteDisplayImageUrl(route: RouteItem) {
+  if (route.source_recorded_trip_id) {
+    return route.display_image_url?.trim() ?? ''
+  }
+
   return (
     resolveRouteDisplayImageUrl({
       displayImageUrl: route.display_image_url,

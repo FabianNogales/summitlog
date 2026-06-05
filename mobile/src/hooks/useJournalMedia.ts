@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system/legacy'
 
@@ -22,15 +22,17 @@ interface MediaFailure {
   reason: string
 }
 
-interface PickAndUploadResult {
-  uploadedCount: number
+interface PickImagesResult {
+  selectedCount: number
   failedCount: number
   failures: MediaFailure[]
 }
 
-interface RemoveMediaResult {
-  orphanedFilePath: string | null
-  storageDeleted: boolean
+interface ApplyPendingMediaResult {
+  uploadedCount: number
+  deletedCount: number
+  failedCount: number
+  failures: MediaFailure[]
 }
 
 interface UseJournalMediaParams {
@@ -51,6 +53,14 @@ interface OfflineJournalMediaRow {
   sync_status: string
   created_at: string
   updated_at: string
+}
+
+interface PendingJournalImage {
+  id: string
+  uri: string
+  fileName: string
+  mimeType: string | null
+  extension: string
 }
 
 function createLocalId(prefix: string) {
@@ -97,12 +107,12 @@ function isSupportedImage(asset: ImagePicker.ImagePickerAsset) {
   return false
 }
 
-function mapUploadError(error: unknown) {
-  const message = error instanceof Error ? error.message : 'No se pudieron guardar las imágenes.'
+function mapMediaError(error: unknown) {
+  const message = error instanceof Error ? error.message : 'No se pudieron guardar las imagenes.'
   const normalized = message.toLowerCase()
 
   if (normalized.includes('permission')) {
-    return 'No se tiene permiso para acceder a la galería.'
+    return 'No se tiene permiso para acceder a la galeria.'
   }
 
   if (normalized.includes('file')) {
@@ -127,6 +137,24 @@ function mapLocalMediaToJournalMedia(row: OfflineJournalMediaRow): JournalMedia 
     remote_id: row.remote_id,
     remote_url: row.remote_url,
     sync_status: row.sync_status,
+  } as JournalMedia
+}
+
+function mapPendingImageToJournalMedia(
+  image: PendingJournalImage,
+  journalId: string | undefined,
+  sortOrder: number
+): JournalMedia {
+  return {
+    id: image.id,
+    journal_id: journalId ?? 'pending-journal',
+    file_path: image.uri,
+    file_type: 'image',
+    sort_order: sortOrder,
+    created_at: new Date().toISOString(),
+    local_id: image.id,
+    local_path: image.uri,
+    sync_status: 'pending',
   } as JournalMedia
 }
 
@@ -165,15 +193,44 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
   const mode = params?.mode ?? 'local'
   const userId = params?.userId ?? null
 
-  const [media, setMedia] = useState<JournalMedia[]>([])
+  const [persistedMedia, setPersistedMedia] = useState<JournalMedia[]>([])
+  const [pendingNewImages, setPendingNewImages] = useState<PendingJournalImage[]>([])
+  const [pendingDeletedMediaIds, setPendingDeletedMediaIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [deletingMediaIds, setDeletingMediaIds] = useState<string[]>([])
 
-  const loadMedia = useCallback(async () => {
-    if (!journalId) {
-      setMedia([])
+  const pendingDeletedMediaIdSet = useMemo(
+    () => new Set(pendingDeletedMediaIds),
+    [pendingDeletedMediaIds]
+  )
+
+  const visiblePersistedMedia = useMemo(
+    () => persistedMedia.filter((item) => !pendingDeletedMediaIdSet.has(item.id)),
+    [pendingDeletedMediaIdSet, persistedMedia]
+  )
+
+  const media = useMemo(
+    () => [
+      ...visiblePersistedMedia,
+      ...pendingNewImages.map((image, index) =>
+        mapPendingImageToJournalMedia(image, journalId, visiblePersistedMedia.length + index)
+      ),
+    ],
+    [journalId, pendingNewImages, visiblePersistedMedia]
+  )
+
+  const pendingNewImageIds = useMemo(
+    () => pendingNewImages.map((image) => image.id),
+    [pendingNewImages]
+  )
+
+  const mediaDirty = pendingNewImages.length > 0 || pendingDeletedMediaIds.length > 0
+
+  const loadMediaForJournalId = useCallback(async (targetJournalId?: string) => {
+    if (!targetJournalId) {
+      setPersistedMedia([])
+      setPendingDeletedMediaIds([])
       setError(null)
       return
     }
@@ -183,8 +240,11 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
       setError(null)
 
       if (mode === 'remote') {
-        const remoteMedia = await getJournalMediaByJournalId(journalId)
-        setMedia(remoteMedia)
+        const remoteMedia = await getJournalMediaByJournalId(targetJournalId)
+        setPersistedMedia(remoteMedia)
+        setPendingDeletedMediaIds((prev) =>
+          prev.filter((id) => remoteMedia.some((item) => item.id === id))
+        )
         return
       }
 
@@ -197,38 +257,46 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
           WHERE local_journal_id = ?
           ORDER BY sort_order ASC, created_at ASC
         `,
-        [journalId]
+        [targetJournalId]
       )
 
-      setMedia(rows.map(mapLocalMediaToJournalMedia))
+      const localMedia = rows.map(mapLocalMediaToJournalMedia)
+      setPersistedMedia(localMedia)
+      setPendingDeletedMediaIds((prev) =>
+        prev.filter((id) => localMedia.some((item) => item.id === id))
+      )
     } catch (loadError: any) {
-      setError(loadError?.message ?? 'No se pudieron cargar las fotos de la bitácora.')
-      setMedia([])
+      setError(loadError?.message ?? 'No se pudieron cargar las fotos de la bitacora.')
+      setPersistedMedia([])
     } finally {
       setLoading(false)
     }
-  }, [journalId, mode])
+  }, [mode])
+
+  const loadMedia = useCallback(async () => {
+    await loadMediaForJournalId(journalId)
+  }, [journalId, loadMediaForJournalId])
 
   useEffect(() => {
     loadMedia()
   }, [loadMedia])
 
-  async function pickAndUploadImages(): Promise<PickAndUploadResult> {
-    if (!journalId) {
-      throw new Error('Primero debes guardar la bitácora.')
-    }
+  useEffect(() => {
+    setPendingDeletedMediaIds([])
+  }, [journalId, mode])
 
+  async function pickAndStageImages(): Promise<PickImagesResult> {
     const remainingSlots = MAX_JOURNAL_PHOTOS - media.length
 
     if (remainingSlots <= 0) {
-      throw new Error(`Esta bitácora ya tiene el máximo de ${MAX_JOURNAL_PHOTOS} fotos.`)
+      throw new Error(`Esta bitacora ya tiene el maximo de ${MAX_JOURNAL_PHOTOS} fotos.`)
     }
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
 
     if (!permission.granted) {
       throw new Error(
-        'Se necesita permiso para acceder a la galería. Habilítalo desde configuración del dispositivo.'
+        'Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.'
       )
     }
 
@@ -241,191 +309,78 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
     })
 
     if (result.canceled || !result.assets?.length) {
-      return { uploadedCount: 0, failedCount: 0, failures: [] }
+      return { selectedCount: 0, failedCount: 0, failures: [] }
     }
 
     const selectedAssets = result.assets.slice(0, remainingSlots)
+    const stagedImages: PendingJournalImage[] = []
+    const failures: MediaFailure[] = []
 
-    try {
-      setUploading(true)
+    for (let index = 0; index < selectedAssets.length; index += 1) {
+      const asset = selectedAssets[index]
+      const fileName = asset.fileName?.trim() || `imagen-${Date.now()}-${index + 1}.jpg`
+
+      try {
+        if (!isSupportedImage(asset)) {
+          throw new Error('Solo se permiten imagenes JPG o PNG.')
+        }
+
+        const fileSize = await getAssetSize(asset)
+
+        if (fileSize > MAX_JOURNAL_IMAGE_SIZE_BYTES) {
+          throw new Error(`Cada imagen debe pesar menos de ${MAX_JOURNAL_IMAGE_SIZE_MB} MB.`)
+        }
+
+        stagedImages.push({
+          id: createLocalId('pending-media'),
+          uri: asset.uri,
+          fileName,
+          mimeType: asset.mimeType ?? null,
+          extension: getExtensionFromAsset(asset),
+        })
+      } catch (itemError) {
+        failures.push({
+          index: index + 1,
+          fileName,
+          reason: mapMediaError(itemError),
+        })
+      }
+    }
+
+    if (stagedImages.length > 0) {
+      setPendingNewImages((prev) => [...prev, ...stagedImages])
       setError(null)
+    }
 
-      if (mode === 'remote') {
-        if (!userId) {
-          throw new Error('Debes iniciar sesión.')
-        }
-
-        let uploadedCount = 0
-        const failures: MediaFailure[] = []
-        let sortBase = media.length
-
-        for (let index = 0; index < selectedAssets.length; index += 1) {
-          const asset = selectedAssets[index]
-          const fileName = asset.fileName?.trim() || `imagen-${Date.now()}-${index + 1}.jpg`
-
-          try {
-            if (!isSupportedImage(asset)) {
-              throw new Error('Solo se permiten imágenes JPG o PNG.')
-            }
-
-            const fileSize = await getAssetSize(asset)
-
-            if (fileSize > MAX_JOURNAL_IMAGE_SIZE_BYTES) {
-              throw new Error(`Cada imagen debe pesar menos de ${MAX_JOURNAL_IMAGE_SIZE_MB} MB.`)
-            }
-
-            await uploadJournalImage({
-              journalId,
-              userId,
-              fileUri: asset.uri,
-              fileName,
-              mimeType: asset.mimeType,
-              sortOrder: sortBase,
-            })
-
-            uploadedCount += 1
-            sortBase += 1
-          } catch (itemError) {
-            failures.push({
-              index: index + 1,
-              fileName,
-              reason: mapUploadError(itemError),
-            })
-          }
-        }
-
-        if (uploadedCount > 0) {
-          await loadMedia()
-        }
-
-        return {
-          uploadedCount,
-          failedCount: failures.length,
-          failures,
-        }
-      }
-
-      const db = await getOfflineDb()
-      const directory = await ensureJournalMediaDirectory(journalId)
-
-      let uploadedCount = 0
-      const failures: MediaFailure[] = []
-      let sortBase = media.length
-
-      for (let index = 0; index < selectedAssets.length; index += 1) {
-        const asset = selectedAssets[index]
-        const fileName = asset.fileName?.trim() || `imagen-${Date.now()}-${index + 1}.jpg`
-
-        try {
-          if (!isSupportedImage(asset)) {
-            throw new Error('Solo se permiten imágenes JPG o PNG.')
-          }
-
-          const fileSize = await getAssetSize(asset)
-
-          if (fileSize > MAX_JOURNAL_IMAGE_SIZE_BYTES) {
-            throw new Error(`Cada imagen debe pesar menos de ${MAX_JOURNAL_IMAGE_SIZE_MB} MB.`)
-          }
-
-          const localId = createLocalId('media')
-          const extension = getExtensionFromAsset(asset)
-          const finalFileName = `${localId}.${extension}`
-          const localPath = `${directory}${finalFileName}`
-          const now = new Date().toISOString()
-
-          await FileSystem.copyAsync({
-            from: asset.uri,
-            to: localPath,
-          })
-
-          await db.runAsync(
-            `
-              INSERT INTO offline_journal_media (
-                local_id,
-                remote_id,
-                local_journal_id,
-                local_path,
-                remote_url,
-                file_name,
-                mime_type,
-                sort_order,
-                sync_status,
-                created_at,
-                updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `,
-            [
-              localId,
-              null,
-              journalId,
-              localPath,
-              null,
-              fileName,
-              asset.mimeType ?? (extension === 'png' ? 'image/png' : 'image/jpeg'),
-              sortBase,
-              'pending',
-              now,
-              now,
-            ]
-          )
-
-          await db.runAsync(
-            `
-              UPDATE offline_journals
-              SET sync_status = ?, updated_at = ?
-              WHERE local_id = ?
-            `,
-            ['pending', now, journalId]
-          )
-
-          uploadedCount += 1
-          sortBase += 1
-        } catch (itemError) {
-          failures.push({
-            index: index + 1,
-            fileName,
-            reason: mapUploadError(itemError),
-          })
-        }
-      }
-
-      if (uploadedCount > 0) {
-        await loadMedia()
-      }
-
-      return {
-        uploadedCount,
-        failedCount: failures.length,
-        failures,
-      }
-    } finally {
-      setUploading(false)
+    return {
+      selectedCount: stagedImages.length,
+      failedCount: failures.length,
+      failures,
     }
   }
 
-  async function removeMedia(item: JournalMedia): Promise<RemoveMediaResult> {
-    if (!journalId) {
-      throw new Error('No se encontró la bitácora para eliminar la foto.')
+  async function removeMedia(item: JournalMedia) {
+    if (pendingNewImages.some((image) => image.id === item.id)) {
+      setPendingNewImages((prev) => prev.filter((image) => image.id !== item.id))
+      return
     }
 
-    setDeletingMediaIds((prev) => [...prev, item.id])
+    setPendingDeletedMediaIds((prev) =>
+      prev.includes(item.id) ? prev : [...prev, item.id]
+    )
     setError(null)
+  }
 
-    try {
-      if (mode === 'remote') {
-        const result = await deleteJournalMedia({
-          mediaId: item.id,
-          journalId,
-          filePath: item.file_path,
-        })
+  async function applyLocalPendingMediaChanges(
+    finalJournalId: string
+  ): Promise<ApplyPendingMediaResult> {
+    const db = await getOfflineDb()
+    const mediaToDelete = persistedMedia.filter((item) =>
+      pendingDeletedMediaIds.includes(item.id)
+    )
+    let deletedCount = 0
 
-        await loadMedia()
-
-        return result
-      }
-
-      const db = await getOfflineDb()
-
+    for (const item of mediaToDelete) {
       const row = await db.getFirstAsync<OfflineJournalMediaRow>(
         `
           SELECT *
@@ -433,11 +388,11 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
           WHERE local_id = ?
           AND local_journal_id = ?
         `,
-        [item.id, journalId]
+        [item.id, finalJournalId]
       )
 
       if (!row) {
-        throw new Error('No se encontró la foto local.')
+        continue
       }
 
       await db.runAsync(
@@ -446,7 +401,7 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
           WHERE local_id = ?
           AND local_journal_id = ?
         `,
-        [item.id, journalId]
+        [item.id, finalJournalId]
       )
 
       const fileInfo = await FileSystem.getInfoAsync(row.local_path)
@@ -457,27 +412,215 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
         })
       }
 
-      await loadMedia()
-
-      return {
-        orphanedFilePath: null,
-        storageDeleted: true,
-      }
-    } catch (removeError: any) {
-      throw new Error(removeError?.message ?? 'No se pudo eliminar la foto de la bitácora.')
-    } finally {
-      setDeletingMediaIds((prev) => prev.filter((id) => id !== item.id))
+      deletedCount += 1
     }
+
+    const directory = pendingNewImages.length
+      ? await ensureJournalMediaDirectory(finalJournalId)
+      : null
+    const failures: MediaFailure[] = []
+    const uploadedImageIds = new Set<string>()
+    let uploadedCount = 0
+    let sortBase = persistedMedia.length - deletedCount
+
+    for (let index = 0; index < pendingNewImages.length; index += 1) {
+      const image = pendingNewImages[index]
+
+      try {
+        if (!directory) {
+          throw new Error('No se encontro el directorio de fotos.')
+        }
+
+        const localId = createLocalId('media')
+        const finalFileName = `${localId}.${image.extension}`
+        const localPath = `${directory}${finalFileName}`
+        const now = new Date().toISOString()
+
+        await FileSystem.copyAsync({
+          from: image.uri,
+          to: localPath,
+        })
+
+        await db.runAsync(
+          `
+            INSERT INTO offline_journal_media (
+              local_id,
+              remote_id,
+              local_journal_id,
+              local_path,
+              remote_url,
+              file_name,
+              mime_type,
+              sort_order,
+              sync_status,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          [
+            localId,
+            null,
+            finalJournalId,
+            localPath,
+            null,
+            image.fileName,
+            image.mimeType ?? (image.extension === 'png' ? 'image/png' : 'image/jpeg'),
+            sortBase,
+            'pending',
+            now,
+            now,
+          ]
+        )
+
+        uploadedCount += 1
+        sortBase += 1
+        uploadedImageIds.add(image.id)
+      } catch (itemError) {
+        failures.push({
+          index: index + 1,
+          fileName: image.fileName,
+          reason: mapMediaError(itemError),
+        })
+      }
+    }
+
+    if (deletedCount > 0 || uploadedCount > 0) {
+      await db.runAsync(
+        `
+          UPDATE offline_journals
+          SET sync_status = ?, updated_at = ?
+          WHERE local_id = ?
+        `,
+        ['pending', new Date().toISOString(), finalJournalId]
+      )
+    }
+
+    setPendingNewImages((prev) => prev.filter((image) => !uploadedImageIds.has(image.id)))
+    setPendingDeletedMediaIds([])
+    await loadMediaForJournalId(finalJournalId)
+
+    return {
+      uploadedCount,
+      deletedCount,
+      failedCount: failures.length,
+      failures,
+    }
+  }
+
+  async function applyRemotePendingMediaChanges(
+    finalJournalId: string
+  ): Promise<ApplyPendingMediaResult> {
+    if (!userId) {
+      throw new Error('Debes iniciar sesion.')
+    }
+
+    const mediaToDelete = persistedMedia.filter((item) =>
+      pendingDeletedMediaIds.includes(item.id)
+    )
+    let deletedCount = 0
+
+    for (const item of mediaToDelete) {
+      await deleteJournalMedia({
+        mediaId: item.id,
+        journalId: finalJournalId,
+        filePath: item.file_path,
+      })
+      deletedCount += 1
+    }
+
+    const failures: MediaFailure[] = []
+    const uploadedImageIds = new Set<string>()
+    let uploadedCount = 0
+    let sortBase = persistedMedia.length - deletedCount
+
+    for (let index = 0; index < pendingNewImages.length; index += 1) {
+      const image = pendingNewImages[index]
+
+      try {
+        await uploadJournalImage({
+          journalId: finalJournalId,
+          userId,
+          fileUri: image.uri,
+          fileName: image.fileName,
+          mimeType: image.mimeType,
+          sortOrder: sortBase,
+        })
+
+        uploadedCount += 1
+        sortBase += 1
+        uploadedImageIds.add(image.id)
+      } catch (itemError) {
+        failures.push({
+          index: index + 1,
+          fileName: image.fileName,
+          reason: mapMediaError(itemError),
+        })
+      }
+    }
+
+    setPendingNewImages((prev) => prev.filter((image) => !uploadedImageIds.has(image.id)))
+    setPendingDeletedMediaIds([])
+    await loadMediaForJournalId(finalJournalId)
+
+    return {
+      uploadedCount,
+      deletedCount,
+      failedCount: failures.length,
+      failures,
+    }
+  }
+
+  async function applyPendingMediaChanges(
+    finalJournalId = journalId
+  ): Promise<ApplyPendingMediaResult> {
+    if (!finalJournalId) {
+      throw new Error('Primero debes guardar la bitacora.')
+    }
+
+    if (!mediaDirty) {
+      return {
+        uploadedCount: 0,
+        deletedCount: 0,
+        failedCount: 0,
+        failures: [],
+      }
+    }
+
+    try {
+      setUploading(true)
+      setError(null)
+
+      if (mode === 'remote') {
+        return await applyRemotePendingMediaChanges(finalJournalId)
+      }
+
+      return await applyLocalPendingMediaChanges(finalJournalId)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function resetPendingMediaChanges() {
+    setPendingNewImages([])
+    setPendingDeletedMediaIds([])
   }
 
   return {
     media,
+    existingMedia: persistedMedia,
+    pendingNewImages,
+    pendingNewImageIds,
+    pendingDeletedMediaIds,
     loading,
     uploading,
     error,
-    deletingMediaIds,
-    pickAndUploadImages,
+    deletingMediaIds: pendingDeletedMediaIds,
+    mediaDirty,
+    pickAndStageImages,
+    pickAndUploadImages: pickAndStageImages,
     removeMedia,
+    applyPendingMediaChanges,
+    resetPendingMediaChanges,
     refreshMedia: loadMedia,
     maxPhotos: MAX_JOURNAL_PHOTOS,
   }

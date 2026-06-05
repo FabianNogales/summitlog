@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect } from '@react-navigation/native'
 
 import { colors } from '../../src/theme/colors'
 import { useAuth } from '../../src/hooks/useAuth'
@@ -14,6 +15,7 @@ import { TripDetailMapPreview } from '../../src/components/profile/trip-detail/T
 import { TripDetailInfoCard } from '../../src/components/profile/trip-detail/TripDetailInfoCard'
 import { TripDetailCoordinatesCard } from '../../src/components/profile/trip-detail/TripDetailCoordinatesCard'
 import { EditJournalButton } from '../../src/components/profile/trip-detail/EditJournalButton'
+import { TripDetailMediaSection } from '../../src/components/profile/trip-detail/TripDetailMediaSection'
 
 export default function TripDetailScreen() {
   const router = useRouter()
@@ -54,6 +56,14 @@ export default function TripDetailScreen() {
     currentTripId &&
       user?.id &&
       detail.trip.user_id === user.id
+  )
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!authLoading && user && tripId) {
+        refreshDetail()
+      }
+    }, [authLoading, refreshDetail, tripId, user])
   )
 
   function handleBack() {
@@ -215,6 +225,8 @@ export default function TripDetailScreen() {
               <TripDetailInfoCard detail={detail} />
 
               <TripDetailCoordinatesCard detail={detail} />
+
+              <TripDetailMediaSection media={detail.journalMedia} />
 
               <EditJournalButton detail={detail} onPress={handleEditJournal} />
 

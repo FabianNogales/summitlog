@@ -1,11 +1,20 @@
 import { supabase } from '../lib/supabase'
 import { getOfflineDb } from './offlineDb.service'
-import { getJournalMediaPublicUrl, uploadJournalImage } from './journalMedia.service'
+import {
+  getJournalMediaByJournalId,
+  getJournalMediaPublicUrl,
+  uploadJournalImage,
+} from './journalMedia.service'
 import {
   publishRecordedTripAsRoute,
   unpublishRecordedTripRoute,
 } from './routePublish.service'
-import type { Journal, JournalDifficulty, JournalVisibility } from '../types/journal'
+import type {
+  Journal,
+  JournalDifficulty,
+  JournalMedia,
+  JournalVisibility,
+} from '../types/journal'
 import * as FileSystem from 'expo-file-system/legacy'
 
 interface CreateJournalParams {
@@ -17,6 +26,7 @@ interface CreateJournalParams {
   difficulty?: JournalDifficulty | null
   category?: string | null
   commentsEnabled?: boolean
+  skipRoutePublication?: boolean
 }
 
 interface UpdateJournalParams {
@@ -27,6 +37,7 @@ interface UpdateJournalParams {
   difficulty?: JournalDifficulty | null
   category?: string | null
   commentsEnabled?: boolean
+  skipRoutePublication?: boolean
 }
 
 export interface OfflineJournal {
@@ -102,6 +113,102 @@ async function syncRoutePublicationForTrip(
   }
 
   await unpublishRecordedTripRoute(recordedTripId)
+}
+
+function isDuplicateJournalMediaSortOrderError(error: unknown) {
+  const maybeError = error as { code?: string; message?: string } | null
+  const message = maybeError?.message?.toLowerCase() ?? ''
+
+  return (
+    maybeError?.code === '23505' &&
+    message.includes('journal_media_journal_id_sort_order_key')
+  )
+}
+
+function getJournalMediaExtension(fileName?: string | null, mimeType?: string | null) {
+  const fileNameExtension = fileName?.split('.').pop()?.toLowerCase()
+
+  if (fileNameExtension === 'png') {
+    return 'png'
+  }
+
+  if (fileNameExtension === 'jpg' || fileNameExtension === 'jpeg') {
+    return fileNameExtension
+  }
+
+  return mimeType?.toLowerCase().includes('png') ? 'png' : 'jpg'
+}
+
+function buildSyncedJournalMediaStoragePath(params: {
+  userId: string
+  journalId: string
+  localMediaId: string
+  fileName?: string | null
+  mimeType?: string | null
+}) {
+  const extension = getJournalMediaExtension(params.fileName, params.mimeType)
+  return `${params.userId}/${params.journalId}/${params.localMediaId}.${extension}`
+}
+
+async function getNextRemoteJournalMediaSortOrder(journalId: string) {
+  const remoteMedia = await getJournalMediaByJournalId(journalId)
+  const maxSortOrder = remoteMedia.reduce((maxValue, media) => {
+    const sortOrder = Number(media.sort_order)
+    return Number.isFinite(sortOrder) ? Math.max(maxValue, sortOrder) : maxValue
+  }, -1)
+
+  return maxSortOrder + 1
+}
+
+async function getRemoteJournalMediaById(mediaId: string, journalId: string) {
+  const { data, error } = await supabase
+    .from('journal_media')
+    .select('*')
+    .eq('id', mediaId)
+    .eq('journal_id', journalId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? null) as JournalMedia | null
+}
+
+async function getRemoteJournalMediaByFilePath(filePath: string, journalId: string) {
+  const { data, error } = await supabase
+    .from('journal_media')
+    .select('*')
+    .eq('journal_id', journalId)
+    .eq('file_path', filePath)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? null) as JournalMedia | null
+}
+
+async function syncRoutePublicationForTripWithoutBlockingJournalSync(
+  recordedTripId: string,
+  params: {
+    title: string
+    content: string
+    visibility: JournalVisibility
+    difficulty?: JournalDifficulty | null
+    category?: string | null
+    commentsEnabled?: boolean
+  }
+) {
+  try {
+    await syncRoutePublicationForTrip(recordedTripId, params)
+  } catch (error: any) {
+    console.warn(
+      '[JournalSync] La bitacora se sincronizo, pero no se publico como ruta.',
+      error?.message ?? error
+    )
+  }
 }
 
 export async function getOfflineJournalByLocalId(localJournalId: string) {
@@ -259,14 +366,16 @@ export async function createJournal(params: CreateJournalParams) {
 
   const journal = data as Journal
 
-  await syncRoutePublicationForTrip(params.recordedTripId, {
-    title: params.title,
-    content: params.content,
-    visibility: params.visibility,
-    difficulty: params.difficulty,
-    category: params.category,
-    commentsEnabled: params.commentsEnabled,
-  })
+  if (!params.skipRoutePublication) {
+    await syncRoutePublicationForTrip(params.recordedTripId, {
+      title: params.title,
+      content: params.content,
+      visibility: params.visibility,
+      difficulty: params.difficulty,
+      category: params.category,
+      commentsEnabled: params.commentsEnabled,
+    })
+  }
 
   return journal
 }
@@ -290,14 +399,16 @@ export async function updateJournal(params: UpdateJournalParams) {
 
   const journal = data as Journal
 
-  await syncRoutePublicationForTrip(journal.recorded_trip_id, {
-    title: params.title,
-    content: params.content,
-    visibility: params.visibility,
-    difficulty: params.difficulty,
-    category: params.category,
-    commentsEnabled: params.commentsEnabled,
-  })
+  if (!params.skipRoutePublication) {
+    await syncRoutePublicationForTrip(journal.recorded_trip_id, {
+      title: params.title,
+      content: params.content,
+      visibility: params.visibility,
+      difficulty: params.difficulty,
+      category: params.category,
+      commentsEnabled: params.commentsEnabled,
+    })
+  }
 
   return journal
 }
@@ -371,6 +482,7 @@ export async function syncPendingJournalsAndMediaForUser(
             difficulty: journal.difficulty,
             category: journal.category,
             commentsEnabled: booleanFromSqlite(journal.comments_enabled),
+            skipRoutePublication: true,
           })
 
           remoteJournalId = remoteJournal.id
@@ -393,18 +505,29 @@ export async function syncPendingJournalsAndMediaForUser(
           difficulty: journal.difficulty,
           category: journal.category,
           commentsEnabled: booleanFromSqlite(journal.comments_enabled),
+          skipRoutePublication: true,
         })
       }
 
+      await syncRoutePublicationForTripWithoutBlockingJournalSync(tripRow.remote_id, {
+        title: journal.title,
+        content: journal.content,
+        visibility: journal.visibility,
+        difficulty: journal.difficulty,
+        category: journal.category,
+        commentsEnabled: booleanFromSqlite(journal.comments_enabled),
+      })
+
       const localMedia = await db.getAllAsync<{
         local_id: string
+        remote_id: string | null
         local_path: string
         file_name: string | null
         mime_type: string | null
         sort_order: number
       }>(
         `
-          SELECT local_id, local_path, file_name, mime_type, sort_order
+          SELECT local_id, remote_id, local_path, file_name, mime_type, sort_order
           FROM offline_journal_media
           WHERE local_journal_id = ?
           AND sync_status IN ('pending', 'failed', 'syncing')
@@ -414,6 +537,7 @@ export async function syncPendingJournalsAndMediaForUser(
       )
 
       let mediaFailed = 0
+      let nextRemoteSortOrder = await getNextRemoteJournalMediaSortOrder(remoteJournalId)
 
       for (const media of localMedia) {
         try {
@@ -425,6 +549,75 @@ export async function syncPendingJournalsAndMediaForUser(
             `,
             ['syncing', new Date().toISOString(), media.local_id]
           )
+
+          if (media.remote_id) {
+            const existingRemoteMedia = await getRemoteJournalMediaById(
+              media.remote_id,
+              remoteJournalId
+            )
+
+            if (existingRemoteMedia) {
+              await db.runAsync(
+                `
+                  UPDATE offline_journal_media
+                  SET
+                    remote_url = ?,
+                    sync_status = ?,
+                    updated_at = ?
+                  WHERE local_id = ?
+                `,
+                [
+                  getJournalMediaPublicUrl(existingRemoteMedia.file_path),
+                  'synced',
+                  new Date().toISOString(),
+                  media.local_id,
+                ]
+              )
+              const existingSortOrder = Number(existingRemoteMedia.sort_order)
+              if (Number.isFinite(existingSortOrder)) {
+                nextRemoteSortOrder = Math.max(nextRemoteSortOrder, existingSortOrder + 1)
+              }
+              continue
+            }
+          }
+
+          const stableStoragePath = buildSyncedJournalMediaStoragePath({
+            userId,
+            journalId: remoteJournalId,
+            localMediaId: media.local_id,
+            fileName: media.file_name,
+            mimeType: media.mime_type,
+          })
+          const existingRemoteMediaByPath = await getRemoteJournalMediaByFilePath(
+            stableStoragePath,
+            remoteJournalId
+          )
+
+          if (existingRemoteMediaByPath) {
+            await db.runAsync(
+              `
+                UPDATE offline_journal_media
+                SET
+                  remote_id = ?,
+                  remote_url = ?,
+                  sync_status = ?,
+                  updated_at = ?
+                WHERE local_id = ?
+              `,
+              [
+                existingRemoteMediaByPath.id,
+                getJournalMediaPublicUrl(existingRemoteMediaByPath.file_path),
+                'synced',
+                new Date().toISOString(),
+                media.local_id,
+              ]
+            )
+            const existingSortOrder = Number(existingRemoteMediaByPath.sort_order)
+            if (Number.isFinite(existingSortOrder)) {
+              nextRemoteSortOrder = Math.max(nextRemoteSortOrder, existingSortOrder + 1)
+            }
+            continue
+          }
 
           const fileInfo = await FileSystem.getInfoAsync(media.local_path)
 
@@ -439,14 +632,39 @@ export async function syncPendingJournalsAndMediaForUser(
             continue
           }
 
-          const uploadedMedia = await uploadJournalImage({
-            journalId: remoteJournalId,
-            userId,
-            fileUri: media.local_path,
-            fileName: media.file_name,
-            mimeType: media.mime_type,
-            sortOrder: media.sort_order,
-          })
+          let uploadedMedia: JournalMedia
+
+          try {
+            uploadedMedia = await uploadJournalImage({
+              journalId: remoteJournalId,
+              userId,
+              fileUri: media.local_path,
+              fileName: media.file_name,
+              mimeType: media.mime_type,
+              sortOrder: nextRemoteSortOrder,
+              storagePath: stableStoragePath,
+            })
+          } catch (uploadError) {
+            if (!isDuplicateJournalMediaSortOrderError(uploadError)) {
+              throw uploadError
+            }
+
+            nextRemoteSortOrder = await getNextRemoteJournalMediaSortOrder(remoteJournalId)
+            uploadedMedia = await uploadJournalImage({
+              journalId: remoteJournalId,
+              userId,
+              fileUri: media.local_path,
+              fileName: media.file_name,
+              mimeType: media.mime_type,
+              sortOrder: nextRemoteSortOrder,
+              storagePath: stableStoragePath,
+            })
+          }
+
+          const uploadedSortOrder = Number(uploadedMedia.sort_order)
+          if (Number.isFinite(uploadedSortOrder)) {
+            nextRemoteSortOrder = Math.max(nextRemoteSortOrder, uploadedSortOrder + 1)
+          }
 
           await db.runAsync(
             `

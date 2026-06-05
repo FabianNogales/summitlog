@@ -57,11 +57,13 @@ export function useTripDetail(tripId?: string) {
     loadDetail()
   }, [loadDetail])
 
+  const refreshDetail = useCallback(() => loadDetail(true), [loadDetail])
+
   return {
     detail,
     loading,
     refreshing,
     error,
-    refreshDetail: () => loadDetail(true),
+    refreshDetail,
   }
 }

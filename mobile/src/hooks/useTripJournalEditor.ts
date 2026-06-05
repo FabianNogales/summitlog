@@ -247,7 +247,7 @@ export function useTripJournalEditor(tripId?: string) {
     journalCommentsEnabled,
   ])
 
-  async function saveJournal() {
+  async function saveJournal(options?: { allowNoFormChanges?: boolean }) {
     if (saving) {
       throw new Error('La bitácora ya se está guardando.')
     }
@@ -262,6 +262,10 @@ export function useTripJournalEditor(tripId?: string) {
 
     if (trip.status !== 'completed') {
       throw new Error('Solo puedes crear una bitácora de un recorrido completado.')
+    }
+
+    if (journal && !hasUnsavedChanges && options?.allowNoFormChanges) {
+      return journal
     }
 
     if (journal && !hasUnsavedChanges) {

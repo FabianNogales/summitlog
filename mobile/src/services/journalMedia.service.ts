@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import type { JournalMedia } from '../types/journal'
 import * as FileSystem from 'expo-file-system/legacy'
 import { decode as decodeBase64 } from 'base64-arraybuffer'
+import { getOfflineDb } from './offlineDb.service'
 
 const JOURNAL_MEDIA_BUCKET = 'journal-media'
 
@@ -23,6 +24,54 @@ export async function getJournalMediaByJournalId(journalId: string) {
   return (data ?? []) as JournalMedia[]
 }
 
+interface OfflineJournalMediaRow {
+  local_id: string
+  remote_id: string | null
+  local_journal_id: string
+  local_path: string
+  remote_url: string | null
+  file_name: string | null
+  mime_type: string | null
+  sort_order: number
+  sync_status: string
+  created_at: string
+  updated_at: string
+}
+
+function mapOfflineMedia(row: OfflineJournalMediaRow): JournalMedia {
+  return {
+    id: row.local_id,
+    journal_id: row.local_journal_id,
+    file_path: row.local_path,
+    file_type: 'image',
+    sort_order: row.sort_order,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    local_id: row.local_id,
+    local_journal_id: row.local_journal_id,
+    local_path: row.local_path,
+    remote_id: row.remote_id,
+    remote_url: row.remote_url,
+    sync_status: row.sync_status,
+  } as JournalMedia
+}
+
+export async function getOfflineJournalMediaByJournalId(journalId: string) {
+  const db = await getOfflineDb()
+
+  const rows = await db.getAllAsync<OfflineJournalMediaRow>(
+    `
+      SELECT *
+      FROM offline_journal_media
+      WHERE local_journal_id = ?
+      ORDER BY sort_order ASC, created_at ASC
+    `,
+    [journalId]
+  )
+
+  return rows.map(mapOfflineMedia)
+}
+
 interface UploadJournalImageParams {
   journalId: string
   userId: string
@@ -30,6 +79,7 @@ interface UploadJournalImageParams {
   fileName?: string | null
   mimeType?: string | null
   sortOrder: number
+  storagePath?: string | null
 }
 
 interface DeleteJournalMediaParams {
@@ -66,7 +116,9 @@ export async function uploadJournalImage(params: UploadJournalImageParams) {
     params.fileName?.split('.').pop()?.toLowerCase() ||
     (params.mimeType?.includes('png') ? 'png' : 'jpg')
 
-  const path = `${params.userId}/${params.journalId}/${Date.now()}-${params.sortOrder}.${extension}`
+  const path =
+    params.storagePath?.trim() ||
+    `${params.userId}/${params.journalId}/${Date.now()}-${params.sortOrder}.${extension}`
   const contentType = resolveContentType(params.mimeType, extension)
 
   let base64Content: string
@@ -112,6 +164,7 @@ export async function uploadJournalImage(params: UploadJournalImageParams) {
     .single()
 
   if (error) {
+    await supabase.storage.from(JOURNAL_MEDIA_BUCKET).remove([path])
     throw error
   }
 

@@ -32,22 +32,28 @@ function getRouteDisplayTitle(params: { display_title?: string; title?: string |
   })
 }
 
-function getRouteDisplayImageUrl(params: {
-  display_image_url?: string | null
-  cover_image_url?: string | null
-}) {
+function getRouteDisplayImageUrl(route: RouteItem) {
+  if (route.source_recorded_trip_id) {
+    return route.display_image_url?.trim() ?? ''
+  }
+
   return (
     resolveRouteDisplayImageUrl({
-      displayImageUrl: params.display_image_url,
-      coverImageUrl: params.cover_image_url,
+      displayImageUrl: route.display_image_url,
+      coverImageUrl: route.cover_image_url,
     }) ?? ''
   )
 }
 
 function getRouteDisplayImageUrls(route: RouteItem) {
-  const imageUrls = route.display_image_urls?.length
-    ? route.display_image_urls
-    : [getRouteDisplayImageUrl(route)]
+  let imageUrls: string[] = []
+
+  if (route.display_image_urls?.length) {
+    imageUrls = route.display_image_urls
+  } else if (!route.source_recorded_trip_id) {
+    imageUrls = [getRouteDisplayImageUrl(route)]
+  }
+
   const seen = new Set<string>()
   const resolvedUrls: string[] = []
 

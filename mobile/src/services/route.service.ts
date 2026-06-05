@@ -145,9 +145,8 @@ async function decorateRoutes(routes: RouteItem[]) {
       const journalMediaImageUrls = journalMediaPaths
         .map((filePath) => getJournalMediaPublicUrl(filePath))
         .filter((imageUrl) => Boolean(normalizeText(imageUrl)))
-      const journalMediaImageUrl = routeCoverUrl
-        ? null
-        : journalMediaImageUrls[0] ?? null
+      const journalMediaImageUrl = journalMediaImageUrls[0] ?? null
+      const shouldUseJournalMedia = Boolean(route.source_recorded_trip_id)
       const displayTitle = resolveRouteDisplayTitle({
         journalTitle: journal?.title,
         tripTitle: tripData?.title,
@@ -157,12 +156,13 @@ async function decorateRoutes(routes: RouteItem[]) {
         routeCreatedAt: route.created_at,
       })
       const displayImageUrl = resolveRouteDisplayImageUrl({
-        coverImageUrl: routeCoverUrl,
         journalMediaImageUrl,
+        coverImageUrl: shouldUseJournalMedia ? null : routeCoverUrl,
       })
       const displayImageUrls = dedupeImageUrls([
         displayImageUrl,
         ...journalMediaImageUrls,
+        shouldUseJournalMedia ? null : routeCoverUrl,
       ])
 
       return {
@@ -178,18 +178,23 @@ async function decorateRoutes(routes: RouteItem[]) {
       error
     )
 
-    return routes.map((route) => ({
-      ...route,
-      display_title: resolveRouteDisplayTitle({
-        routeTitle: route.title,
-        routePublishedAt: route.published_at,
-        routeCreatedAt: route.created_at,
-      }),
-      display_image_url: resolveRouteDisplayImageUrl({
-        coverImageUrl: route.cover_image_url,
-      }),
-      display_image_urls: dedupeImageUrls([route.cover_image_url]),
-    }))
+    return routes.map((route) => {
+      const shouldUseJournalMedia = Boolean(route.source_recorded_trip_id)
+      const fallbackImageUrl = shouldUseJournalMedia ? null : route.cover_image_url
+
+      return {
+        ...route,
+        display_title: resolveRouteDisplayTitle({
+          routeTitle: route.title,
+          routePublishedAt: route.published_at,
+          routeCreatedAt: route.created_at,
+        }),
+        display_image_url: resolveRouteDisplayImageUrl({
+          coverImageUrl: fallbackImageUrl,
+        }),
+        display_image_urls: dedupeImageUrls([fallbackImageUrl]),
+      }
+    })
   }
 }
 

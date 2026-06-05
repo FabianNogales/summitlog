@@ -9,6 +9,7 @@ import { getJournalMediaPublicUrl } from '../../services/journalMedia.service'
 interface JournalMediaGridProps {
   media: JournalMedia[]
   deletingMediaIds?: string[]
+  pendingMediaIds?: string[]
   onRemove?: (item: JournalMedia) => void
 }
 
@@ -31,6 +32,7 @@ function resolveImageUrl(item: JournalMedia) {
 export function JournalMediaGrid({
   media,
   deletingMediaIds = [],
+  pendingMediaIds = [],
   onRemove,
 }: JournalMediaGridProps) {
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set())
@@ -62,6 +64,7 @@ export function JournalMediaGrid({
         const imageUrl = resolveImageUrl(item)
         const hasRenderError = failedImageIds.has(item.id)
         const isDeleting = deletingMediaIds.includes(item.id)
+        const isPending = pendingMediaIds.includes(item.id)
 
         if (!imageUrl || hasRenderError) {
           return (
@@ -134,6 +137,24 @@ export function JournalMediaGrid({
               >
                 <Feather name={isDeleting ? 'loader' : 'x'} size={13} color={colors.text} />
               </Pressable>
+            ) : null}
+
+            {isPending ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 6,
+                  bottom: 6,
+                  borderRadius: 999,
+                  backgroundColor: colors.overlay,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                }}
+              >
+                <Text style={{ color: colors.text, fontSize: 10, fontWeight: '700' }}>
+                  Pendiente
+                </Text>
+              </View>
             ) : null}
           </Pressable>
         )

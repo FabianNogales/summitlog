@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native'
 
 import { AuthButton } from '../auth/AuthButton'
@@ -30,6 +30,7 @@ interface JournalEditorFormProps {
   saving: boolean
   uploading: boolean
   hasUnsavedChanges: boolean
+  mediaSection?: ReactNode
   onChangeTitle: (value: string) => void
   onChangeContent: (value: string) => void
   onChangeVisibility: (value: JournalVisibility) => void
@@ -53,6 +54,7 @@ export function JournalEditorForm({
   saving,
   uploading,
   hasUnsavedChanges,
+  mediaSection,
   onChangeTitle,
   onChangeContent,
   onChangeVisibility,
@@ -255,6 +257,8 @@ export function JournalEditorForm({
 
       <JournalVisibilitySelector value={visibility} onChange={onChangeVisibility} />
 
+      {mediaSection}
+
       {formError ? (
         <Text
           style={{
@@ -268,7 +272,7 @@ export function JournalEditorForm({
       ) : null}
 
       <AuthButton
-        title={hasJournal ? 'Guardar cambios' : 'Crear bitácora'}
+        title="Guardar cambios"
         onPress={onSave}
         loading={saving}
         disabled={uploading || saving || (hasJournal ? !hasUnsavedChanges : false)}
