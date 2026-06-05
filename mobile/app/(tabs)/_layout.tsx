@@ -1,12 +1,15 @@
 import { ActivityIndicator, View } from "react-native";
 import type { ReactNode } from "react";
 import { Redirect, Tabs } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Activity, Home, Map, User } from "lucide-react-native";
 import { useAuth } from "../../src/hooks/useAuth";
 import { colors } from "../../src/theme/colors";
 
 const TAB_ICON_SIZE = 24;
+const BASE_TAB_BAR_HEIGHT = 66;
+const TAB_BAR_TOP_PADDING = 6;
+const TAB_BAR_MIN_BOTTOM_PADDING = 8;
 
 function TabIconContainer({ children }: { children: ReactNode }) {
   return (
@@ -25,6 +28,7 @@ function TabIconContainer({ children }: { children: ReactNode }) {
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (loading) {
     return (
@@ -54,9 +58,9 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 66,
-          paddingTop: 6,
-          paddingBottom: 6,
+          height: BASE_TAB_BAR_HEIGHT + insets.bottom,
+          paddingTop: TAB_BAR_TOP_PADDING,
+          paddingBottom: Math.max(insets.bottom, TAB_BAR_MIN_BOTTOM_PADDING),
           // Eliminamos paddingHorizontal para que cada pestaña ocupe el espacio exacto
         },
         tabBarItemStyle: {
