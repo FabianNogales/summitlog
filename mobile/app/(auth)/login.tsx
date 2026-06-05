@@ -44,7 +44,7 @@ export default function LoginScreen() {
   }
 
   function getErrorMessage(error: unknown) {
-    return error instanceof Error ? error.message : 'No se pudo iniciar sesion'
+    return error instanceof Error ? error.message : 'No se pudo iniciar sesión'
   }
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function LoginScreen() {
     }
 
     if (!password.trim()) {
-      setPasswordError('Ingresa tu contrasena.')
+      setPasswordError('Ingresa tu contraseña.')
       return
     }
 
@@ -202,7 +202,7 @@ export default function LoginScreen() {
                   lineHeight: 20,
                 }}
               >
-                Inicia sesion para continuar tu aventura
+                Inicia sesión para continuar tu aventura
               </Text>
             </View>
 
@@ -224,8 +224,8 @@ export default function LoginScreen() {
               />
 
               <AuthInput
-                label="Contrasena"
-                placeholder="Contrasena"
+                label="Contraseña"
+                placeholder="Contraseña"
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value)
@@ -265,7 +265,7 @@ export default function LoginScreen() {
               ) : null}
 
               <AuthButton
-                title="Iniciar sesion"
+                title="Iniciar sesión"
                 onPress={handleLogin}
                 loading={isSubmitting}
                 disabled={isSubmitting || isGoogleSubmitting}

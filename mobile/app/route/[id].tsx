@@ -131,7 +131,7 @@ export default function RouteDetailScreen() {
   useEffect(() => {
     if (!routeId) {
       setComments([])
-      setCommentsError('No se encontro la ruta para cargar comentarios.')
+      setCommentsError('No se encontró la ruta para cargar comentarios.')
       setCommentsLoading(false)
       return
     }
@@ -175,7 +175,7 @@ export default function RouteDetailScreen() {
 
     if (!permission.granted) {
       setSubmitError(
-        'Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.'
+        'Se necesita permiso para acceder a la galería. Habilítalo desde configuración del dispositivo.'
       )
       return
     }
@@ -219,17 +219,17 @@ export default function RouteDetailScreen() {
     }
 
     if (!route?.id) {
-      setSubmitError('No se encontro la ruta para reportar.')
+      setSubmitError('No se encontró la ruta para reportar.')
       return
     }
 
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para reportar una condicion.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para reportar una condición.')
       return
     }
 
     if (!reportType) {
-      setSubmitError('Selecciona un tipo de condicion.')
+      setSubmitError('Selecciona un tipo de condición.')
       return
     }
 
@@ -240,14 +240,14 @@ export default function RouteDetailScreen() {
 
     if (trimmedDescription.length < MIN_ROUTE_REPORT_DESCRIPTION_LENGTH) {
       setSubmitError(
-        `La descripcion debe tener al menos ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
+        `La descripción debe tener al menos ${MIN_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
       )
       return
     }
 
     if (trimmedDescription.length > MAX_ROUTE_REPORT_DESCRIPTION_LENGTH) {
       setSubmitError(
-        `La descripcion no puede superar ${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
+        `La descripción no puede superar ${MAX_ROUTE_REPORT_DESCRIPTION_LENGTH} caracteres.`
       )
       return
     }
@@ -274,10 +274,10 @@ export default function RouteDetailScreen() {
       await refreshRouteDetail()
       setIsReportFormOpen(false)
       resetReportForm()
-      Alert.alert('Reporte enviado', 'Tu reporte de condicion se registro correctamente.')
+      Alert.alert('Reporte enviado', 'Tu reporte de condición se registró correctamente.')
     } catch (submitErr: any) {
       setSubmitError(
-        submitErr?.message ?? 'No se pudo enviar el reporte de condicion.'
+        submitErr?.message ?? 'No se pudo enviar el reporte de condición.'
       )
     } finally {
       setSubmittingReport(false)
@@ -286,17 +286,17 @@ export default function RouteDetailScreen() {
 
   async function handleSubmitRouteComment() {
     if (!routeId) {
-      setCommentsError('No se encontro la ruta para comentar.')
+      setCommentsError('No se encontró la ruta para comentar.')
       return
     }
 
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para comentar rutas.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para comentar rutas.')
       return
     }
 
     if (!route?.comments_enabled) {
-      setCommentsError('Los comentarios estan deshabilitados para esta ruta.')
+      setCommentsError('Los comentarios están deshabilitados para esta ruta.')
       return
     }
 
@@ -342,7 +342,7 @@ export default function RouteDetailScreen() {
 
   function handleOpenReportComment(comment: RouteComment) {
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para denunciar contenido.')
       return
     }
 
@@ -369,7 +369,7 @@ export default function RouteDetailScreen() {
     }
 
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para denunciar contenido.')
       return
     }
 

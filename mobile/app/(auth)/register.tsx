@@ -91,7 +91,7 @@ export default function RegisterScreen() {
     }
 
     if (!usernamePattern.test(normalizedUsername)) {
-      setUsernameError('Usa solo letras, numeros, punto, guion bajo o guion medio.')
+      setUsernameError('Usa solo letras, números, punto, guion bajo o guion medio.')
       return
     }
 
@@ -101,7 +101,7 @@ export default function RegisterScreen() {
     }
 
     if (!password.trim()) {
-      setPasswordError('La contrasena es obligatoria.')
+      setPasswordError('La contraseña es obligatoria.')
       return
     }
 
@@ -111,12 +111,12 @@ export default function RegisterScreen() {
     }
 
     if (password.length < 6) {
-      setPasswordError('La contrasena debe tener al menos 6 caracteres.')
+      setPasswordError('La contraseña debe tener al menos 6 caracteres.')
       return
     }
 
     if (password !== confirmPassword) {
-      setConfirmPasswordError('La confirmacion no coincide con la contrasena.')
+      setConfirmPasswordError('La confirmación no coincide con la contraseña.')
       return
     }
 
@@ -304,8 +304,8 @@ export default function RegisterScreen() {
             />
 
             <AuthInput
-              label="Contrasena"
-              placeholder="Contrasena"
+              label="Contraseña"
+              placeholder="Contraseña"
               value={password}
               onChangeText={(value) => {
                 setPassword(value)
@@ -320,8 +320,8 @@ export default function RegisterScreen() {
             />
 
             <AuthInput
-              label="Confirmar contrasena"
-              placeholder="Contrasena"
+              label="Confirmar contraseña"
+              placeholder="Contraseña"
               value={confirmPassword}
               onChangeText={(value) => {
                 setConfirmPassword(value)
@@ -437,7 +437,7 @@ export default function RegisterScreen() {
               >
                 Ya tienes cuenta?{' '}
                 <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                  Inicia sesion
+                  Inicia sesión
                 </Text>
               </Text>
             </Pressable>

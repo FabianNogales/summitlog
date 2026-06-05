@@ -154,7 +154,7 @@ export default function HomeScreen() {
           ...prev,
           [postId]:
             error?.message ??
-            'No se pudieron cargar los comentarios de la publicacion.',
+            'No se pudieron cargar los comentarios de la publicación.',
         }))
       } finally {
         setCommentsLoadingByPostId((prev) => ({ ...prev, [postId]: false }))
@@ -186,7 +186,7 @@ export default function HomeScreen() {
     }
 
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para comentar publicaciones.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para comentar publicaciones.')
       return
     }
 
@@ -224,7 +224,7 @@ export default function HomeScreen() {
       setCommentsErrorByPostId((prev) => ({
         ...prev,
         [postId]:
-          error?.message ?? 'No se pudo crear el comentario de la publicacion.',
+          error?.message ?? 'No se pudo crear el comentario de la publicación.',
       }))
     } finally {
       setCommentSubmittingByPostId((prev) => ({ ...prev, [postId]: false }))
@@ -233,12 +233,12 @@ export default function HomeScreen() {
 
   async function handleCreatePost() {
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para crear una publicacion.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para crear una publicación.')
       return
     }
 
     if (trimmedContent.length < 10) {
-      setSubmitError('La publicacion debe tener al menos 10 caracteres.')
+      setSubmitError('La publicación debe tener al menos 10 caracteres.')
       return
     }
 
@@ -261,7 +261,7 @@ export default function HomeScreen() {
       if (created.imageStatus === 'failed_after_post') {
         setSubmitError(
           created.imageError ??
-            'La publicacion se creo, pero no se pudo asociar la imagen.'
+            'La publicación se creó, pero no se pudo asociar la imagen.'
         )
         return
       }
@@ -271,13 +271,13 @@ export default function HomeScreen() {
       setComposerVisible(false)
 
       Alert.alert(
-        'Publicacion creada',
+        'Publicación creada',
         created.imageStatus === 'uploaded'
-          ? 'Tu publicacion social se guardo con imagen.'
-          : 'Tu publicacion social se guardo correctamente.'
+          ? 'Tu publicación social se guardó con imagen.'
+          : 'Tu publicación social se guardó correctamente.'
       )
     } catch (error: any) {
-      setSubmitError(error?.message ?? 'No se pudo crear la publicacion social.')
+      setSubmitError(error?.message ?? 'No se pudo crear la publicación social.')
     } finally {
       setSubmitting(false)
     }
@@ -285,19 +285,19 @@ export default function HomeScreen() {
 
   function handleDeletePost(postId: string) {
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para eliminar publicaciones.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para eliminar publicaciones.')
       return
     }
 
     const post = posts.find((item) => item.id === postId)
     if (!post || post.user_id !== user.id) {
-      Alert.alert('Accion no disponible', 'No puedes eliminar esta publicacion.')
+      Alert.alert('Acción no disponible', 'No puedes eliminar esta publicación.')
       return
     }
 
     Alert.alert(
-      'Eliminar publicacion',
-      'Esta publicacion dejara de mostrarse en Comunidad. Esta accion no se puede deshacer desde la app.',
+      'Eliminar publicación',
+      'Esta publicación dejará de mostrarse en Comunidad. Esta acción no se puede deshacer desde la app.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -320,7 +320,7 @@ export default function HomeScreen() {
               })
             } catch (error: any) {
               Alert.alert(
-                'No se pudo eliminar la publicacion',
+                'No se pudo eliminar la publicación',
                 error?.message ?? 'Intentalo nuevamente.'
               )
             }
@@ -332,19 +332,19 @@ export default function HomeScreen() {
 
   function handleDeleteComment(postId: string, commentId: string) {
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para eliminar comentarios.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para eliminar comentarios.')
       return
     }
 
     const comment = commentsByPostId[postId]?.find((item) => item.id === commentId)
     if (!comment || comment.user_id !== user.id) {
-      Alert.alert('Accion no disponible', 'No puedes eliminar este comentario.')
+      Alert.alert('Acción no disponible', 'No puedes eliminar este comentario.')
       return
     }
 
     Alert.alert(
       'Eliminar comentario',
-      'Este comentario dejara de mostrarse en Comunidad. Esta accion no se puede deshacer desde la app.',
+      'Este comentario dejará de mostrarse en Comunidad. Esta acción no se puede deshacer desde la app.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -374,7 +374,7 @@ export default function HomeScreen() {
 
     if (!permission.granted) {
       setSubmitError(
-        'Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.'
+        'Se necesita permiso para acceder a la galería. Habilítalo desde configuración del dispositivo.'
       )
       return
     }
@@ -414,7 +414,7 @@ export default function HomeScreen() {
     targetOwnerId?: string | null
   ) {
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para denunciar contenido.')
       return
     }
 
@@ -442,7 +442,7 @@ export default function HomeScreen() {
     }
 
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para denunciar contenido.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para denunciar contenido.')
       return
     }
 
@@ -481,7 +481,7 @@ export default function HomeScreen() {
     imageUri: string | null
   }) {
     if (!user) {
-      Alert.alert('Inicia sesion', 'Debes iniciar sesion para proponer una salida.')
+      Alert.alert('Inicia sesión', 'Debes iniciar sesión para proponer una salida.')
       return
     }
 
@@ -503,7 +503,7 @@ export default function HomeScreen() {
 
       setOutingComposerVisible(false)
       setOutingsRefreshTrigger((prev) => !prev)
-      Alert.alert('Exito', 'La salida grupal ha sido publicada correctamente.')
+      Alert.alert('Éxito', 'La salida grupal ha sido publicada correctamente.')
     } catch (error: any) {
       setOutingSubmitError(error?.message ?? 'No se pudo registrar la salida grupal.')
     } finally {

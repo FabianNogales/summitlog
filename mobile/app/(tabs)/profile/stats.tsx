@@ -155,7 +155,7 @@ export default function ProfileStatsScreen() {
               }}
             >
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                {`Tienes ${pendingSyncCount} recorrido(s) pendiente(s) de sincronizacion. Estas estadisticas pueden cambiar despues de sincronizar.`}
+                {`Tienes ${pendingSyncCount} recorrido(s) pendiente(s) de sincronización. Estas estadísticas pueden cambiar después de sincronizar.`}
               </Text>
             </View>
           ) : null}

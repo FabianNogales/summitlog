@@ -217,7 +217,7 @@ export default function ModerationScreen() {
       {authLoading || !user ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-            Validando sesion...
+            Validando sesión...
           </Text>
         </View>
       ) : (

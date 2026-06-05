@@ -116,7 +116,7 @@ export default function EditProfileScreen() {
     if (isSubmittingRef.current) return
 
     if (!user) {
-      setFormError('Debes iniciar sesion para editar tu perfil.')
+      setFormError('Debes iniciar sesión para editar tu perfil.')
       router.replace('/(auth)/login')
       return
     }
@@ -141,7 +141,7 @@ export default function EditProfileScreen() {
     }
 
     if (!USERNAME_PATTERN.test(normalizedUsername)) {
-      setUsernameError('Usa solo letras, numeros, punto, guion bajo o guion medio.')
+      setUsernameError('Usa solo letras, números, punto, guion bajo o guion medio.')
       return
     }
 
@@ -200,7 +200,7 @@ export default function EditProfileScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-            Validando sesion...
+            Validando sesión...
           </Text>
         </View>
       </SafeAreaView>

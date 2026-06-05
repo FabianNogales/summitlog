@@ -55,7 +55,7 @@ export default function RecordScreen() {
       return {
         title: 'Tracking offline iniciado',
         message:
-          'El recorrido se esta guardando localmente y seguira registrando con la pantalla bloqueada.',
+          'El recorrido se está guardando localmente y seguirá registrando con la pantalla bloqueada.',
       }
     }
 
@@ -63,14 +63,14 @@ export default function RecordScreen() {
       return {
         title: 'Tracking iniciado',
         message:
-          'El recorrido se esta registrando y seguira guardando puntos con la pantalla bloqueada.',
+          'El recorrido se está registrando y seguirá guardando puntos con la pantalla bloqueada.',
       }
     }
 
     return {
       title: 'Tracking iniciado',
       message:
-        'El recorrido se guardara localmente, seguira registrando con la pantalla bloqueada y se sincronizara cuando corresponda.',
+        'El recorrido se guardará localmente, seguirá registrando con la pantalla bloqueada y se sincronizará cuando corresponda.',
     }
   }
 

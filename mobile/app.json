@@ -54,8 +54,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Permitir a SummitLog usar tu ubicacion para mostrarla en el mapa.",
-          "locationAlwaysAndWhenInUsePermission": "Permitir a SummitLog registrar tu ubicacion durante un recorrido activo, incluso con la pantalla bloqueada.",
+          "locationWhenInUsePermission": "Permitir a SummitLog usar tu ubicación para mostrarla en el mapa.",
+          "locationAlwaysAndWhenInUsePermission": "Permitir a SummitLog registrar tu ubicación durante un recorrido activo, incluso con la pantalla bloqueada.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
           "isIosBackgroundLocationEnabled": true
@@ -64,7 +64,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Permitir a SummitLog acceder a tus fotos para adjuntarlas a una bitacora."
+          "photosPermission": "Permitir a SummitLog acceder a tus fotos para adjuntarlas a una bitácora."
         }
       ],
       "expo-sqlite"

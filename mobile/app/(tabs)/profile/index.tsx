@@ -30,7 +30,7 @@ export default function ProfileScreen() {
     try {
       await signOut();
     } catch (error: any) {
-      Alert.alert("Error", error.message ?? "No se pudo cerrar sesion");
+      Alert.alert("Error", error.message ?? "No se pudo cerrar sesión");
     }
   }
 
@@ -40,7 +40,7 @@ export default function ProfileScreen() {
     console.log("[Avatar] user exists", Boolean(user));
 
     if (!user) {
-      Alert.alert("Inicia sesion", "Debes iniciar sesion para actualizar tu avatar.");
+      Alert.alert("Inicia sesión", "Debes iniciar sesión para actualizar tu avatar.");
       return;
     }
 
@@ -57,7 +57,7 @@ export default function ProfileScreen() {
       if (!permission.granted) {
         Alert.alert(
           "Permiso requerido",
-          "Se necesita permiso para acceder a la galeria. Habilitalo desde configuracion del dispositivo.",
+          "Se necesita permiso para acceder a la galería. Habilítalo desde configuración del dispositivo.",
         );
         return;
       }
@@ -259,13 +259,13 @@ export default function ProfileScreen() {
 
             <ProfileSection title="Actividad">
               <ProfileMenuItem
-                label="Ver estadisticas"
+                label="Ver estadísticas"
                 iconName="bar-chart-2"
                 onPress={() => router.push('/profile/stats')}
               />
             </ProfileSection>
 
-            <ProfileSection title="Configuracion">
+            <ProfileSection title="Configuración">
               <ProfileMenuItem
                 label="Editar Perfil"
                 iconName="user"
@@ -297,7 +297,7 @@ export default function ProfileScreen() {
               }}
             >
               <ProfileMenuItem
-                label="Cerrar Sesion"
+                label="Cerrar sesión"
                 iconName="log-out"
                 onPress={handleSignOut}
                 danger
