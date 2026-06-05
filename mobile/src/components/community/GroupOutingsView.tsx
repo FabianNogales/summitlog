@@ -18,7 +18,7 @@ export function GroupOutingsView({ refreshTrigger }: GroupOutingsViewProps) {
   const fetchOutings = useCallback(async () => {
     try {
       // Al actualizar, traemos de forma fresca los conteos reales de la BD
-      const data = await groupOutingService.getGroupOutings()
+      const data = await groupOutingService.getUpcomingGroupOutings()
       setOutings(data)
     } catch (err: any) {
       setError(err?.message || 'Ocurrió un error al cargar las salidas grupales.')

@@ -5,6 +5,7 @@ import { colors } from '../../theme/colors'
 import { GroupOuting } from '../../types/groupOuting'
 import { groupOutingService } from '../../services/groupOuting.service'
 import { ImagePreviewModal } from '../common/ImagePreviewModal'
+import { GroupOutingChatModal } from './GroupOutingChatModal'
 
 interface GroupOutingCardProps {
   outing: GroupOuting
@@ -15,6 +16,7 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
   const [loading, setLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  const [chatVisible, setChatVisible] = useState(false)
 
   const [isJoinedLocal, setIsJoinedLocal] = useState(!!outing.is_user_joined)
   const [participantCountLocal, setParticipantCountLocal] = useState(outing.participant_count || 0)
@@ -49,9 +51,15 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
     hour: '2-digit',
     minute: '2-digit',
   })
+  const today = new Date()
+  const isToday =
+    dateObj.getFullYear() === today.getFullYear() &&
+    dateObj.getMonth() === today.getMonth() &&
+    dateObj.getDate() === today.getDate()
+  const statusLabel = isToday ? 'Hoy' : 'Próxima'
 
   const maxPlazas = outing.max_participants || 2
-  const spacesLeft = maxPlazas - participantCountLocal
+  const spacesLeft = Math.max(maxPlazas - participantCountLocal, 0)
   const isFull = spacesLeft <= 0
   const progressPercentage = Math.min((participantCountLocal / maxPlazas) * 100, 100)
 
@@ -61,32 +69,47 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
     ? outing.group_outing_media[0].file_path
     : null
 
-  async function handleToggleJoin() {
-    const previousJoined = isJoinedLocal
-    const previousCount = participantCountLocal
-
+  async function handleJoin() {
     try {
       setLoading(true)
-
-      const newJoinedStatus = !isJoinedLocal
-      setIsJoinedLocal(newJoinedStatus)
-      setParticipantCountLocal(prev => newJoinedStatus ? prev + 1 : Math.max(1, prev - 1))
-
-      const joined = await groupOutingService.toggleJoinGroupOuting(outing.id, previousJoined)
-
+      await groupOutingService.joinGroupOuting(outing.id)
+      setIsJoinedLocal(true)
+      setParticipantCountLocal(prev => prev + 1)
       Alert.alert(
-        joined ? '¡Inscripción completada!' : 'Salida cancelada',
-        joined 
-          ? `Te has unido con éxito a "${outing.title}".` 
-          : `Te has retirado de "${outing.title}".`
+        '¡Inscripción completada!',
+        `Te has unido con éxito a "${outing.title}".`
       )
     } catch (error: any) {
-      setIsJoinedLocal(previousJoined)
-      setParticipantCountLocal(previousCount)
       Alert.alert('Error', error?.message || 'No se pudo procesar la solicitud.')
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleLeave() {
+    try {
+      setLoading(true)
+      await groupOutingService.leaveGroupOuting(outing.id)
+      setIsJoinedLocal(false)
+      setParticipantCountLocal(prev => Math.max(0, prev - 1))
+      setChatVisible(false)
+      Alert.alert('Salida cancelada', `Te has retirado de "${outing.title}".`)
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo procesar la solicitud.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handlePressLeave() {
+    Alert.alert(
+      'Salir de la salida',
+      'Ya no aparecerás como participante de esta salida grupal.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Salir', style: 'destructive', onPress: handleLeave },
+      ]
+    )
   }
 
   async function handleDeleteOuting() {
@@ -202,6 +225,24 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           <Text style={{ color: colors.textSecondary || '#888', fontSize: 14 }}>
             {formattedDate} · {formattedTime}
           </Text>
+          <View
+            style={{
+              backgroundColor: isToday ? colors.primary || '#00FF66' : colors.bgElevated || '#222',
+              borderRadius: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}
+          >
+            <Text
+              style={{
+                color: isToday ? colors.bgMain || '#000' : colors.textSecondary || '#888',
+                fontSize: 11,
+                fontWeight: '700',
+              }}
+            >
+              {statusLabel}
+            </Text>
+          </View>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 6 }}>
@@ -219,7 +260,7 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.borderSoft || '#222', paddingTop: 12, marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.borderSoft || '#222', paddingTop: 12, marginTop: 4, gap: 12 }}>
           <View>
             <Text style={{ color: colors.textMuted || '#666', fontSize: 11 }}>Organiza</Text>
             <Text style={{ color: colors.textPrimary || '#FFF', fontSize: 14, fontWeight: '500' }}>
@@ -227,69 +268,99 @@ export function GroupOutingCard({ outing, onRefresh }: GroupOutingCardProps) {
             </Text>
           </View>
 
-          {isCreator ? (
-            <Pressable
-              onPress={handleDeleteOuting}
-              disabled={loading}
-              style={({ pressed }) => ({
-                backgroundColor: 'rgba(255, 59, 48, 0.1)',
-                borderWidth: 1,
-                borderColor: '#FF3B30',
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 10,
-                opacity: pressed ? 0.8 : 1,
-                minWidth: 100,
-                alignItems: 'center',
-              })}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#FF3B30" />
-              ) : (
-                <Text style={{ color: '#FF3B30', fontWeight: '700', fontSize: 14 }}>
-                  Borrar
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {isJoinedLocal ? (
+              <Pressable
+                onPress={() => setChatVisible(true)}
+                disabled={loading}
+                style={({ pressed }) => ({
+                  backgroundColor: colors.bgElevated || '#222',
+                  borderWidth: 1,
+                  borderColor: colors.primary || '#00FF66',
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  opacity: pressed ? 0.8 : 1,
+                  alignItems: 'center',
+                })}
+              >
+                <Text style={{ color: colors.primary || '#00FF66', fontWeight: '700', fontSize: 14 }}>
+                  Chat
                 </Text>
-              )}
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={handleToggleJoin}
-              disabled={loading || (isFull && !isJoinedLocal)}
-              style={({ pressed }) => ({
-                backgroundColor: isJoinedLocal 
-                  ? 'transparent' 
-                  : (isFull ? colors.bgElevated || '#222' : colors.primary || '#00FF66'),
-                borderWidth: isJoinedLocal ? 1 : 0,
-                borderColor: colors.primary || '#00FF66',
-                paddingHorizontal: 20,
-                paddingVertical: 8,
-                borderRadius: 10,
-                opacity: pressed ? 0.8 : 1,
-                minWidth: 100,
-                alignItems: 'center',
-              })}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={isJoinedLocal ? (colors.primary || '#00FF66') : (colors.bgMain || '#000')} />
-              ) : (
-                <Text
-                  style={{
-                    color: isJoinedLocal ? (colors.primary || '#00FF66') : (colors.bgMain || '#000'),
-                    fontWeight: '700',
-                    fontSize: 14,
-                  }}
-                >
-                  {isJoinedLocal ? 'Salir' : 'Unirse'}
-                </Text>
-              )}
-            </Pressable>
-          )}
+              </Pressable>
+            ) : null}
+
+            {isCreator ? (
+              <Pressable
+                onPress={handleDeleteOuting}
+                disabled={loading}
+                style={({ pressed }) => ({
+                  backgroundColor: 'rgba(255, 59, 48, 0.1)',
+                  borderWidth: 1,
+                  borderColor: '#FF3B30',
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  opacity: pressed ? 0.8 : 1,
+                  minWidth: 92,
+                  alignItems: 'center',
+                })}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FF3B30" />
+                ) : (
+                  <Text style={{ color: '#FF3B30', fontWeight: '700', fontSize: 14 }}>
+                    Borrar
+                  </Text>
+                )}
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={isJoinedLocal ? handlePressLeave : handleJoin}
+                disabled={loading || (isFull && !isJoinedLocal)}
+                style={({ pressed }) => ({
+                  backgroundColor: isJoinedLocal 
+                    ? 'transparent' 
+                    : (isFull ? colors.bgElevated || '#222' : colors.primary || '#00FF66'),
+                  borderWidth: isJoinedLocal ? 1 : 0,
+                  borderColor: colors.primary || '#00FF66',
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  opacity: pressed ? 0.8 : 1,
+                  minWidth: 92,
+                  alignItems: 'center',
+                })}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={isJoinedLocal ? (colors.primary || '#00FF66') : (colors.bgMain || '#000')} />
+                ) : (
+                  <Text
+                    style={{
+                      color: isJoinedLocal ? (colors.primary || '#00FF66') : (colors.bgMain || '#000'),
+                      fontWeight: '700',
+                      fontSize: 14,
+                    }}
+                  >
+                    {isJoinedLocal ? 'Salir' : 'Unirme'}
+                  </Text>
+                )}
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
       <ImagePreviewModal
         visible={Boolean(previewImageUrl)}
         imageUrl={previewImageUrl}
         onClose={() => setPreviewImageUrl(null)}
+      />
+      <GroupOutingChatModal
+        visible={chatVisible}
+        outing={outing}
+        currentUserId={currentUserId}
+        canChat={isJoinedLocal}
+        onClose={() => setChatVisible(false)}
       />
     </View>
   )

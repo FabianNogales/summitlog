@@ -45,3 +45,16 @@ export interface GroupOuting {
     date_time: string;
     max_participants: number;
   }
+
+  export interface GroupOutingMessage {
+    id: string;
+    group_outing_id: string;
+    user_id: string;
+    message: string;
+    created_at: string;
+    profiles?: {
+      username?: string | null;
+      avatar_url?: string | null;
+      full_name?: string | null;
+    } | null;
+  }

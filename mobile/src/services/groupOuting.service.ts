@@ -70,13 +70,17 @@ export const groupOutingService = {
         return {
           ...outing,
           profiles: safeProfiles,
-          participant_count: countError ? 1 : (count || 1), 
+          participant_count: countError ? 0 : (count ?? 0), 
           is_user_joined: isUserJoined,
         };
       })
     );
 
     return enrichedOutings as GroupOuting[];
+  },
+
+  async getUpcomingGroupOutings(): Promise<GroupOuting[]> {
+    return groupOutingService.getGroupOutings();
   },
 
   /**
@@ -112,6 +116,14 @@ export const groupOutingService = {
 
     if (outingError) throw outingError;
     if (!newOuting) throw new Error('No se recibieron los datos de la salida creada.');
+
+    const { error: participantError } = await supabase
+      .from('group_outing_participants')
+      .insert([
+        { group_outing_id: newOuting.id, user_id: user.id }
+      ]);
+
+    if (participantError) throw participantError;
 
     // 2. Procesamiento y carga del archivo adjunto si existe
     if (imageUri) {
@@ -184,9 +196,13 @@ export const groupOutingService = {
   /**
    * Gestiona el control de flujo de inscripciones y desinscripciones de usuarios a salidas grupales.
    */
-  async toggleJoinGroupOuting(outingId: string, isCurrentlyJoined: boolean): Promise<boolean> {
+  async joinGroupOuting(outingId: string, userId?: string): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Debes iniciar sesión para realizar esta acción.');
+    const authenticatedUserId = userId || user.id;
+    if (authenticatedUserId !== user.id) {
+      throw new Error('No puedes inscribir a otro usuario en esta salida.');
+    }
 
     const { data: outing } = await supabase
       .from('group_outings')
@@ -194,40 +210,71 @@ export const groupOutingService = {
       .eq('id', outingId)
       .single();
 
-    if (isCurrentlyJoined) {
-      if (outing && outing.user_id === user.id) {
-        throw new Error('Como organizador, no puedes abandonar la salida. Si deseas cancelarla por completo, usa el botón "Borrar".');
-      }
+    const { data: existingParticipant } = await supabase
+      .from('group_outing_participants')
+      .select('id')
+      .eq('group_outing_id', outingId)
+      .eq('user_id', authenticatedUserId)
+      .maybeSingle();
 
-      const { error, count } = await supabase
-        .from('group_outing_participants')
-        .delete({ count: 'exact' })
-        .eq('group_outing_id', outingId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      if (count === 0) {
-        throw new Error('No se pudo remover la inscripción. Verifica tus permisos.');
-      }
-      return false; 
-    } else {
-      const { count } = await supabase
-        .from('group_outing_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('group_outing_id', outingId);
-
-      if (outing && count !== null && count >= outing.max_participants) {
-        throw new Error('Lo sentimos, esta salida ya completó su cupo de plazas disponibles.');
-      }
-
-      const { error } = await supabase
-        .from('group_outing_participants')
-        .insert([
-          { group_outing_id: outingId, user_id: user.id }
-        ]);
-
-      if (error) throw error;
-      return true; 
+    if (existingParticipant) {
+      return true;
     }
+
+    const { count } = await supabase
+      .from('group_outing_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('group_outing_id', outingId);
+
+    if (outing && count !== null && count >= outing.max_participants) {
+      throw new Error('Lo sentimos, esta salida ya completó su cupo de plazas disponibles.');
+    }
+
+    const { error } = await supabase
+      .from('group_outing_participants')
+      .insert([
+        { group_outing_id: outingId, user_id: authenticatedUserId }
+      ]);
+
+    if (error) throw error;
+    return true; 
+  },
+
+  async leaveGroupOuting(outingId: string, userId?: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Debes iniciar sesión para realizar esta acción.');
+    const authenticatedUserId = userId || user.id;
+    if (authenticatedUserId !== user.id) {
+      throw new Error('No puedes retirar a otro usuario de esta salida.');
+    }
+
+    const { data: outing } = await supabase
+      .from('group_outings')
+      .select('user_id')
+      .eq('id', outingId)
+      .single();
+
+    if (outing && outing.user_id === authenticatedUserId) {
+      throw new Error('Como organizador, no puedes abandonar la salida. Si deseas cancelarla por completo, usa el botón "Borrar".');
+    }
+
+    const { error, count } = await supabase
+      .from('group_outing_participants')
+      .delete({ count: 'exact' })
+      .eq('group_outing_id', outingId)
+      .eq('user_id', authenticatedUserId);
+
+    if (error) throw error;
+    if (count === 0) {
+      throw new Error('No se pudo remover la inscripción. Verifica tus permisos.');
+    }
+
+    return false; 
+  },
+
+  async toggleJoinGroupOuting(outingId: string, isCurrentlyJoined: boolean): Promise<boolean> {
+    return isCurrentlyJoined
+      ? groupOutingService.leaveGroupOuting(outingId)
+      : groupOutingService.joinGroupOuting(outingId);
   }
 };
