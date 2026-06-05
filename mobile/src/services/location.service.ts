@@ -65,7 +65,7 @@ export async function isBackgroundLocationTrackingActive() {
 export async function startBackgroundLocationTracking() {
   const alreadyStarted = await isBackgroundLocationTrackingActive()
   if (alreadyStarted) {
-    return
+    return true
   }
 
   await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
@@ -73,12 +73,16 @@ export async function startBackgroundLocationTracking() {
     distanceInterval: 5,
     timeInterval: 5000,
     pausesUpdatesAutomatically: false,
+    showsBackgroundLocationIndicator: true,
     foregroundService: {
       notificationTitle: 'SummitLog esta registrando tu recorrido',
-      notificationBody: 'Tu ubicacion se usa para guardar el recorrido activo',
+      notificationBody:
+        'Tu ubicacion se esta guardando durante el recorrido activo.',
       notificationColor: colors.primary,
     },
   })
+
+  return await isBackgroundLocationTrackingActive()
 }
 
 export async function stopBackgroundLocationTracking() {

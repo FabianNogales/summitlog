@@ -55,7 +55,10 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Permitir a SummitLog usar tu ubicacion para mostrarla en el mapa.",
-          "locationAlwaysAndWhenInUsePermission": "Permitir a SummitLog registrar tu ubicacion durante un recorrido activo, incluso con la pantalla bloqueada."
+          "locationAlwaysAndWhenInUsePermission": "Permitir a SummitLog registrar tu ubicacion durante un recorrido activo, incluso con la pantalla bloqueada.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ],
       [

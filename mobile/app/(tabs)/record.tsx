@@ -54,21 +54,23 @@ export default function RecordScreen() {
     if (isOnline === false) {
       return {
         title: 'Tracking offline iniciado',
-        message: 'El recorrido se está guardando localmente en el dispositivo.',
+        message:
+          'El recorrido se esta guardando localmente y seguira registrando con la pantalla bloqueada.',
       }
     }
 
     if (syncStatus === 'synced' || syncStatus === 'empty') {
       return {
         title: 'Tracking iniciado',
-        message: 'El recorrido se está registrando correctamente.',
+        message:
+          'El recorrido se esta registrando y seguira guardando puntos con la pantalla bloqueada.',
       }
     }
 
     return {
       title: 'Tracking iniciado',
       message:
-        'El recorrido se guardará localmente y se sincronizará cuando corresponda.',
+        'El recorrido se guardara localmente, seguira registrando con la pantalla bloqueada y se sincronizara cuando corresponda.',
     }
   }
 

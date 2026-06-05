@@ -45,6 +45,9 @@ function getPointAltitude(point: any) {
   return point.altitude_m ?? point.altitudeM ?? point.altitude ?? null
 }
 
+const BACKGROUND_LOCATION_PERMISSION_MESSAGE =
+  'Para registrar recorridos con la pantalla bloqueada, permite ubicacion en segundo plano.'
+
 function buildTripSnapshot(
   points: Awaited<ReturnType<typeof getOfflineTripPointsByTripId>>
 ): TripSnapshot {
@@ -403,22 +406,69 @@ export function useOfflineTripRecorder() {
     setBackgroundPermissionGranted(hasBackgroundPermission)
 
     if (!hasBackgroundPermission) {
-      setBackgroundStatusMessage(
-        'El recorrido se registrara solo mientras la app este abierta.'
+      setStatus('idle')
+      setBackgroundStatusMessage(BACKGROUND_LOCATION_PERMISSION_MESSAGE)
+      throw new Error(BACKGROUND_LOCATION_PERMISSION_MESSAGE)
+    }
+
+    let backgroundStarted = false
+
+    try {
+      backgroundStarted = await startBackgroundLocationTracking()
+    } catch (backgroundStartError: any) {
+      console.error(
+        'No se pudo iniciar tracking en segundo plano:',
+        backgroundStartError?.message ?? 'unknown'
       )
     }
 
-    const currentLocation = await getCurrentLocation()
-
-    const localTrip = await createOfflineRecordedTrip({
-      userId: user.id,
-      startLat: currentLocation.coords.latitude,
-      startLng: currentLocation.coords.longitude,
-    })
-
-    if (!localTrip) {
+    if (!backgroundStarted) {
       setStatus('idle')
-      throw new Error('No se pudo crear el recorrido offline.')
+      setBackgroundStatusMessage(
+        'No se pudo activar el tracking en segundo plano. Revisa el permiso de ubicacion en segundo plano.'
+      )
+      throw new Error(
+        'No se pudo activar el tracking en segundo plano. Revisa el permiso de ubicacion en segundo plano.'
+      )
+    }
+
+    let currentLocation: Location.LocationObject | null = null
+    let localTrip: NonNullable<
+      Awaited<ReturnType<typeof createOfflineRecordedTrip>>
+    > | null = null
+
+    try {
+      currentLocation = await getCurrentLocation()
+
+      const createdLocalTrip = await createOfflineRecordedTrip({
+        userId: user.id,
+        startLat: currentLocation.coords.latitude,
+        startLng: currentLocation.coords.longitude,
+      })
+
+      if (!createdLocalTrip) {
+        throw new Error('No se pudo crear el recorrido offline.')
+      }
+
+      localTrip = createdLocalTrip
+    } catch (startError) {
+      await stopBackgroundLocationTracking().catch((error: any) => {
+        console.error(
+          'No se pudo detener tracking en segundo plano tras fallo de inicio:',
+          error?.message ?? 'unknown'
+        )
+      })
+
+      setStatus('idle')
+      backgroundTrackingEnabledRef.current = false
+      setBackgroundTrackingActive(false)
+      throw startError
+    }
+
+    if (!currentLocation || !localTrip) {
+      await stopBackgroundLocationTracking()
+      setStatus('idle')
+      throw new Error('No se pudo iniciar el recorrido.')
     }
 
     localTripIdRef.current = localTrip.local_id
@@ -440,29 +490,11 @@ export function useOfflineTripRecorder() {
     lastAltitudeRef.current = null
     lastCapturedAtMsRef.current = null
 
-    await setActiveTripForBackground(localTrip.local_id)
-    await persistPoint(currentLocation)
-
-    let backgroundStarted = false
-
-    if (hasBackgroundPermission) {
-      try {
-        await startBackgroundLocationTracking()
-        backgroundStarted = true
-      } catch (backgroundStartError: any) {
-        console.error(
-          'No se pudo iniciar tracking en segundo plano:',
-          backgroundStartError?.message ?? 'unknown'
-        )
-
-        setBackgroundStatusMessage(
-          'No se pudo activar el tracking en segundo plano. Se registrara solo con la app abierta.'
-        )
-      }
-    }
-
     backgroundTrackingEnabledRef.current = backgroundStarted
     setBackgroundTrackingActive(backgroundStarted)
+
+    await setActiveTripForBackground(localTrip.local_id)
+    await persistPoint(currentLocation)
 
     await startForegroundWatcher()
 
@@ -572,7 +604,22 @@ export function useOfflineTripRecorder() {
 
         await refreshTripSnapshot(offlineTrip.local_id)
 
-        const backgroundActive = await isBackgroundLocationTrackingActive()
+        let backgroundActive = await isBackgroundLocationTrackingActive()
+
+        if (!backgroundActive) {
+          const backgroundPermission = await requestBackgroundLocationPermission()
+
+          if (backgroundPermission.granted) {
+            try {
+              backgroundActive = await startBackgroundLocationTracking()
+            } catch (backgroundStartError: any) {
+              console.error(
+                'No se pudo reactivar tracking en segundo plano:',
+                backgroundStartError?.message ?? 'unknown'
+              )
+            }
+          }
+        }
 
         if (!mounted) return
 
@@ -581,9 +628,7 @@ export function useOfflineTripRecorder() {
         setBackgroundPermissionGranted(backgroundActive)
 
         if (!backgroundActive) {
-          setBackgroundStatusMessage(
-            'El recorrido activo se registrara solo mientras la app este abierta.'
-          )
+          setBackgroundStatusMessage(BACKGROUND_LOCATION_PERMISSION_MESSAGE)
         }
 
         await startForegroundWatcher()
