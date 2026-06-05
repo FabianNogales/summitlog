@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from './useAuth'
 import {
   getCompletedTripsByUser,
@@ -172,9 +173,11 @@ export function useTripHistory(options: UseTripHistoryOptions = {}) {
     [includeStats, limit, user]
   )
 
-  useEffect(() => {
-    loadHistory()
-  }, [loadHistory])
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory()
+    }, [loadHistory])
+  )
 
   return {
     trips,

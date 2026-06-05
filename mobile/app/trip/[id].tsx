@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { colors } from '../../src/theme/colors'
 import { useAuth } from '../../src/hooks/useAuth'
 import { useTripDetail } from '../../src/hooks/useTripDetail'
+import { softDeleteOwnRecordedTrip } from '../../src/services/tripDetail.service'
 import { TripDetailTopBar } from '../../src/components/profile/trip-detail/TripDetailTopBar'
 import { TripDetailHero } from '../../src/components/profile/trip-detail/TripDetailHero'
 import { TripDetailStatsGrid } from '../../src/components/profile/trip-detail/TripDetailStatsGrid'
@@ -19,6 +20,7 @@ export default function TripDetailScreen() {
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
   const { user, loading: authLoading } = useAuth()
   const [isMapActive, setIsMapActive] = useState(false)
+  const [deletingRoute, setDeletingRoute] = useState(false)
 
   const tripId = useMemo(() => {
     if (Array.isArray(rawId)) {
@@ -43,6 +45,16 @@ export default function TripDetailScreen() {
   } = useTripDetail(!authLoading && user && tripId ? tripId : undefined)
 
   const loading = authLoading || detailLoading
+  const currentTripId = detail?.trip
+    ? 'local_id' in detail.trip
+      ? detail.trip.remote_id
+      : detail.trip.id
+    : null
+  const canDeleteTrip = Boolean(
+    currentTripId &&
+      user?.id &&
+      detail.trip.user_id === user.id
+  )
 
   function handleBack() {
     if (router.canGoBack()) {
@@ -64,6 +76,56 @@ export default function TripDetailScreen() {
       pathname: '/journal/[tripId]',
       params: { tripId: journalTripId },
     })
+  }
+
+  function handleDeleteTrip() {
+    if (deletingRoute) {
+      return
+    }
+
+    if (!currentTripId || !user?.id || !canDeleteTrip) {
+      Alert.alert(
+        'Accion no disponible',
+        'No tienes permisos para eliminar este recorrido.'
+      )
+      return
+    }
+
+    Alert.alert(
+      'Eliminar recorrido',
+      'Esta accion quitara el recorrido de tu historial y ocultara su ruta publica si existe. No se puede deshacer desde la app.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingRoute(true)
+              await softDeleteOwnRecordedTrip(currentTripId, user.id)
+              Alert.alert(
+                'Recorrido eliminado',
+                'El recorrido fue eliminado de tu historial correctamente.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => router.replace('/profile/history'),
+                  },
+                ],
+                { cancelable: false }
+              )
+            } catch (deleteError: any) {
+              Alert.alert(
+                'No se pudo eliminar el recorrido',
+                deleteError?.message ?? 'Intentalo nuevamente.'
+              )
+            } finally {
+              setDeletingRoute(false)
+            }
+          },
+        },
+      ]
+    )
   }
 
   return (
@@ -155,6 +217,34 @@ export default function TripDetailScreen() {
               <TripDetailCoordinatesCard detail={detail} />
 
               <EditJournalButton detail={detail} onPress={handleEditJournal} />
+
+              {canDeleteTrip ? (
+                <Pressable
+                  disabled={deletingRoute}
+                  onPress={handleDeleteTrip}
+                  style={{
+                    marginTop: 12,
+                    minHeight: 54,
+                    borderRadius: 18,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.cardSecondary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: deletingRoute ? 0.6 : 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.danger,
+                      fontSize: 16,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {deletingRoute ? 'Eliminando...' : 'Eliminar recorrido'}
+                  </Text>
+                </Pressable>
+              ) : null}
             </>
           )}
         </ScrollView>

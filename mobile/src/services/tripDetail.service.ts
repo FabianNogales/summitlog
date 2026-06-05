@@ -244,3 +244,72 @@ export async function getTripDetailData(tripId: string, userId: string) {
     isOffline: false,
   })
 }
+
+export async function softDeleteOwnRecordedTrip(recordedTripId: string, userId: string) {
+  const normalizedTripId = normalizeText(recordedTripId)
+  const normalizedUserId = normalizeText(userId)
+
+  if (!normalizedTripId) {
+    throw new Error('No se encontro el recorrido para eliminar.')
+  }
+
+  if (!normalizedUserId) {
+    throw new Error('Debes iniciar sesion para eliminar un recorrido.')
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+
+  if (authError) {
+    throw authError
+  }
+
+  if (!authData.user || authData.user.id !== normalizedUserId) {
+    throw new Error('No tienes permisos para eliminar este recorrido.')
+  }
+
+  const now = new Date().toISOString()
+  const { data: updatedTrip, error: tripError } = await supabase
+    .from('recorded_trips')
+    .update({
+      status: 'cancelled',
+      updated_at: now,
+    })
+    .eq('id', normalizedTripId)
+    .eq('user_id', normalizedUserId)
+    .select('id')
+    .maybeSingle()
+
+  if (tripError) {
+    throw tripError
+  }
+
+  if (!updatedTrip) {
+    throw new Error('No se pudo eliminar el recorrido.')
+  }
+
+  const { error: routeError } = await supabase
+    .from('routes')
+    .update({
+      publication_status: 'archived',
+      updated_at: now,
+    })
+    .eq('source_recorded_trip_id', normalizedTripId)
+    .eq('user_id', normalizedUserId)
+
+  if (routeError) {
+    throw routeError
+  }
+
+  const { error: journalError } = await supabase
+    .from('journals')
+    .update({
+      visibility: 'private',
+      updated_at: now,
+    })
+    .eq('recorded_trip_id', normalizedTripId)
+    .eq('user_id', normalizedUserId)
+
+  if (journalError) {
+    throw journalError
+  }
+}
