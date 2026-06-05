@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RouteItem, RoutePoint, RouteReport } from '../types/route'
 import {
   getRouteById,
@@ -22,8 +22,12 @@ export function useRouteDetail(routeId?: string) {
   const [reportsError, setReportsError] = useState<string | null>(null)
   const [pointsLoading, setPointsLoading] = useState(false)
   const [reportsLoading, setReportsLoading] = useState(false)
+  const loadRequestIdRef = useRef(0)
 
   const loadRouteDetail = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1
+    loadRequestIdRef.current = requestId
+
     if (!routeId) {
       setRoute(null)
       setPoints([])
@@ -59,8 +63,17 @@ export function useRouteDetail(routeId?: string) {
       setReportsLoading(true)
 
       const loadedRoute = await getRouteById(routeId)
+
+      if (loadRequestIdRef.current !== requestId) {
+        return
+      }
+
       setRoute(loadedRoute)
     } catch (err: any) {
+      if (loadRequestIdRef.current !== requestId) {
+        return
+      }
+
       setRoute(null)
       setPoints([])
       setReports([])
@@ -69,13 +82,19 @@ export function useRouteDetail(routeId?: string) {
       setReportsLoading(false)
       return
     } finally {
-      setLoading(false)
+      if (loadRequestIdRef.current === requestId) {
+        setLoading(false)
+      }
     }
 
     const [pointsResult, reportsResult] = await Promise.allSettled([
       getRoutePointsByRouteId(routeId),
       getRouteReports(routeId),
     ])
+
+    if (loadRequestIdRef.current !== requestId) {
+      return
+    }
 
     if (pointsResult.status === 'fulfilled') {
       setPoints(pointsResult.value)

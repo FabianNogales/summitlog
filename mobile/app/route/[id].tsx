@@ -8,6 +8,7 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAuth } from '../../src/hooks/useAuth'
@@ -138,6 +139,18 @@ export default function RouteDetailScreen() {
     setCommentsError(null)
     loadComments(routeId)
   }, [routeId, loadComments])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!routeId) {
+        return
+      }
+
+      refreshRouteDetail().catch((err) => {
+        console.error('Error refrescando detalle de ruta:', err)
+      })
+    }, [routeId, refreshRouteDetail])
+  )
 
   function resetReportForm() {
     setReportType('mud')
