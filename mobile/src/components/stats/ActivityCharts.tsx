@@ -105,7 +105,7 @@ function SectionLoadingState() {
     >
       <ActivityIndicator size="small" color={colors.primary} />
       <Text style={{ color: colors.textSecondary, marginTop: 10 }}>
-        Cargando graficas...
+        Cargando gráficas...
       </Text>
     </View>
   )
@@ -142,12 +142,12 @@ export function ActivityCharts({ trips, loading = false, error = null }: Activit
           {loading ? (
             <SectionLoadingState />
           ) : error ? (
-            <SectionMessage message="No se pudieron cargar las graficas en este momento." />
+            <SectionMessage message="No se pudieron cargar las gráficas en este momento." />
           ) : !hasChartData ? (
-            <SectionMessage message="Aun no hay datos suficientes para mostrar graficas." />
+            <SectionMessage message="Aún no hay datos suficientes para mostrar gráficas." />
           ) : (
             <HorizontalBarChart
-              caption="Se muestran las fechas con actividad mas reciente."
+              caption="Se muestran las fechas con actividad más reciente."
               emptyLabel="No hay distancias disponibles para graficar."
               items={chartData.distanceByDate}
               valueFormatter={(value) => `${value.toFixed(2)} km`}
@@ -174,10 +174,10 @@ export function ActivityCharts({ trips, loading = false, error = null }: Activit
           ) : error ? (
             <SectionMessage message="No se pudo resumir la actividad para la grafica." />
           ) : !hasChartData ? (
-            <SectionMessage message="Aun no hay datos suficientes para mostrar graficas." />
+            <SectionMessage message="Aún no hay datos suficientes para mostrar gráficas." />
           ) : (
             <HorizontalBarChart
-              caption="Se muestran las fechas con actividad mas reciente."
+              caption="Se muestran las fechas con actividad más reciente."
               emptyLabel="No hay actividad por fecha disponible."
               items={chartData.tripsByDate}
               valueFormatter={(value) => `${value} recorrido${value === 1 ? '' : 's'}`}

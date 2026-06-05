@@ -25,10 +25,10 @@ interface OAuthParams {
 }
 
 const GOOGLE_EMAIL_CONFLICT_MESSAGE =
-  'Este correo ya esta registrado. Inicia sesion con email y contrasena o vincula Google desde tu perfil.'
+  'Este correo ya está registrado. Inicia sesión con email y contraseña o vincula Google desde tu perfil.'
 const DUPLICATE_EMAIL_MESSAGE =
-  'Este correo ya esta registrado. Inicia sesion o usa otro correo.'
-const INVALID_CREDENTIALS_MESSAGE = 'Correo o contrasena incorrectos.'
+  'Este correo ya está registrado. Inicia sesión o usa otro correo.'
+const INVALID_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos.'
 const NETWORK_ERROR_MESSAGE =
   'No se pudo conectar. Revisa tu internet e intenta nuevamente.'
 
@@ -44,7 +44,7 @@ function getErrorMessage(error: unknown) {
     }
   }
 
-  return 'No se completo el inicio de sesion con Google'
+  return 'No se completó el inicio de sesión con Google'
 }
 
 function isGoogleEmailConflictError(error: unknown) {
@@ -302,7 +302,7 @@ export async function completeOAuthFromUrl(
 
     return {
       session: finalSession,
-      error: finalSession ? null : new Error('No se pudo confirmar la sesion'),
+      error: finalSession ? null : new Error('No se pudo confirmar la sesión'),
       hasCredentials: true,
     }
   }
@@ -329,7 +329,7 @@ export async function completeOAuthFromUrl(
 
     return {
       session: finalSession,
-      error: finalSession ? null : new Error('No se pudo confirmar la sesion'),
+      error: finalSession ? null : new Error('No se pudo confirmar la sesión'),
       hasCredentials: true,
     }
   }
@@ -341,7 +341,7 @@ export async function completeOAuthFromUrl(
   return {
     session: null,
     error: toFriendlyGoogleAuthError(
-      new Error('No se completo el inicio de sesion con Google')
+      new Error('No se completó el inicio de sesión con Google')
     ),
     hasCredentials: false,
   }
@@ -391,7 +391,7 @@ export async function signInWithGoogle() {
 
   if (result.type !== 'success') {
     throw toFriendlyGoogleAuthError(
-      new Error('No se completo el inicio de sesion con Google')
+      new Error('No se completó el inicio de sesión con Google')
     )
   }
 
@@ -414,7 +414,7 @@ export async function signInWithGoogle() {
 
   if (!session) {
     throw toFriendlyGoogleAuthError(
-      new Error('No se completo el inicio de sesion con Google')
+      new Error('No se completó el inicio de sesión con Google')
     )
   }
 

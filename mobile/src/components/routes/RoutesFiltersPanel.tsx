@@ -131,7 +131,7 @@ export function RoutesFiltersPanel({
             }}
           />
           <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
-            Solo numeros. Maximo 500 km.
+            Solo números. Máximo 500 km.
           </Text>
         </View>
 
@@ -164,7 +164,7 @@ export function RoutesFiltersPanel({
             }}
           />
           <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
-            Solo numeros. Maximo 1440 min.
+            Solo números. Máximo 1440 min.
           </Text>
         </View>
       </View>

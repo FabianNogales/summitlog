@@ -46,7 +46,7 @@ function getPointAltitude(point: any) {
 }
 
 const BACKGROUND_LOCATION_PERMISSION_MESSAGE =
-  'Para registrar recorridos con la pantalla bloqueada, permite ubicacion en segundo plano.'
+  'Para registrar recorridos con la pantalla bloqueada, permite ubicación en segundo plano.'
 
 function buildTripSnapshot(
   points: Awaited<ReturnType<typeof getOfflineTripPointsByTripId>>
@@ -376,14 +376,14 @@ export function useOfflineTripRecorder() {
         })
       },
       (reason) => {
-        console.error('Error de ubicacion:', reason)
+        console.error('Error de ubicación:', reason)
       }
     )
   }, [persistPoint, updateLiveTrackingState])
 
   async function startTracking() {
     if (!user) {
-      throw new Error('Debes iniciar sesion para registrar un recorrido.')
+      throw new Error('Debes iniciar sesión para registrar un recorrido.')
     }
 
     if (status === 'starting' || status === 'tracking' || status === 'finishing') {
@@ -397,7 +397,7 @@ export function useOfflineTripRecorder() {
 
     if (!foregroundPermission.granted) {
       setStatus('idle')
-      throw new Error('No es posible iniciar el seguimiento sin permiso de ubicacion.')
+      throw new Error('No es posible iniciar el seguimiento sin permiso de ubicación.')
     }
 
     const backgroundPermission = await requestBackgroundLocationPermission()
@@ -425,10 +425,10 @@ export function useOfflineTripRecorder() {
     if (!backgroundStarted) {
       setStatus('idle')
       setBackgroundStatusMessage(
-        'No se pudo activar el tracking en segundo plano. Revisa el permiso de ubicacion en segundo plano.'
+        'No se pudo activar el tracking en segundo plano. Revisa el permiso de ubicación en segundo plano.'
       )
       throw new Error(
-        'No se pudo activar el tracking en segundo plano. Revisa el permiso de ubicacion en segundo plano.'
+        'No se pudo activar el tracking en segundo plano. Revisa el permiso de ubicación en segundo plano.'
       )
     }
 
