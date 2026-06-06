@@ -1,75 +1,50 @@
-# SummitLog
+# Welcome to your Expo app 👋
 
-Aplicación móvil para Android orientada a senderismo y trekking, desarrollada como proyecto universitario por un equipo de 5 personas.
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Estructura del proyecto
+## Get started
+
+1. Install dependencies
+
+   ```bash
+   npm install
+   ```
+
+2. Start the app
+
+   ```bash
+   npx expo start --dev-client --clear
+   ```
+
+In the output, you'll find options to open the app in a
+
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Get a fresh project
+
+When you're ready, run:
 
 ```bash
-summitlog/
-├── mobile/
-└── supabase/
+npm run reset-project
+```
 
-¿Por qué se trabajará así?
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-Se decidió organizar el proyecto en dos partes principales:
+## Learn more
 
-mobile/
+To learn more about developing your project with Expo, look at the following resources:
 
-Aquí vive toda la aplicación móvil desarrollada con React Native + Expo + TypeScript.
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-Esta carpeta contiene:
+## Join the community
 
-pantallas
-componentes
-navegación
-lógica de la app
-consumo de datos
-configuración del cliente móvil
-supabase/
+Join our community of developers creating universal apps.
 
-Aquí vive la parte relacionada con backend y base de datos usando Supabase.
-
-Esta carpeta se utilizará para guardar:
-
-configuración local de Supabase
-migraciones SQL
-políticas de seguridad
-funciones
-seeds o datos iniciales si se necesitan
-
-¿Por qué usar esta estructura?
-
-La estructura:
-
-summitlog/
-├── mobile/
-└── supabase/
-
-permite separar claramente las responsabilidades del proyecto:
-
-mobile/ = lo que ve y usa el usuario
-supabase/ = datos, autenticación y lógica del servidor
-
-Esto mejora:
-
-el orden del repositorio
-la escalabilidad
-la colaboración entre integrantes
-el mantenimiento del proyecto
-
-Además, evita mezclar archivos de la app con archivos de base de datos o configuración del backend.
-
-Tecnologías principales
-Móvil
-React Native
-Expo
-TypeScript
-Backend y base de datos
-Supabase
-PostgreSQL
-Otras herramientas previstas
-Expo Router
-react-native-maps
-expo-location
-TanStack Query
-GitHub
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
