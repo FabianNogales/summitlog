@@ -252,6 +252,7 @@ async function runPublishRecordedTripAsRoute(
     }
   }
 
+  // La ruta queda en draft hasta copiar todos los puntos; así no se expone una geometría incompleta.
   const { data: createdRoute, error: createError } = await supabase
     .from('routes')
     .insert({

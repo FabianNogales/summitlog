@@ -194,6 +194,7 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
   const userId = params?.userId ?? null
 
   const [persistedMedia, setPersistedMedia] = useState<JournalMedia[]>([])
+  // Altas y bajas se mantienen pendientes hasta guardar para coordinar SQLite, Storage y Supabase.
   const [pendingNewImages, setPendingNewImages] = useState<PendingJournalImage[]>([])
   const [pendingDeletedMediaIds, setPendingDeletedMediaIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -421,6 +422,7 @@ export function useJournalMedia(params?: UseJournalMediaParams) {
     const failures: MediaFailure[] = []
     const uploadedImageIds = new Set<string>()
     let uploadedCount = 0
+    // Las nuevas fotos continúan el orden visible después de descontar las eliminaciones pendientes.
     let sortBase = persistedMedia.length - deletedCount
 
     for (let index = 0; index < pendingNewImages.length; index += 1) {

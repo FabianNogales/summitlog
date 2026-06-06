@@ -18,6 +18,7 @@ async function assertCurrentUserIsParticipant(groupOutingId: string) {
     throw new Error('Debes iniciar sesión para usar el chat de la salida.')
   }
 
+  // El chat usa group_outing_messages y valida membresía antes de leer o insertar.
   const { data, error } = await supabase
     .from('group_outing_participants')
     .select('id')

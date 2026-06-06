@@ -99,6 +99,7 @@ async function syncRoutePublicationForTrip(
     commentsEnabled?: boolean
   }
 ) {
+  // La bitácora conserva su registro; la visibilidad pública crea o archiva una ruta separada.
   if (params.visibility === 'public') {
     await publishRecordedTripAsRoute({
       recordedTripId,
@@ -151,6 +152,7 @@ function buildSyncedJournalMediaStoragePath(params: {
 }
 
 async function getNextRemoteJournalMediaSortOrder(journalId: string) {
+  // Se calcula desde Supabase porque otros reintentos pueden haber ocupado órdenes locales.
   const remoteMedia = await getJournalMediaByJournalId(journalId)
   const maxSortOrder = remoteMedia.reduce((maxValue, media) => {
     const sortOrder = Number(media.sort_order)

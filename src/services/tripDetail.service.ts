@@ -314,6 +314,7 @@ export async function softDeleteOwnRecordedTrip(recordedTripId: string, userId: 
     throw new Error('No tienes permisos para eliminar este recorrido.')
   }
 
+  // El borrado es lógico: cancela el recorrido, archiva su ruta y vuelve privada la bitácora.
   const now = new Date().toISOString()
   const { data: updatedTrip, error: tripError } = await supabase
     .from('recorded_trips')

@@ -27,6 +27,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
       return
     }
 
+    // Serializa lotes del task para que dos ejecuciones no calculen el mismo point_order.
     backgroundPersistQueue = backgroundPersistQueue
       .then(async () => {
         const activeLocalTripId = await getActiveTripForBackground()

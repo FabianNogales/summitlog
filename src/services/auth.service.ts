@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser'
 
 import { supabase } from '../lib/supabase'
 
+// Debe coincidir con expo.scheme y con la URL permitida en Supabase Auth.
 const GOOGLE_REDIRECT_TO = 'summitlog://auth/callback'
 
 interface CompleteOAuthOptions {

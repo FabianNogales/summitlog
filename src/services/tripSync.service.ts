@@ -126,6 +126,7 @@ async function runSyncPendingTripsForUser(
         continue
       }
 
+      // El point_order permite reintentar la sincronización sin duplicar puntos remotos.
       const uniqueLocalPointsByOrder = new Map<number, (typeof localPoints)[number]>()
 
       for (const point of localPoints) {

@@ -173,6 +173,7 @@ export function useTripHistory(options: UseTripHistoryOptions = {}) {
     [includeStats, limit, user]
   )
 
+  // El historial puede cambiar al guardar, sincronizar o borrar desde otra pantalla.
   useFocusEffect(
     useCallback(() => {
       loadHistory()
