@@ -294,6 +294,22 @@ export function useTripJournalEditor(tripId?: string) {
             commentsEnabled,
           })
 
+          if (journal.remote_id) {
+            try {
+              await updateJournal({
+                journalId: journal.remote_id,
+                title: finalTitle,
+                content: finalContent,
+                visibility,
+                difficulty: normalizedDifficulty as JournalDifficulty,
+                category: normalizedCategory,
+                commentsEnabled,
+              })
+            } catch (_e) {
+              // el sync offline empuja el cambio pendiente si esto falla
+            }
+          }
+
           setJournal(updatedJournal)
           applyJournalToForm(updatedJournal)
           return updatedJournal

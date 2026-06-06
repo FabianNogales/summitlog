@@ -13,6 +13,11 @@ import { useFocusEffect } from '@react-navigation/native'
 import { colors } from '../../src/theme/colors'
 import { useTripJournalEditor } from '../../src/hooks/useTripJournalEditor'
 import { useJournalMedia } from '../../src/hooks/useJournalMedia'
+import {
+  deleteJournalMedia,
+  getJournalMediaByJournalId,
+  uploadJournalImage,
+} from '../../src/services/journalMedia.service'
 import { FORM_SCROLL_BOTTOM_PADDING } from '../../src/utils/keyboard'
 import { useAuth } from '../../src/hooks/useAuth'
 import { JournalEditorHeader } from '../../src/components/journal/JournalEditorHeader'
@@ -73,11 +78,14 @@ export default function JournalEditorScreen() {
 
   const {
     media,
+    existingMedia,
     loading: mediaLoading,
     uploading,
     error: mediaError,
     deletingMediaIds,
     pendingNewImageIds,
+    pendingNewImages,
+    pendingDeletedMediaIds,
     mediaDirty,
     pickAndStageImages,
     removeMedia,
@@ -117,15 +125,20 @@ export default function JournalEditorScreen() {
   }, [fallbackBackRoute, router])
 
   const navigateToTripPreview = useCallback(() => {
-    if (!tripId) {
-      router.replace('/(tabs)/profile/history')
+    if (router.canGoBack()) {
+      router.back()
       return
     }
 
-    router.replace({
-      pathname: '/trip/[id]',
-      params: { id: tripId },
-    })
+    if (tripId) {
+      router.replace({
+        pathname: '/trip/[id]',
+        params: { id: tripId },
+      })
+      return
+    }
+
+    router.replace('/(tabs)/profile/history')
   }, [router, tripId])
 
   const showSavingInProgressAlert = useCallback(() => {
@@ -198,7 +211,46 @@ export default function JournalEditorScreen() {
       }
 
       const mediaResult = await applyPendingMediaChanges(savedJournalId)
-      await refreshEditor()
+
+      const offlineJournal = journal && 'local_id' in journal ? journal : null
+      if (mode === 'local' && offlineJournal?.remote_id && user) {
+        try {
+          const remoteJournalId = offlineJournal.remote_id
+          const remoteMedia = await getJournalMediaByJournalId(remoteJournalId)
+          const remoteById = new Map(remoteMedia.map((r) => [r.id, r]))
+
+          for (const mediaId of pendingDeletedMediaIds) {
+            const localItem = existingMedia.find((m) => m.id === mediaId)
+            if (localItem?.remote_id) {
+              const remoteRecord = remoteById.get(localItem.remote_id)
+              await deleteJournalMedia({
+                mediaId: localItem.remote_id,
+                journalId: remoteJournalId,
+                filePath: remoteRecord?.file_path ?? null,
+              })
+            }
+          }
+
+          const deletedWithRemoteId = pendingDeletedMediaIds.filter((id) =>
+            existingMedia.some((m) => m.id === id && m.remote_id)
+          ).length
+          let remoteSortBase = remoteMedia.length - deletedWithRemoteId
+
+          for (const image of pendingNewImages) {
+            await uploadJournalImage({
+              journalId: remoteJournalId,
+              userId: user.id,
+              fileUri: image.uri,
+              fileName: image.fileName,
+              mimeType: image.mimeType,
+              sortOrder: remoteSortBase,
+            })
+            remoteSortBase += 1
+          }
+        } catch (_e) {
+          // el sync offline sube las fotos pendientes si esto falla
+        }
+      }
 
       if (mediaResult.failedCount > 0) {
         const details = mediaResult.failures
