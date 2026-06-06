@@ -8,9 +8,6 @@ export interface Journal {
   title: string | null
   content: string | null
   visibility: JournalVisibility
-  difficulty?: JournalDifficulty | null
-  category?: string | null
-  comments_enabled?: boolean
   moderation_status: string
   created_at: string
   updated_at: string

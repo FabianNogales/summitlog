@@ -387,9 +387,6 @@ export async function updateJournal(params: UpdateJournalParams) {
       title: params.title,
       content: params.content,
       visibility: params.visibility,
-      difficulty: normalizeDifficulty(params.difficulty),
-      category: normalizeCategory(params.category),
-      comments_enabled: params.commentsEnabled === false ? false : true,
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.journalId)
